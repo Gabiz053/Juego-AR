@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_BlockDirt
+  m_Name: M_BlockMadera
   m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -128,8 +128,8 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.4177897, g: 0.27468646, b: 0.12330987, a: 1}
-    - _Color: {r: 0.41778967, g: 0.27468643, b: 0.12330984, a: 1}
+    - _BaseColor: {r: 0.9784366, g: 0.5938946, b: 0.1885665, a: 1}
+    - _Color: {r: 0.9784365, g: 0.5938946, b: 0.18856648, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
