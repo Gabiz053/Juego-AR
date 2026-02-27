@@ -536,9 +536,11 @@ GameObject:
   - component: {fileID: 1238779075}
   - component: {fileID: 1238779074}
   - component: {fileID: 1238779073}
-  - component: {fileID: 1238779077}
   - component: {fileID: 1238779078}
   - component: {fileID: 1238779079}
+  - component: {fileID: 1238779081}
+  - component: {fileID: 1238779077}
+  - component: {fileID: 1238779080}
   m_Layer: 0
   m_Name: XR Origin (Mobile AR)
   m_TagString: Untagged
@@ -637,20 +639,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20ff63a1a53a7524f8ad949df675523e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _objectToPlace: {fileID: 2501493864619937751, guid: 6fdfc4bef99a7124aa82b867fc2c374c, type: 3}
+  _toolManager: {fileID: 1586780609}
   _gridManager: {fileID: 1472623154}
+  _worldManager: {fileID: 1238779080}
   _worldContainer: {fileID: 1472623155}
   _voxelLayerMask:
     serializedVersion: 2
     m_Bits: 64
   _maxBuildDistance: 3
   _overlapTolerance: 0.05
-  _buildParticlePrefab: {fileID: 0}
+  _buildParticlePrefab: {fileID: 3828078249937824596, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
   _pitchVariation: 0.15
   _showDebugRay: 1
   _rayColor: {r: 1, g: 1, b: 1, a: 0.27450982}
   _rayWidth: 0.005
-  _rayDuration: 0.1
 --- !u!120 &1238779078
 LineRenderer:
   serializedVersion: 2
@@ -855,6 +857,36 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1238779080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aff6761ca35307c47abb540fdfee3e3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _worldContainer: {fileID: 1472623155}
+  _gridManager: {fileID: 1472623154}
+--- !u!114 &1238779081
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 728ad7fae8e460a4ba41265c7308d757, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <trackablesChanged>k__BackingField:
+    m_PersistentCalls:
+      m_Calls: []
+  m_AnchorPrefab: {fileID: 0}
 --- !u!1 &1472623153
 GameObject:
   m_ObjectHideFlags: 0
@@ -885,9 +917,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _gridSize: 1
-  _showInGame: 1
-  _gridExtent: 5
+  _gridRadius: 4
   _lineMaterial: {fileID: 2100000, guid: 724176d6b3fa4904687d0ece576f6897, type: 2}
+  _gridColor: {r: 1, g: 1, b: 1, a: 0.4}
 --- !u!4 &1472623155
 Transform:
   m_ObjectHideFlags: 0
@@ -899,6 +931,55 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1586780608
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1586780610}
+  - component: {fileID: 1586780609}
+  m_Layer: 0
+  m_Name: ToolManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1586780609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1586780608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51a36652dab816b4e8a17be9ed16d5be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _prefabTierra: {fileID: 7200338688778989813, guid: f61f110ad1436364daf21685c2675676, type: 3}
+  _prefabArena: {fileID: 2501493864619937751, guid: 6fdfc4bef99a7124aa82b867fc2c374c, type: 3}
+  _prefabPiedra: {fileID: 4264983112978850637, guid: 19532dab89307434ca7be4f7339060c0, type: 3}
+  _prefabMadera: {fileID: 7819655967328116244, guid: 0a4ae1569feb8544389704b11316aaa9, type: 3}
+  _prefabAntorcha: {fileID: 8890088853010225029, guid: 3481053c7d61978489eee8df6d5f7090, type: 3}
+--- !u!4 &1586780610
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1586780608}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -15.112471, y: -4.623832, z: 9.78006}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1036,3 +1117,4 @@ SceneRoots:
   - {fileID: 764782033}
   - {fileID: 1764018177}
   - {fileID: 1472623155}
+  - {fileID: 1586780610}

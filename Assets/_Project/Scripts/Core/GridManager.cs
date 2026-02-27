@@ -3,113 +3,173 @@ using UnityEngine;
 
 namespace _Project.Scripts.Core
 {
-    /// <summary>
-    /// Gestor de la cuadrícula (Grid) para el sistema Voxel.
-    /// Redondea posiciones y genera una malla visual súper optimizada para verla in-game en AR.
-    /// </summary>
     public class GridManager : MonoBehaviour
     {
-        [Header("Configuración de la Cuadrícula")]
-        [Tooltip("Tamaño de cada voxel en metros. Por defecto 1 para escala 1:1.")]
+        [Header("Configuración Matemática")]
         [SerializeField] private float _gridSize = 1f;
 
-        [Header("Visualización In-Game (AR)")]
-        [Tooltip("Activa para generar la malla visual de la cuadrícula al iniciar el juego.")]
-        [SerializeField] private bool _showInGame = true;
-
-        [Tooltip("Cuántos bloques de distancia dibujará la cuadrícula desde el centro.")]
-        [SerializeField] private int _gridExtent = 5;
-
-        [Tooltip("Material para las líneas. Debe ser un material URP Unlit para que no le afecten las sombras.")]
+        [Header("Estética de la Cuadrícula (Halo)")]
+        [Tooltip("Radio en unidades de bloque alrededor del jugador donde se dibujará la cuadrícula.")]
+        [SerializeField] private float _gridRadius = 4f;
         [SerializeField] private Material _lineMaterial;
+        [SerializeField] private Color _gridColor = new Color(1f, 1f, 1f, 0.4f);
 
-        // Propiedad pública de solo lectura
         public float GridSize => _gridSize;
 
-        private void Start()
+        private bool _isGridActive = false;
+        private Transform _playerCamera;
+
+        // Componentes de la malla
+        private GameObject _gridVisualObj;
+        private MeshFilter _meshFilter;
+        private Mesh _gridMesh;
+        private Vector3 _lastSnappedCenter = new Vector3(9999f, 9999f, 9999f);
+
+        // Caché de Optimización Zero-GC
+        private List<Vector3> _vertices = new List<Vector3>();
+        private List<Color32> _colors = new List<Color32>();
+        private List<int> _indices = new List<int>();
+        private float _sqrRadius;
+
+        private void Awake()
         {
-            // Si la opción está activa, construimos la cuadrícula visual 3D al arrancar
-            if (_showInGame)
-            {
-                GenerateProceduralGridMesh();
-            }
+            _sqrRadius = _gridRadius * _gridRadius;
         }
 
-        #region Matemáticas del Voxel
+        public void ActivarGrid(Transform cameraTransform)
+        {
+            _playerCamera = cameraTransform;
+            _isGridActive = true;
+
+            CrearObjetoMalla();
+        }
+
+        #region Matemáticas (Snap Voxel)
 
         public Vector3 GetSnappedPosition(Vector3 rawPosition)
         {
-            float snappedX = Mathf.Round(rawPosition.x / _gridSize) * _gridSize;
-            float snappedY = Mathf.Round(rawPosition.y / _gridSize) * _gridSize;
-            float snappedZ = Mathf.Round(rawPosition.z / _gridSize) * _gridSize;
+            // ¡EL FIX! Usamos Floor y sumamos la mitad del bloque. 
+            // Ahora el centro del cubo estará en 0.5, por lo que su cara inferior estará exactamente en 0 (el suelo real).
+            float snappedX = (Mathf.Floor(rawPosition.x / _gridSize) * _gridSize) + (_gridSize / 2f);
+            float snappedY = (Mathf.Floor(rawPosition.y / _gridSize) * _gridSize) + (_gridSize / 2f);
+            float snappedZ = (Mathf.Floor(rawPosition.z / _gridSize) * _gridSize) + (_gridSize / 2f);
 
             return new Vector3(snappedX, snappedY, snappedZ);
         }
 
         #endregion
 
-        #region Generación de Malla Visual (In-Game)
+        #region Renderizado Dinámico
 
-        /// <summary>
-        /// Crea un GameObject hijo y le inyecta una malla generada por código 
-        /// usando solo vértices y líneas. Coste de rendimiento casi nulo.
-        /// </summary>
-        private void GenerateProceduralGridMesh()
+        private void Update()
         {
-            // 1. Creamos el objeto que contendrá la malla y lo hacemos hijo del WorldContainer
-            GameObject gridVisualObj = new GameObject("InGame_GridVisual");
-            gridVisualObj.transform.SetParent(transform);
-            gridVisualObj.transform.localPosition = Vector3.zero;
-            gridVisualObj.transform.localRotation = Quaternion.identity;
-            gridVisualObj.transform.localScale = Vector3.one;
+            if (!_isGridActive || _playerCamera == null) return;
 
-            // 2. Añadimos los componentes necesarios para que Unity lo dibuje
-            MeshFilter meshFilter = gridVisualObj.AddComponent<MeshFilter>();
-            MeshRenderer meshRenderer = gridVisualObj.AddComponent<MeshRenderer>();
+            Vector3 localCamPos = transform.InverseTransformPoint(_playerCamera.position);
+            localCamPos.y = 0;
 
-            // Si olvidaste poner un material en el Inspector, creamos uno básico de emergencia
-            if (_lineMaterial == null)
+            Vector3 snappedCamPos = GetSnappedPosition(localCamPos);
+
+            if (snappedCamPos != _lastSnappedCenter)
             {
-                meshRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-                {
-                    color = new Color(1f, 1f, 1f, 0.3f) // Blanco semitransparente
-                };
+                _lastSnappedCenter = snappedCamPos;
+                ActualizarMallaVisual();
             }
-            else
-            {
-                meshRenderer.material = _lineMaterial;
-            }
+        }
 
-            // 3. Empezamos a calcular los puntos de las líneas
-            Mesh gridMesh = new Mesh { name = "ProceduralGrid" };
-            List<Vector3> vertices = new List<Vector3>();
-            List<int> indices = new List<int>();
+        private void CrearObjetoMalla()
+        {
+            _gridVisualObj = new GameObject("Dynamic_GridVisual");
+
+            // 'false' impide que Unity rompa la escala del halo al jugar en "Modo Maqueta"
+            _gridVisualObj.transform.SetParent(transform, false);
+            _gridVisualObj.transform.localPosition = Vector3.zero;
+            _gridVisualObj.transform.localRotation = Quaternion.identity;
+            _gridVisualObj.transform.localScale = Vector3.one;
+
+            _meshFilter = _gridVisualObj.AddComponent<MeshFilter>();
+            MeshRenderer renderer = _gridVisualObj.AddComponent<MeshRenderer>();
+
+            if (_lineMaterial != null) renderer.material = _lineMaterial;
+
+            _gridMesh = new Mesh { name = "RadialGridMesh" };
+            _meshFilter.mesh = _gridMesh;
+        }
+
+        private void ActualizarMallaVisual()
+        {
+            _vertices.Clear();
+            _colors.Clear();
+            _indices.Clear();
 
             int currentIndex = 0;
+            int steps = Mathf.CeilToInt(_gridRadius / _gridSize);
 
-            // Calculamos líneas paralelas al eje Z
-            for (float x = -_gridExtent; x <= _gridExtent; x += _gridSize)
+            // El centro exacto de la celda donde está el jugador
+            Vector3 cellCenter = _lastSnappedCenter;
+
+            // Para que las líneas envuelvan los bloques y no los atraviesen por el medio,
+            // forzamos el origen de las líneas a los números enteros (esquinas de la celda)
+            float originX = Mathf.Floor(cellCenter.x / _gridSize) * _gridSize;
+            float originZ = Mathf.Floor(cellCenter.z / _gridSize) * _gridSize;
+
+            // Aplanamos la "Y" para calcular la distancia circular en el suelo
+            Vector3 fadeCenter = new Vector3(cellCenter.x, 0, cellCenter.z);
+
+            // Tramos verticales
+            for (int x = -steps; x <= steps; x++)
             {
-                vertices.Add(new Vector3(x, 0, -_gridExtent)); // Punto inicial
-                vertices.Add(new Vector3(x, 0, _gridExtent));  // Punto final
-                indices.Add(currentIndex++);
-                indices.Add(currentIndex++);
+                float xPos = originX + (x * _gridSize);
+                for (int z = -steps; z < steps; z++)
+                {
+                    Vector3 startP = new Vector3(xPos, 0, originZ + (z * _gridSize));
+                    Vector3 endP = new Vector3(xPos, 0, originZ + ((z + 1) * _gridSize));
+                    AñadirSegmento(startP, endP, fadeCenter, ref currentIndex);
+                }
             }
 
-            // Calculamos líneas paralelas al eje X
-            for (float z = -_gridExtent; z <= _gridExtent; z += _gridSize)
+            // Tramos horizontales
+            for (int z = -steps; z <= steps; z++)
             {
-                vertices.Add(new Vector3(-_gridExtent, 0, z)); // Punto inicial
-                vertices.Add(new Vector3(_gridExtent, 0, z));  // Punto final
-                indices.Add(currentIndex++);
-                indices.Add(currentIndex++);
+                float zPos = originZ + (z * _gridSize);
+                for (int x = -steps; x < steps; x++)
+                {
+                    Vector3 startP = new Vector3(originX + (x * _gridSize), 0, zPos);
+                    Vector3 endP = new Vector3(originX + ((x + 1) * _gridSize), 0, zPos);
+                    AñadirSegmento(startP, endP, fadeCenter, ref currentIndex);
+                }
             }
 
-            // 4. Inyectamos los datos en la malla usando topología de LÍNEAS, no de triángulos
-            gridMesh.SetVertices(vertices);
-            gridMesh.SetIndices(indices, MeshTopology.Lines, 0);
+            _gridMesh.Clear();
+            _gridMesh.SetVertices(_vertices);
+            _gridMesh.SetColors(_colors);
+            _gridMesh.SetIndices(_indices, MeshTopology.Lines, 0);
 
-            meshFilter.mesh = gridMesh;
+            // Obligamos a la cámara a no hacer invisible la malla
+            _gridMesh.RecalculateBounds();
+        }
+
+        private void AñadirSegmento(Vector3 start, Vector3 end, Vector3 center, ref int index)
+        {
+            Color32 colorStart = CalcularColorDifuminado(start, center);
+            Color32 colorEnd = CalcularColorDifuminado(end, center);
+
+            if (colorStart.a == 0 && colorEnd.a == 0) return;
+
+            _vertices.Add(start); _colors.Add(colorStart);
+            _vertices.Add(end); _colors.Add(colorEnd);
+            _indices.Add(index++); _indices.Add(index++);
+        }
+
+        private Color32 CalcularColorDifuminado(Vector3 point, Vector3 center)
+        {
+            float sqrDistance = (point - center).sqrMagnitude;
+            float alphaFactor = Mathf.Clamp01(1f - (sqrDistance / _sqrRadius));
+
+            Color finalColor = _gridColor;
+            finalColor.a = _gridColor.a * alphaFactor;
+
+            return finalColor;
         }
 
         #endregion
