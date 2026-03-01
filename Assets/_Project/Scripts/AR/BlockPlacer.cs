@@ -7,6 +7,7 @@ using UnityEngine.InputSystem.EnhancedTouch;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 using _Project.Scripts.Environment; // Para poder leer VoxelBlock
 using _Project.Scripts.Core;
+using UnityEngine.EventSystems;
 
 namespace _Project.Scripts.Interaction
 {
@@ -71,12 +72,25 @@ namespace _Project.Scripts.Interaction
 
                 if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
                 {
-                    // Solo lanzamos láser y construimos si la herramienta actual es de construir
+                    // ESCUDO UI
+                    if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(touch.touchId))
+                    {
+                        return;
+                    }
+
+                    // 1. MODO CONSTRUIR (Bloques)
                     if (_toolManager.IsBuildingTool())
                     {
                         if (_showDebugRay) StartCoroutine(DibujarRayo(touch.screenPosition));
                         IntentarColocarBloque(touch.screenPosition);
                     }
+                    // 2. MODO DESTRUIR (Romper)
+                    else if (_toolManager.CurrentTool == ToolType.Tool_Destroy)
+                    {
+                        if (_showDebugRay) StartCoroutine(DibujarRayo(touch.screenPosition));
+                        IntentarDestruirBloque(touch.screenPosition);
+                    }
+                    // Si es "Mano vacía", Arado o Pincel (por ahora), no hacemos nada
                 }
             }
         }
@@ -145,6 +159,29 @@ namespace _Project.Scripts.Interaction
 
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
             if (blockData != null && blockData.PlaceSound != null) ReproducirAudio(blockData.PlaceSound);
+        }
+
+        /// <summary>
+        /// Lanza un rayo de físicas para detectar y destruir un bloque existente.
+        /// </summary>
+        private void IntentarDestruirBloque(Vector2 screenPosition)
+        {
+            Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
+
+            // Disparamos un rayo usando SOLO la capa de los bloques (_voxelLayerMask)
+            // No nos interesa chocar contra el suelo ARCore, solo contra bloques reales 3D
+            if (Physics.Raycast(ray, out RaycastHit physHit, _maxBuildDistance, _voxelLayerMask))
+            {
+                // ¡El rayo ha tocado un bloque!
+                GameObject bloqueTocado = physHit.transform.gameObject;
+
+                // Destruimos el objeto entero
+                Destroy(bloqueTocado);
+
+                // Aquí en un futuro (Pulido) podríamos instanciar un sistema de partículas 
+                // de humo y un sonido de "Pop!" para que sea satisfactorio.
+                Debug.Log("[ARBlockPlacer] Bloque destruido.");
+            }
         }
 
         private bool IsCameraInsideVoxel(Vector3 worldPos, float worldScale)
