@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 3129605}
   - component: {fileID: 3129604}
   m_Layer: 5
-  m_Name: Btn_Luz
+  m_Name: Btn_Lighting
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -310,7 +310,7 @@ GameObject:
   - component: {fileID: 118858805}
   - component: {fileID: 118858804}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Brush
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -685,7 +685,7 @@ GameObject:
   - component: {fileID: 141387200}
   - component: {fileID: 141387199}
   m_Layer: 5
-  m_Name: Btn_Arena
+  m_Name: Btn_Sand
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -817,7 +817,7 @@ GameObject:
   - component: {fileID: 161393929}
   - component: {fileID: 161393928}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_ConfirmMessage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -943,6 +943,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 161393926}
   m_CullTransparentMesh: 1
+--- !u!1 &199626316
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 199626318}
+  - component: {fileID: 199626317}
+  m_Layer: 5
+  m_Name: Svc_Screenshot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &199626317
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 199626316}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 819816fcfec0b6345a9a21f41121a13a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _canvasToHide: {fileID: 2043065968}
+  _filePrefix: ARmonia
+--- !u!224 &199626318
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 199626316}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1784935099}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &200514631
 GameObject:
   m_ObjectHideFlags: 0
@@ -955,7 +1005,7 @@ GameObject:
   - component: {fileID: 200514634}
   - component: {fileID: 200514633}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Break
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1093,7 +1143,7 @@ GameObject:
   - component: {fileID: 265297852}
   - component: {fileID: 265297851}
   m_Layer: 5
-  m_Name: Btn_Romper
+  m_Name: Btn_Break
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1225,7 +1275,7 @@ GameObject:
   - component: {fileID: 269849709}
   - component: {fileID: 269849708}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Sand
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1363,7 +1413,7 @@ GameObject:
   - component: {fileID: 363852202}
   - component: {fileID: 363852201}
   m_Layer: 5
-  m_Name: Btn_Pincel
+  m_Name: Btn_Brush
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1496,7 +1546,7 @@ GameObject:
   - component: {fileID: 405775747}
   - component: {fileID: 405775746}
   m_Layer: 5
-  m_Name: Btn_Foto
+  m_Name: Btn_Photo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1630,7 +1680,7 @@ GameObject:
   - component: {fileID: 436980696}
   - component: {fileID: 436980699}
   m_Layer: 5
-  m_Name: OptionsMenu_Panel
+  m_Name: Panel_OptionsDropdown
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1748,7 +1798,7 @@ GameObject:
   - component: {fileID: 486189855}
   - component: {fileID: 486189856}
   m_Layer: 5
-  m_Name: Buttons_Container
+  m_Name: Dialog_LayoutGroup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1814,7 +1864,7 @@ GameObject:
   - component: {fileID: 571927798}
   - component: {fileID: 571927797}
   m_Layer: 5
-  m_Name: Btn_No
+  m_Name: Btn_Cancel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1945,7 +1995,7 @@ GameObject:
   - component: {fileID: 634265158}
   - component: {fileID: 634265159}
   m_Layer: 5
-  m_Name: Button_Container
+  m_Name: Tools_LayoutGroup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2012,7 +2062,7 @@ GameObject:
   - component: {fileID: 713663281}
   - component: {fileID: 713663280}
   m_Layer: 5
-  m_Name: Btn_Nada
+  m_Name: Btn_None
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2142,7 +2192,7 @@ GameObject:
   m_Component:
   - component: {fileID: 734153761}
   m_Layer: 5
-  m_Name: Popup_Container
+  m_Name: Popup_ConfirmClearAll
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2264,7 +2314,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1764018177}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
 --- !u!114 &764782034
 MonoBehaviour:
@@ -2301,7 +2351,7 @@ GameObject:
   - component: {fileID: 772629869}
   - component: {fileID: 772629868}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Wood
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2438,7 +2488,7 @@ GameObject:
   - component: {fileID: 878655725}
   - component: {fileID: 878655724}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Cancel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2660,7 +2710,7 @@ GameObject:
   - component: {fileID: 1011605524}
   - component: {fileID: 1011605523}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Stone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2797,7 +2847,7 @@ GameObject:
   - component: {fileID: 1104206188}
   - component: {fileID: 1104206187}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Settings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2932,7 +2982,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1139651219}
   m_Layer: 5
-  m_Name: Tools Panel
+  m_Name: HUD_ToolPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2970,7 +3020,7 @@ GameObject:
   - component: {fileID: 1164365281}
   - component: {fileID: 1164365280}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Photo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3107,7 +3157,7 @@ GameObject:
   - component: {fileID: 1226869559}
   - component: {fileID: 1226869558}
   m_Layer: 5
-  m_Name: Dialog_Box
+  m_Name: Panel_ConfirmDialog
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3190,6 +3240,8 @@ GameObject:
   - component: {fileID: 1238779081}
   - component: {fileID: 1238779077}
   - component: {fileID: 1238779080}
+  - component: {fileID: 1238779082}
+  - component: {fileID: 1238779083}
   m_Layer: 0
   m_Name: XR Origin (Mobile AR)
   m_TagString: Untagged
@@ -3285,23 +3337,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 1238779071}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 20ff63a1a53a7524f8ad949df675523e, type: 3}
+  m_Script: {fileID: 11500000, guid: 3fa96778db3e21049baa59d892ecb8d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _toolManager: {fileID: 1586780609}
   _gridManager: {fileID: 1472623154}
-  _worldManager: {fileID: 1238779080}
+  _arWorldManager: {fileID: 1238779080}
   _worldContainer: {fileID: 1472623155}
+  _audioService: {fileID: 1238779082}
+  _debugRayVisualizer: {fileID: 1238779083}
   _voxelLayerMask:
     serializedVersion: 2
     m_Bits: 64
   _maxBuildDistance: 3
   _overlapTolerance: 0.05
-  _buildParticlePrefab: {fileID: 3828078249937824596, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
-  _pitchVariation: 0.15
-  _showDebugRay: 1
-  _rayColor: {r: 1, g: 1, b: 1, a: 0.27450982}
-  _rayWidth: 0.005
+  _placeVfxPrefab: {fileID: 3828078249937824596, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
 --- !u!120 &1238779078
 LineRenderer:
   serializedVersion: 2
@@ -3515,7 +3565,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1238779071}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aff6761ca35307c47abb540fdfee3e3f, type: 3}
+  m_Script: {fileID: 11500000, guid: 13102f67d2c5d5a46af0ce2de35c2139, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _worldContainer: {fileID: 1472623155}
@@ -3536,6 +3586,35 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_AnchorPrefab: {fileID: 0}
+--- !u!114 &1238779082
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56efe7c87dced3a4484ef8c66d264e7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _pitchVariation: 0.15
+--- !u!114 &1238779083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec180f3a9ce28e546acd9ef1778a3901, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _enabled: 1
+  _maxRayDistance: 3
+  _rayColor: {r: 1, g: 1, b: 1, a: 0.27450982}
+  _rayWidth: 0.005
 --- !u!1 &1241133910
 GameObject:
   m_ObjectHideFlags: 0
@@ -3549,7 +3628,7 @@ GameObject:
   - component: {fileID: 1241133913}
   - component: {fileID: 1241133912}
   m_Layer: 5
-  m_Name: Btn_Madera
+  m_Name: Btn_Wood
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3682,7 +3761,7 @@ GameObject:
   - component: {fileID: 1278989881}
   - component: {fileID: 1278989880}
   m_Layer: 5
-  m_Name: Btn_Tierra
+  m_Name: Btn_Dirt
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3815,7 +3894,7 @@ GameObject:
   - component: {fileID: 1347067320}
   - component: {fileID: 1347067319}
   m_Layer: 5
-  m_Name: Btn_Arado
+  m_Name: Btn_Plow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3948,7 +4027,7 @@ GameObject:
   - component: {fileID: 1362055612}
   - component: {fileID: 1362055611}
   m_Layer: 5
-  m_Name: Btn_Yes
+  m_Name: Btn_Confirm
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4080,7 +4159,7 @@ GameObject:
   - component: {fileID: 1373769296}
   - component: {fileID: 1373769295}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Lighting
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4217,7 +4296,7 @@ GameObject:
   - component: {fileID: 1373834471}
   - component: {fileID: 1373834470}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_ClearAll
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4355,7 +4434,7 @@ GameObject:
   - component: {fileID: 1442221454}
   - component: {fileID: 1442221453}
   m_Layer: 5
-  m_Name: Btn_Piedra
+  m_Name: Btn_Stone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4485,6 +4564,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1472623155}
   - component: {fileID: 1472623154}
+  - component: {fileID: 1472623156}
   m_Layer: 0
   m_Name: WorldContainer
   m_TagString: Untagged
@@ -4501,13 +4581,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1472623153}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce17e4bb6b9336144932fa83a614b151, type: 3}
+  m_Script: {fileID: 11500000, guid: 0a893d381648b6f4899849880f07f352, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _gridSize: 1
-  _gridRadius: 4
-  _lineMaterial: {fileID: 2100000, guid: 724176d6b3fa4904687d0ece576f6897, type: 2}
-  _gridColor: {r: 1, g: 1, b: 1, a: 0.4}
+  _gridVisualizer: {fileID: 1472623156}
 --- !u!4 &1472623155
 Transform:
   m_ObjectHideFlags: 0
@@ -4523,6 +4601,72 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1764018177}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1472623156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1472623153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4e7f2a13c9d48e5a01f6d8c3e5b7a92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _gridRadius: 4
+  _lineMaterial: {fileID: 2100000, guid: 724176d6b3fa4904687d0ece576f6897, type: 2}
+  _gridColor: {r: 1, g: 1, b: 1, a: 0.4}
+--- !u!1 &1568598954
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1568598956}
+  - component: {fileID: 1568598955}
+  m_Layer: 5
+  m_Name: Svc_WorldReset
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1568598955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1568598954}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c27d7b5c53716a543b5a43bfc7e7c9e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _worldContainer: {fileID: 1472623155}
+  _arWorldManager: {fileID: 1238779080}
+  _gridManager: {fileID: 1472623154}
+--- !u!224 &1568598956
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1568598954}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1784935099}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1586780608
 GameObject:
   m_ObjectHideFlags: 0
@@ -4549,14 +4693,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1586780608}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 51a36652dab816b4e8a17be9ed16d5be, type: 3}
+  m_Script: {fileID: 11500000, guid: 37377d3c0c3b71f4ebd1dce64286d002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _prefabTierra: {fileID: 7200338688778989813, guid: f61f110ad1436364daf21685c2675676, type: 3}
-  _prefabArena: {fileID: 2501493864619937751, guid: 6fdfc4bef99a7124aa82b867fc2c374c, type: 3}
-  _prefabPiedra: {fileID: 4264983112978850637, guid: 19532dab89307434ca7be4f7339060c0, type: 3}
-  _prefabMadera: {fileID: 7819655967328116244, guid: 0a4ae1569feb8544389704b11316aaa9, type: 3}
-  _prefabAntorcha: {fileID: 8890088853010225029, guid: 3481053c7d61978489eee8df6d5f7090, type: 3}
+  _blockDatabase: {fileID: 11400000, guid: 3f61d07338f1eac47a70002cbec14733, type: 2}
 --- !u!4 &1586780610
 Transform:
   m_ObjectHideFlags: 0
@@ -4584,7 +4724,7 @@ GameObject:
   - component: {fileID: 1621853341}
   - component: {fileID: 1621853340}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Exit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4721,7 +4861,7 @@ GameObject:
   - component: {fileID: 1655286067}
   - component: {fileID: 1655286066}
   m_Layer: 5
-  m_Name: Popup_ConfirmClear
+  m_Name: Overlay_Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4797,7 +4937,7 @@ GameObject:
   - component: {fileID: 1689557339}
   - component: {fileID: 1689557338}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Confirm
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4935,7 +5075,7 @@ GameObject:
   - component: {fileID: 1734465200}
   - component: {fileID: 1734465199}
   m_Layer: 5
-  m_Name: Btn_Antorcha
+  m_Name: Btn_Torch
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5065,7 +5205,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1764018177}
   m_Layer: 0
-  m_Name: Cosas AR
+  m_Name: AR System
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5089,6 +5229,7 @@ Transform:
   - {fileID: 1238779072}
   - {fileID: 1472623155}
   - {fileID: 1586780610}
+  - {fileID: 764782033}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1769142480
@@ -5134,7 +5275,7 @@ GameObject:
   - component: {fileID: 1784935099}
   - component: {fileID: 1784935100}
   m_Layer: 5
-  m_Name: TopLeftMenu_Container
+  m_Name: HUD_OptionsMenu
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5152,6 +5293,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1568598956}
+  - {fileID: 199626318}
   - {fileID: 2020968148}
   - {fileID: 436980695}
   m_Father: {fileID: 2043065965}
@@ -5170,17 +5313,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 1784935098}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 704b3a38d120386479a01911ff3cbc2a, type: 3}
+  m_Script: {fileID: 11500000, guid: 786fa218cfc2a3942ab20faf9e6dfd17, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _optionsPanel: {fileID: 436980694}
   _blockerPanel: {fileID: 2057785219}
-  _mainCanvas: {fileID: 2043065968}
   _confirmPopup: {fileID: 734153760}
-  _worldContainer: {fileID: 1472623155}
   _directionalLight: {fileID: 764782032}
-  _arWorldManager: {fileID: 1238779080}
-  _gridManager: {fileID: 1472623154}
+  _worldResetService: {fileID: 1568598955}
+  _screenshotService: {fileID: 199626317}
 --- !u!1 &1799706569
 GameObject:
   m_ObjectHideFlags: 0
@@ -5192,7 +5333,7 @@ GameObject:
   - component: {fileID: 1799706570}
   - component: {fileID: 1799706571}
   m_Layer: 5
-  m_Name: Button_Container
+  m_Name: Hotbar_LayoutGroup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5261,7 +5402,7 @@ GameObject:
   - component: {fileID: 1813045738}
   - component: {fileID: 1813045737}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Dirt
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5398,7 +5539,7 @@ GameObject:
   - component: {fileID: 1823686393}
   - component: {fileID: 1823686392}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Torch
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5535,7 +5676,7 @@ GameObject:
   - component: {fileID: 1832161844}
   - component: {fileID: 1832161843}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_None
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5672,7 +5813,7 @@ GameObject:
   - component: {fileID: 1897112458}
   - component: {fileID: 1897112457}
   m_Layer: 5
-  m_Name: Selector_Image
+  m_Name: HUD_Selector
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5747,7 +5888,7 @@ GameObject:
   - component: {fileID: 1944931613}
   - component: {fileID: 1944931612}
   m_Layer: 5
-  m_Name: Hotbar Panel
+  m_Name: HUD_Hotbar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5881,7 +6022,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1969039725}
   m_Layer: 0
-  m_Name: Cosas UI
+  m_Name: UI System
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5916,7 +6057,7 @@ GameObject:
   - component: {fileID: 1974300155}
   - component: {fileID: 1974300154}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Txt_Plow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6054,7 +6195,7 @@ GameObject:
   - component: {fileID: 2020968150}
   - component: {fileID: 2020968149}
   m_Layer: 5
-  m_Name: Btn_MenuToggle
+  m_Name: Btn_Settings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6292,7 +6433,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2043065964}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b0cb74ff5b87f040921fe3abd5615bb, type: 3}
+  m_Script: {fileID: 11500000, guid: c92b8120da7a087428267817e8807867, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _toolManager: {fileID: 1586780609}
@@ -6316,12 +6457,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 2043065964}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 729fc0b2fd5848e46a8169ce0303e5d6, type: 3}
+  m_Script: {fileID: 11500000, guid: 10a861eb3c29fe44389464e45a4ab056, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _hotbarBlocks: {fileID: 1944931610}
-  _actionTools: {fileID: 1139651218}
-  _selectorVisual: {fileID: 1897112455}
+  _hotbarPanel: {fileID: 1944931610}
+  _toolPanel: {fileID: 1139651218}
+  _selectorHighlight: {fileID: 1897112455}
   _toolManager: {fileID: 1586780609}
 --- !u!1 &2044004650
 GameObject:
@@ -6336,7 +6477,7 @@ GameObject:
   - component: {fileID: 2044004653}
   - component: {fileID: 2044004652}
   m_Layer: 5
-  m_Name: Btn_Borrar
+  m_Name: Btn_ClearAll
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6469,7 +6610,7 @@ GameObject:
   - component: {fileID: 2057785221}
   - component: {fileID: 2057785220}
   m_Layer: 5
-  m_Name: Menu_Blocker
+  m_Name: HUD_MenuBlocker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6601,7 +6742,7 @@ GameObject:
   - component: {fileID: 2134135833}
   - component: {fileID: 2134135832}
   m_Layer: 5
-  m_Name: Btn_Salir
+  m_Name: Btn_Exit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6725,6 +6866,5 @@ CanvasRenderer:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 764782033}
   - {fileID: 1764018177}
   - {fileID: 1969039725}

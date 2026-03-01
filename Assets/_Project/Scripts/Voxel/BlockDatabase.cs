@@ -1,0 +1,133 @@
+// ──────────────────────────────────────────────
+//  BlockDatabase.cs  ·  _Project.Scripts.Voxel
+//  Central registry that maps every BlockType to its prefab.
+// ──────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace _Project.Scripts.Voxel
+{
+    /// <summary>
+    /// ScriptableObject asset that holds the complete catalogue of block
+    /// prefabs keyed by <see cref="BlockType"/>.<br/>
+    /// Create one via <c>Assets → Create → ARmonia → Voxel → Block Database</c>
+    /// and reference it from any system that needs to spawn or query blocks
+    /// (e.g. ToolManager, ARBlockPlacer).
+    /// </summary>
+    [CreateAssetMenu(
+        fileName  = "BlockDatabase",
+        menuName  = "ARmonia/Voxel/Block Database",
+        order     = 0)]
+    public class BlockDatabase : ScriptableObject
+    {
+        #region Nested Types ──────────────────────────────────
+
+        /// <summary>
+        /// A single entry pairing a <see cref="BlockType"/> with its prefab.
+        /// </summary>
+        [Serializable]
+        public struct BlockEntry
+        {
+            [Tooltip("Block type this entry defines.")]
+            public BlockType type;
+
+            [Tooltip("Prefab to instantiate when placing this block type. Must contain a VoxelBlock component.")]
+            public GameObject prefab;
+        }
+
+        #endregion
+
+        #region Inspector ─────────────────────────────────────
+
+        [Header("Block Catalogue")]
+        [Tooltip("One entry per BlockType. Order does not matter — lookup is by type.")]
+        [SerializeField] private BlockEntry[] _entries = Array.Empty<BlockEntry>();
+
+        #endregion
+
+        #region Runtime Lookup ────────────────────────────────
+
+        /// <summary>Lazy-built dictionary for O(1) access.</summary>
+        private Dictionary<BlockType, GameObject> _lookup;
+
+        /// <summary>
+        /// Returns the prefab associated with the given <paramref name="type"/>,
+        /// or <c>null</c> if no entry exists.
+        /// </summary>
+        public GameObject GetPrefab(BlockType type)
+        {
+            BuildLookup();
+            return _lookup.TryGetValue(type, out GameObject prefab) ? prefab : null;
+        }
+
+        /// <summary>
+        /// Tries to retrieve the prefab for <paramref name="type"/>.
+        /// Returns <c>true</c> when found.
+        /// </summary>
+        public bool TryGetPrefab(BlockType type, out GameObject prefab)
+        {
+            BuildLookup();
+            return _lookup.TryGetValue(type, out prefab);
+        }
+
+        /// <summary>Total number of registered block entries.</summary>
+        public int Count => _entries.Length;
+
+        #endregion
+
+        #region Internals ─────────────────────────────────────
+
+        /// <summary>
+        /// Builds the lookup dictionary once. Automatically invalidated on
+        /// domain reload via <see cref="OnEnable"/>.
+        /// </summary>
+        private void BuildLookup()
+        {
+            if (_lookup != null) return;
+
+            _lookup = new Dictionary<BlockType, GameObject>(_entries.Length);
+            foreach (BlockEntry entry in _entries)
+            {
+                if (entry.prefab == null)
+                {
+                    Debug.LogWarning($"[BlockDatabase] Entry for {entry.type} has no prefab assigned.", this);
+                    continue;
+                }
+                _lookup[entry.type] = entry.prefab;
+            }
+        }
+
+        /// <summary>
+        /// Called by Unity on asset load and after every domain reload.
+        /// Forces the dictionary to rebuild next time it's queried so
+        /// hot-reloads in the Editor always reflect the latest data.
+        /// </summary>
+        private void OnEnable()
+        {
+            _lookup = null;
+        }
+
+        #if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only validation: warns about missing or duplicate entries.
+        /// </summary>
+        private void OnValidate()
+        {
+            HashSet<BlockType> seen = new HashSet<BlockType>();
+            foreach (BlockEntry entry in _entries)
+            {
+                if (!seen.Add(entry.type))
+                {
+                    Debug.LogWarning(
+                        $"[BlockDatabase] Duplicate entry for {entry.type}. Only the last one will be used.",
+                        this);
+                }
+            }
+        }
+        #endif
+
+        #endregion
+    }
+}
