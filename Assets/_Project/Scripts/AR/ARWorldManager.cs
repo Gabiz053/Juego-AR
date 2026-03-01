@@ -16,6 +16,7 @@ namespace _Project.Scripts.Core
         private ARAnchorManager _anchorManager;
         private ARAnchor _worldAnchor;
 
+        // Propiedad dinámica: si no hay ancla, devuelve false
         public bool IsWorldAnchored => _worldAnchor != null;
 
         private void Awake()
@@ -41,7 +42,7 @@ namespace _Project.Scripts.Core
                 _worldContainer.rotation = Quaternion.LookRotation(cameraForwardFlat.normalized);
             }
 
-            // 3. CORRECCIÓN: Comprobamos si hay prefab antes de instanciar para evitar el ArgumentException
+            // 3. Comprobamos si hay prefab antes de instanciar para evitar el ArgumentException
             if (_anchorManager.anchorPrefab != null)
             {
                 _worldAnchor = Instantiate(_anchorManager.anchorPrefab, hitPose.position, hitPose.rotation).GetComponent<ARAnchor>();
@@ -61,7 +62,28 @@ namespace _Project.Scripts.Core
             // 5. Activamos el halo de la cuadrícula
             _gridManager.ActivarGrid(playerCamera);
 
-            Debug.Log("Mundo Anclado: Orientación establecida y Cuadrícula activada.");
+            Debug.Log("[ARWorldManager] Mundo Anclado: Orientación establecida y Cuadrícula activada.");
+        }
+
+        /// <summary>
+        /// Destruye el ancla actual y desvincula el contenedor del mundo para permitir un reinicio total.
+        /// </summary>
+        public void ResetAnchor()
+        {
+            if (_worldAnchor != null)
+            {
+                // Destruimos el ancla física de ARCore
+                Destroy(_worldAnchor.gameObject);
+                _worldAnchor = null;
+            }
+
+            // Soltamos el contenedor del mundo para que ya no dependa del ancla destruida
+            if (_worldContainer != null)
+            {
+                _worldContainer.SetParent(null);
+            }
+
+            Debug.Log("[ARWorldManager] Ancla destruida. Mundo reseteado a Estado 0.");
         }
     }
 }

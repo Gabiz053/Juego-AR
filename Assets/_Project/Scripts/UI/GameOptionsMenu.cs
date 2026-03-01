@@ -1,35 +1,46 @@
 using System.Collections;
 using UnityEngine;
+using _Project.Scripts.Core;
 
 namespace _Project.Scripts.UI
 {
     public class GameOptionsMenu : MonoBehaviour
     {
         [Header("Interfaz (UI)")]
-        [Tooltip("El panel que contiene los botones de opciones (el que se oculta).")]
         [SerializeField] private GameObject _optionsPanel;
-        [Tooltip("El Canvas principal, para ocultarlo al hacer la foto.")]
+        [Tooltip("El botón gigante invisible que cierra el menú al tocar fuera.")]
+        [SerializeField] private GameObject _blockerPanel; // <-- NUEVO
         [SerializeField] private Canvas _mainCanvas;
-        [Tooltip("El Panel del popup de confirmación de borrado.")]
-        [SerializeField] private GameObject _confirmPopup; // <-- NUEVO
+        [SerializeField] private GameObject _confirmPopup;
 
         [Header("Mundo AR")]
         [SerializeField] private Transform _worldContainer;
         [SerializeField] private Light _directionalLight;
 
+        [Header("Managers a Resetear")]
+        [SerializeField] private ARWorldManager _arWorldManager;
+        [SerializeField] private GridManager _gridManager;
+
         private void Start()
         {
             if (_optionsPanel != null) _optionsPanel.SetActive(false);
-
-            // Nos aseguramos de que el popup empiece apagado por seguridad
             if (_confirmPopup != null) _confirmPopup.SetActive(false);
+
+            // Apagamos el bloqueador al empezar
+            if (_blockerPanel != null) _blockerPanel.SetActive(false);
         }
 
         public void ToggleMenu()
         {
             if (_optionsPanel != null)
             {
-                _optionsPanel.SetActive(!_optionsPanel.activeSelf);
+                // Invertimos el estado (si está abierto lo cierra, y viceversa)
+                bool isOpen = !_optionsPanel.activeSelf;
+
+                _optionsPanel.SetActive(isOpen);
+
+                // Hacemos que el bloqueador invisible aparezca solo si el menú está abierto
+                if (_blockerPanel != null) _blockerPanel.SetActive(isOpen);
             }
         }
 
@@ -42,7 +53,7 @@ namespace _Project.Scripts.UI
             }
         }
 
-        // --- NUEVA LÓGICA DE BORRADO ---
+        // --- LÓGICA DE BORRADO ---
 
         /// <summary>
         /// El botón de la papelera llama a esto. Solo abre el popup y esconde el menú superior.
@@ -61,16 +72,31 @@ namespace _Project.Scripts.UI
         /// </summary>
         public void ConfirmClearAll()
         {
-            if (_worldContainer == null) return;
-
-            for (int i = _worldContainer.childCount - 1; i >= 0; i--)
+            // 1. Destruimos todos los bloques físicos
+            if (_worldContainer != null)
             {
-                Destroy(_worldContainer.GetChild(i).gameObject);
+                for (int i = _worldContainer.childCount - 1; i >= 0; i--)
+                {
+                    Destroy(_worldContainer.GetChild(i).gameObject);
+                }
+            }
+
+            // 2. Destruimos el Ancla AR para poder empezar de cero en otro sitio
+            if (_arWorldManager != null)
+            {
+                _arWorldManager.ResetAnchor();
+            }
+
+            // 3. Apagamos el halo verde de la cuadrícula
+            if (_gridManager != null)
+            {
+                _gridManager.DesactivarGrid();
             }
 
             // Ocultamos el popup al terminar
             if (_confirmPopup != null) _confirmPopup.SetActive(false);
-            Debug.Log("[Menu] Mundo reiniciado. Todos los bloques eliminados.");
+
+            Debug.Log("[Menu] Mundo reiniciado TOTALMENTE (Bloques + Ancla).");
         }
 
         /// <summary>

@@ -172,6 +172,18 @@ namespace _Project.Scripts.Core
             return finalColor;
         }
 
+        public void DesactivarGrid()
+        {
+            _isGridActive = false;
+            if (_gridVisualObj != null)
+            {
+                Destroy(_gridVisualObj);
+                _gridVisualObj = null;
+            }
+            Debug.Log("[GridManager] Cuadrícula desactivada.");
+        }
+
         #endregion
     }
+
 }
