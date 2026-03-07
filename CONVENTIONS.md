@@ -63,18 +63,21 @@ AR System                                  [Empty — groups all 3D/AR objects]
 ├── XR Interaction Manager                 [XRInteractionManager]
 ├── XR Origin (Mobile AR)                  [XROrigin, ARPlaneManager, ARRaycastManager,
 │   │                                       ARAnchorManager, ARBlockPlacer, ARWorldManager,
-│   │                                       GameAudioService, DebugRayVisualizer,
-│   │                                       LineRenderer, AudioSource]
+│   │                                       ARDepthService, MusicService, GameAudioService,
+│   │                                       DebugRayVisualizer, LineRenderer, AudioSource,
+│   │                                       AudioSource (music)]
 │   └── Camera Offset                      [standard XR child]
 │       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
-│                                           ARCameraManager, ARCameraBackground]
+│                                           ARCameraManager, ARCameraBackground,
+│                                           AROcclusionManager]
 ├── WorldContainer                         [GridManager, GridVisualizer]  (localScale 0.1)
 ├── ToolManager                            [ToolManager]
 └── Directional Light                      [Light, URP AdditionalLightData]
 
 UI System                                  [Empty — groups all UI objects]
 ├── MainCanvas                             [Canvas, CanvasScaler, GraphicRaycaster,
-│   │                                       UIManager, OrientationManager]
+│   │                                       UIManager, OrientationManager, UIAudioService,
+│   │                                       AudioSource]
 │   ├── HUD_Hotbar                         [Image — bottom block-selection bar]
 │   │   └── Hotbar_LayoutGroup             [HorizontalLayoutGroup]
 │   │       ├── Btn_Dirt       → Txt_Dirt
@@ -98,7 +101,9 @@ UI System                                  [Empty — groups all UI objects]
 │   │   ├── Svc_Screenshot                 [ScreenshotService]
 │   │   ├── Btn_Settings       → Txt_Settings
 │   │   └── Panel_OptionsDropdown          [VerticalLayoutGroup, ContentSizeFitter] (inactive)
-│   │       ├── Btn_Lighting   → Txt_Lighting
+│   │       ├── Btn_Lighting   → Txt_Lighting   [DropdownButtonState]
+│   │       ├── Btn_Depth      → Txt_Depth      [DropdownButtonState]
+│   │       ├── Sld_MusicVolume → Txt_MusicVolume
 │   │       ├── Btn_Photo      → Txt_Photo
 │   │       ├── Btn_ClearAll   → Txt_ClearAll
 │   │       └── Btn_Exit       → Txt_Exit
@@ -120,6 +125,8 @@ UI System                                  [Empty — groups all UI objects]
 | --- | --- | --- |
 | `ARBlockPlacer` | XR Origin (Mobile AR) | `ARRaycastManager` |
 | `ARWorldManager` | XR Origin (Mobile AR) | `ARAnchorManager` |
+| `ARDepthService` | XR Origin (Mobile AR) | — |
+| `MusicService` | XR Origin (Mobile AR) | `AudioSource` |
 | `GameAudioService` | XR Origin (Mobile AR) | `AudioSource` |
 | `DebugRayVisualizer` | XR Origin (Mobile AR) | `LineRenderer` |
 | `GridManager` | WorldContainer | — |
@@ -127,9 +134,9 @@ UI System                                  [Empty — groups all UI objects]
 | `ToolManager` | ToolManager | — |
 | `UIManager` | MainCanvas | — |
 | `OrientationManager` | MainCanvas | — |
+| `UIAudioService` | MainCanvas | `AudioSource` |
 | `GameOptionsMenu` | HUD_OptionsMenu | — |
-| `ScreenshotService` | Svc_Screenshot | — |
-| `WorldResetService` | Svc_WorldReset | — |
+| `DropdownButtonState` | Btn_Lighting, Btn_Depth, Btn_Music | — |
 
 ### Scene GameObject naming rules
 

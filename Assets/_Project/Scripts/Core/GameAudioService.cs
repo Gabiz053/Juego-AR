@@ -10,11 +10,13 @@ namespace _Project.Scripts.Core
     /// <summary>
     /// Lightweight audio helper that plays one-shot sound effects with
     /// optional random pitch variation for organic feedback.<br/>
+    /// Accepts either a single <see cref="AudioClip"/> or an
+    /// <see cref="AudioClip"/> array — when an array is supplied, a clip
+    /// is chosen at random while avoiding immediate back-to-back repetition.<br/>
     /// Any system that needs to play SFX (block placement, destruction,
     /// UI feedback, etc.) can reference this service instead of owning
     /// its own <see cref="AudioSource"/>.<br/>
-    /// Attach to a persistent GameObject (e.g. <c>XR Origin</c>) that
-    /// already has an <see cref="AudioSource"/> component.
+    /// Attach to <c>XR Origin (Mobile AR)</c>.
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     [DisallowMultipleComponent]
@@ -34,6 +36,10 @@ namespace _Project.Scripts.Core
 
         private AudioSource _audioSource;
 
+        // Tracks the last clip index played from an array to avoid
+        // immediate back-to-back repetition when the pool has > 1 entry.
+        private int _lastArrayIndex = -1;
+
         #endregion
 
         #region Unity Lifecycle ────────────────────────────────
@@ -43,7 +49,7 @@ namespace _Project.Scripts.Core
             _audioSource = GetComponent<AudioSource>();
 
             // Sensible defaults for a UI/SFX audio source.
-            _audioSource.playOnAwake = false;
+            _audioSource.playOnAwake  = false;
             _audioSource.spatialBlend = 0f;
 
             Debug.Log("[GameAudioService] Awake — AudioSource cached and configured.");
@@ -60,53 +66,48 @@ namespace _Project.Scripts.Core
         #region Public API ────────────────────────────────────
 
         /// <summary>
-        /// Plays a one-shot audio clip with slight random pitch variation.
-        /// Safe to call rapidly — clips overlap naturally via <c>PlayOneShot</c>.
+        /// Plays a single clip with random pitch variation.
+        /// No-op if <paramref name="clip"/> is <c>null</c>.
         /// </summary>
-        /// <param name="clip">The <see cref="AudioClip"/> to play. Ignored if <c>null</c>.</param>
         public void PlayOneShot(AudioClip clip)
         {
-            if (clip == null)
-            {
-                Debug.LogWarning("[GameAudioService] PlayOneShot called with null clip — ignoring.");
-                return;
-            }
-
-            if (_audioSource == null)
-            {
-                Debug.LogError("[GameAudioService] AudioSource is missing!", this);
-                return;
-            }
-
-            _audioSource.pitch = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
-            _audioSource.PlayOneShot(clip);
-
-            Debug.Log($"[GameAudioService] Playing: {clip.name} (pitch: {_audioSource.pitch:F2}).");
+            if (clip == null) return;
+            PlayInternal(clip);
         }
 
         /// <summary>
-        /// Plays a one-shot clip with an explicit volume override.
+        /// Plays a single clip with random pitch variation and an explicit volume scale.
+        /// No-op if <paramref name="clip"/> is <c>null</c>.
         /// </summary>
-        /// <param name="clip">The <see cref="AudioClip"/> to play.</param>
-        /// <param name="volumeScale">Volume multiplier (0–1).</param>
         public void PlayOneShot(AudioClip clip, float volumeScale)
         {
-            if (clip == null)
-            {
-                Debug.LogWarning("[GameAudioService] PlayOneShot called with null clip — ignoring.");
-                return;
-            }
+            if (clip == null) return;
+            PlayInternal(clip, volumeScale);
+        }
 
-            if (_audioSource == null)
-            {
-                Debug.LogError("[GameAudioService] AudioSource is missing!", this);
-                return;
-            }
+        /// <summary>
+        /// Picks a random clip from <paramref name="clips"/> — avoiding
+        /// immediate repetition when the pool has more than one entry —
+        /// then plays it with random pitch variation.<br/>
+        /// No-op if the array is <c>null</c> or empty.
+        /// </summary>
+        public void PlayOneShot(AudioClip[] clips)
+        {
+            AudioClip clip = PickRandom(clips);
+            if (clip == null) return;
+            PlayInternal(clip);
+        }
 
-            _audioSource.pitch = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
-            _audioSource.PlayOneShot(clip, volumeScale);
-
-            Debug.Log($"[GameAudioService] Playing: {clip.name} (pitch: {_audioSource.pitch:F2}, vol: {volumeScale:F2}).");
+        /// <summary>
+        /// Picks a random clip from <paramref name="clips"/> and plays it
+        /// with random pitch variation and an explicit volume scale.<br/>
+        /// No-op if the array is <c>null</c> or empty.
+        /// </summary>
+        public void PlayOneShot(AudioClip[] clips, float volumeScale)
+        {
+            AudioClip clip = PickRandom(clips);
+            if (clip == null) return;
+            PlayInternal(clip, volumeScale);
         }
 
         /// <summary>Current pitch variation range (±).</summary>
@@ -114,11 +115,74 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Validation ────────────────────────────────────
+        #region Internals ─────────────────────────────────────
 
         /// <summary>
-        /// Logs errors for any missing components at startup.
+        /// Picks a random clip from the pool, advancing past the last-played
+        /// index when the pool has more than one entry to avoid repetition.
+        /// Returns <c>null</c> when the array is null, empty, or contains
+        /// only null entries.
         /// </summary>
+        private AudioClip PickRandom(AudioClip[] clips)
+        {
+            if (clips == null || clips.Length == 0) return null;
+
+            int index;
+            if (clips.Length == 1)
+            {
+                index = 0;
+            }
+            else
+            {
+                do { index = Random.Range(0, clips.Length); }
+                while (index == _lastArrayIndex);
+            }
+
+            AudioClip clip = clips[index];
+            if (clip == null) return null;
+
+            _lastArrayIndex = index;
+            return clip;
+        }
+
+        /// <summary>Applies pitch variation and fires PlayOneShot at full volume.</summary>
+        private void PlayInternal(AudioClip clip)
+        {
+            if (_audioSource == null)
+            {
+                Debug.LogError("[GameAudioService] AudioSource is missing!", this);
+                return;
+            }
+
+            float prevPitch = _audioSource.pitch;
+            _audioSource.pitch = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
+            _audioSource.PlayOneShot(clip);
+            _audioSource.pitch = prevPitch;
+
+            Debug.Log($"[GameAudioService] Playing: {clip.name} (pitch: {_audioSource.pitch:F2}).");
+        }
+
+        /// <summary>Applies pitch variation and fires PlayOneShot with a volume scale.</summary>
+        private void PlayInternal(AudioClip clip, float volumeScale)
+        {
+            if (_audioSource == null)
+            {
+                Debug.LogError("[GameAudioService] AudioSource is missing!", this);
+                return;
+            }
+
+            float prevPitch = _audioSource.pitch;
+            _audioSource.pitch = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
+            _audioSource.PlayOneShot(clip, volumeScale);
+            _audioSource.pitch = prevPitch;
+
+            Debug.Log($"[GameAudioService] Playing: {clip.name} (pitch: {_audioSource.pitch:F2}, vol: {volumeScale:F2}).");
+        }
+
+        #endregion
+
+        #region Validation ────────────────────────────────────
+
         private void ValidateReferences()
         {
             if (_audioSource == null)

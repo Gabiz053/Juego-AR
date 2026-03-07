@@ -255,9 +255,9 @@ namespace _Project.Scripts.Interaction
 
             // Play placement audio via the audio service.
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
-            if (blockData != null && blockData.PlaceSound != null && _audioService != null)
+            if (blockData != null && _audioService != null)
             {
-                _audioService.PlayOneShot(blockData.PlaceSound);
+                _audioService.PlayOneShot(blockData.PlaceSounds);
             }
         }
 
@@ -282,9 +282,9 @@ namespace _Project.Scripts.Interaction
 
             // Play break audio before destruction via the audio service.
             VoxelBlock blockData = targetBlock.GetComponent<VoxelBlock>();
-            if (blockData != null && blockData.BreakSound != null && _audioService != null)
+            if (blockData != null && _audioService != null)
             {
-                _audioService.PlayOneShot(blockData.BreakSound);
+                _audioService.PlayOneShot(blockData.BreakSounds);
             }
 
             Destroy(targetBlock);

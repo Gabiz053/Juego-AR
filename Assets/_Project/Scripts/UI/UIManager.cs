@@ -40,6 +40,10 @@ namespace _Project.Scripts.UI
         [Tooltip("Ordered array of every slot RectTransform (index must match ToolType int value).")]
         [SerializeField] private RectTransform[] _slotRects;
 
+        [Header("Audio")]
+        [Tooltip("UI audio service — plays a sound when a hotbar slot is selected.")]
+        [SerializeField] private UIAudioService _uiAudio;
+
         #endregion
 
         #region Unity Lifecycle ────────────────────────────────
@@ -86,6 +90,9 @@ namespace _Project.Scripts.UI
         {
             Debug.Log($"[UIManager] Slot clicked — index {index}.");
             _toolManager.SelectToolByIndex(index);
+
+            // Play the slot-selection sound through the centralised UI audio service.
+            _uiAudio?.PlaySlotSelect();
         }
 
         /// <summary>
@@ -152,6 +159,8 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[UIManager] _selectorRect is not assigned!", this);
             if (_slotRects == null || _slotRects.Length == 0)
                 Debug.LogError("[UIManager] _slotRects array is empty or null!", this);
+            if (_uiAudio == null)
+                Debug.LogWarning("[UIManager] _uiAudio is not assigned — hotbar slots will have no sound.", this);
         }
 
         #endregion

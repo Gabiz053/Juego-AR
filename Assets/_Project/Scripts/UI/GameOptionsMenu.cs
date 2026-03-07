@@ -6,6 +6,10 @@
 
 using System;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using _Project.Scripts.AR;
+using _Project.Scripts.Core;
 
 namespace _Project.Scripts.UI
 {
@@ -15,6 +19,9 @@ namespace _Project.Scripts.UI
     /// forwards user actions to dedicated services:<br/>
     /// • <see cref="WorldResetService"/> — block destruction, anchor reset, grid hide.<br/>
     /// • <see cref="ScreenshotService"/> — canvas-hiding screenshot capture.<br/>
+    /// • <see cref="ARDepthService"/> — toggle Depth API occlusion at runtime.<br/>
+    /// • <see cref="MusicService"/> — toggle background music on/off.<br/>
+    /// • <see cref="UIAudioService"/> — plays UI sound feedback on every interaction.<br/>
     /// Attach to the <c>HUD_OptionsMenu</c> GameObject.
     /// </summary>
     [DisallowMultipleComponent]
@@ -37,12 +44,38 @@ namespace _Project.Scripts.UI
         [Tooltip("Scene directional light toggled by the lighting button.")]
         [SerializeField] private Light _directionalLight;
 
+        [Header("Button States (toggle buttons only)")]
+        [Tooltip("DropdownButtonState on Btn_Lighting — shows ON/OFF colour and label.")]
+        [SerializeField] private DropdownButtonState _lightingButtonState;
+
+        [Tooltip("DropdownButtonState on Btn_Depth — shows ON/OFF colour and label.")]
+        [SerializeField] private DropdownButtonState _depthButtonState;
+
         [Header("Services")]
         [Tooltip("Handles world reset: destroy blocks, reset anchor, deactivate grid.")]
         [SerializeField] private WorldResetService _worldResetService;
 
         [Tooltip("Handles screenshot capture with automatic canvas hiding.")]
         [SerializeField] private ScreenshotService _screenshotService;
+
+        [Tooltip("Toggles ARCore Depth API occlusion on and off at runtime.")]
+        [SerializeField] private ARDepthService _depthService;
+
+        [Tooltip("Controls background music playback volume.")]
+        [SerializeField] private MusicService _musicService;
+
+        [Tooltip("Centralised UI audio service — plays feedback sounds for every button.")]
+        [SerializeField] private UIAudioService _uiAudio;
+
+        [Header("Music Volume")]
+        [Tooltip("Slider that controls music volume (Sld_MusicVolume).")]
+        [SerializeField] private Slider _musicSlider;
+
+        [Tooltip("Label above the music slider that shows the current value (Txt_MusicVolume).")]
+        [SerializeField] private TMP_Text _musicVolumeLabel;
+
+        [Tooltip("Base text shown on the music volume label before the numeric value.")]
+        [SerializeField] private string _musicLabelBase = "Music";
 
         #endregion
 
@@ -61,12 +94,13 @@ namespace _Project.Scripts.UI
 
         private void OnEnable()
         {
-            // Subscribe to service events so we can react in the UI layer.
             if (_worldResetService != null)
                 _worldResetService.OnWorldReset += HandleWorldReset;
 
             if (_screenshotService != null)
                 _screenshotService.OnScreenshotCaptured += HandleScreenshotCaptured;
+
+            if (_depthService != null) _depthService.OnDepthToggled += HandleDepthToggled;
 
             Debug.Log("[GameOptionsMenu] Subscribed to service events.");
         }
@@ -79,15 +113,30 @@ namespace _Project.Scripts.UI
             if (_screenshotService != null)
                 _screenshotService.OnScreenshotCaptured -= HandleScreenshotCaptured;
 
+            if (_depthService != null) _depthService.OnDepthToggled -= HandleDepthToggled;
+
             Debug.Log("[GameOptionsMenu] Unsubscribed from service events.");
         }
 
         private void Start()
         {
-            // Ensure all popups start hidden.
             SetPanelActive(_optionsPanel, false);
             SetPanelActive(_confirmPopup, false);
             SetPanelActive(_blockerPanel, false);
+
+            // Sync toggle button visuals to each service's initial state.
+            if (_directionalLight != null)
+                _lightingButtonState?.SetState(_directionalLight.enabled);
+
+            if (_depthService != null)
+                _depthButtonState?.SetState(_depthService.IsDepthEnabled);
+
+            // Sync the slider position and label to the service's initial volume.
+            if (_musicService != null && _musicSlider != null)
+            {
+                _musicSlider.value = _musicService.Volume * 100f;
+                RefreshMusicLabel(_musicSlider.value);
+            }
 
             ValidateReferences();
 
@@ -110,6 +159,8 @@ namespace _Project.Scripts.UI
             _optionsPanel.SetActive(willOpen);
             SetPanelActive(_blockerPanel, willOpen);
 
+            _uiAudio?.PlayMenuOpen();
+
             Debug.Log($"[GameOptionsMenu] Menu {(willOpen ? "opened" : "closed")}.");
         }
 
@@ -126,7 +177,47 @@ namespace _Project.Scripts.UI
             }
 
             _directionalLight.enabled = !_directionalLight.enabled;
+            _lightingButtonState?.SetState(_directionalLight.enabled);
+            _uiAudio?.PlayToggle();
+
             Debug.Log($"[GameOptionsMenu] Lighting {(_directionalLight.enabled ? "enabled" : "disabled")}.");
+        }
+
+        /// <summary>
+        /// Toggles ARCore Depth API occlusion on or off.
+        /// Called by <c>Btn_Depth</c>.
+        /// </summary>
+        public void ToggleDepth()
+        {
+            if (_depthService == null)
+            {
+                Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned — operation ignored.", this);
+                return;
+            }
+
+            _depthService.ToggleDepth();
+            _uiAudio?.PlayToggle();
+
+            // Visual update is handled by HandleDepthToggled via the event.
+            Debug.Log($"[GameOptionsMenu] Depth toggle requested — new state: {_depthService.IsDepthEnabled}.");
+        }
+
+        /// <summary>
+        /// Sets the background music volume from the UI Slider (0–1 range mapped to 0–100).
+        /// Called by the <c>Sld_MusicVolume</c> Slider's <c>OnValueChanged</c> event.
+        /// The Slider must be configured with Min 0, Max 100, Whole Numbers on.
+        /// </summary>
+        /// <param name="sliderValue">Raw slider value (0–100).</param>
+        public void OnMusicVolumeChanged(float sliderValue)
+        {
+            if (_musicService == null)
+            {
+                Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned — slider ignored.", this);
+                return;
+            }
+
+            _musicService.SetVolume(sliderValue / 100f);
+            RefreshMusicLabel(sliderValue);
         }
 
         // ── Clear-All Flow ──────────────────────────────────
@@ -140,7 +231,8 @@ namespace _Project.Scripts.UI
             if (_confirmPopup == null) return;
 
             _confirmPopup.SetActive(true);
-            ToggleMenu(); // Hide the dropdown so only the popup is visible.
+            ToggleMenu(); // ToggleMenu already plays the menu sound.
+            _uiAudio?.PlayClick();
 
             Debug.Log("[GameOptionsMenu] Clear-all requested — confirmation popup shown.");
         }
@@ -152,18 +244,13 @@ namespace _Project.Scripts.UI
         /// </summary>
         public void ConfirmClearAll()
         {
-            // 1. Delegate the heavy lifting to the world-reset service.
             if (_worldResetService != null)
-            {
                 _worldResetService.ResetWorld();
-            }
             else
-            {
                 Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned — cannot clear world!", this);
-            }
 
-            // 2. Dismiss the popup.
             SetPanelActive(_confirmPopup, false);
+            _uiAudio?.PlayConfirm();
 
             Debug.Log("[GameOptionsMenu] Clear-all confirmed — delegated to WorldResetService.");
         }
@@ -175,6 +262,8 @@ namespace _Project.Scripts.UI
         public void CancelClearAll()
         {
             SetPanelActive(_confirmPopup, false);
+            _uiAudio?.PlayCancel();
+
             Debug.Log("[GameOptionsMenu] Clear-all cancelled by user.");
         }
 
@@ -189,6 +278,8 @@ namespace _Project.Scripts.UI
             if (_screenshotService != null)
             {
                 _screenshotService.Capture();
+                _uiAudio?.PlayPhoto();
+
                 Debug.Log("[GameOptionsMenu] Photo requested — delegated to ScreenshotService.");
             }
             else
@@ -203,6 +294,8 @@ namespace _Project.Scripts.UI
         /// </summary>
         public void ExitGame()
         {
+            _uiAudio?.PlayClick();
+
             Debug.Log("[GameOptionsMenu] Exit requested — quitting application.");
             Application.Quit();
 
@@ -215,40 +308,38 @@ namespace _Project.Scripts.UI
 
         #region Event Handlers ────────────────────────────────
 
-        /// <summary>
-        /// Forwards the world-reset event from <see cref="WorldResetService"/>
-        /// to local <see cref="OnWorldReset"/> subscribers.
-        /// </summary>
         private void HandleWorldReset()
         {
             OnWorldReset?.Invoke();
             Debug.Log("[GameOptionsMenu] World reset event forwarded from WorldResetService.");
         }
 
-        /// <summary>
-        /// Automatically closes the dropdown after a screenshot is captured.
-        /// </summary>
         private void HandleScreenshotCaptured(string fileName)
         {
             ToggleMenu();
             Debug.Log($"[GameOptionsMenu] Screenshot event received ({fileName}) — menu closed.");
         }
 
+        private void HandleDepthToggled(bool isEnabled)
+        {
+            _depthButtonState?.SetState(isEnabled);
+        }
+
         #endregion
 
         #region Internals ─────────────────────────────────────
 
-        /// <summary>
-        /// Safely sets a panel's active state with a null guard.
-        /// </summary>
         private static void SetPanelActive(GameObject panel, bool active)
         {
             if (panel != null) panel.SetActive(active);
         }
 
-        /// <summary>
-        /// Logs errors for any missing Inspector references at startup.
-        /// </summary>
+        private void RefreshMusicLabel(float sliderValue)
+        {
+            if (_musicVolumeLabel != null)
+                _musicVolumeLabel.text = $"{_musicLabelBase}  {Mathf.RoundToInt(sliderValue)}";
+        }
+
         private void ValidateReferences()
         {
             if (_optionsPanel == null)
@@ -263,6 +354,14 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned!", this);
             if (_screenshotService == null)
                 Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned!", this);
+            if (_depthService == null)
+                Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned — Btn_Depth will not work.", this);
+            if (_musicService == null)
+                Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned — music slider will not work.", this);
+            if (_musicSlider == null)
+                Debug.LogWarning("[GameOptionsMenu] _musicSlider is not assigned — slider will not sync.", this);
+            if (_uiAudio == null)
+                Debug.LogWarning("[GameOptionsMenu] _uiAudio is not assigned — UI will have no sound.", this);
         }
 
         #endregion
