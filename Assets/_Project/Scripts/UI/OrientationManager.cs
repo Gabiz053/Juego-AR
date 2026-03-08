@@ -42,7 +42,7 @@ namespace _Project.Scripts.UI
         private bool _isLandscape;
 
         /// <summary>Tool the user had before entering landscape.</summary>
-        private ToolType _previousTool = ToolType.Build_Dirt;
+        private ToolType _previousTool = ToolType.Build_Sand;
 
         /// <summary>Cached yield instruction — avoids GC allocation per orientation change.</summary>
         private readonly WaitForEndOfFrame _waitEndOfFrame = new WaitForEndOfFrame();

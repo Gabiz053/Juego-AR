@@ -15,16 +15,17 @@ namespace _Project.Scripts.Interaction
     public enum ToolType
     {
         // ── Building Tools (match BlockType int values) ─────
-        Build_Dirt   = 0,
-        Build_Sand   = 1,
+        Build_Sand   = 0,
+        Build_Glass  = 1,
         Build_Stone  = 2,
         Build_Wood   = 3,
         Build_Torch  = 4,
+        Build_Grass  = 5,
 
         // ── Utility Tools ───────────────────────────────────
-        Tool_None    = 5,
-        Tool_Destroy = 6,
-        Tool_Brush   = 7,
-        Tool_Plow    = 8
+        Tool_None    = 6,
+        Tool_Destroy = 7,
+        Tool_Brush   = 8,
+        Tool_Plow    = 9
     }
 }

@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7d636b77237bf274dbf8cd1dfce1a3f6, type: 2}
+  - {fileID: 2100000, guid: dfc158ff3e6b0f24aa08dd712b0e5b68, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -122,5 +122,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _blockType: 1
-  _placeSound: {fileID: 8300000, guid: 72d1a5f9f684cbe40ad802742f67cf2b, type: 3}
-  _breakSound: {fileID: 8300000, guid: 72d1a5f9f684cbe40ad802742f67cf2b, type: 3}
+  _placeSounds: []
+  _breakSounds: []

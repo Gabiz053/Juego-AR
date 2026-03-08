@@ -22,13 +22,13 @@ namespace _Project.Scripts.Interaction
         #region Constants ─────────────────────────────────────
 
         /// <summary>Tool selected at startup before the player touches anything.</summary>
-        private const ToolType DEFAULT_TOOL = ToolType.Build_Dirt;
+        private const ToolType DEFAULT_TOOL = ToolType.Build_Sand;
 
         /// <summary>First enum value that counts as a build tool.</summary>
-        private const ToolType FIRST_BUILD_TOOL = ToolType.Build_Dirt;
+        private const ToolType FIRST_BUILD_TOOL = ToolType.Build_Sand;
 
         /// <summary>Last enum value that counts as a build tool.</summary>
-        private const ToolType LAST_BUILD_TOOL = ToolType.Build_Torch;
+        private const ToolType LAST_BUILD_TOOL = ToolType.Build_Grass;
 
         #endregion
 
@@ -92,7 +92,7 @@ namespace _Project.Scripts.Interaction
         {
             if (!IsBuildTool) return null;
 
-            // Build_Dirt(0)→BlockType.Dirt(0), Build_Sand(1)→BlockType.Sand(1), etc.
+            // Build_Sand(0)→BlockType.Sand(0), Build_Glass(1)→BlockType.Glass(1), etc.
             BlockType blockType = (BlockType)(int)CurrentTool;
 
             if (_blockDatabase == null)

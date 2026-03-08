@@ -12,10 +12,11 @@ namespace _Project.Scripts.Voxel
     /// </summary>
     public enum BlockType
     {
-        Dirt  = 0,
-        Glass  = 1,
+        Sand  = 0,
+        Glass = 1,
         Stone = 2,
         Wood  = 3,
-        Torch = 4
+        Torch = 4,
+        Grass = 5
     }
 }
