@@ -64,8 +64,11 @@ namespace _Project.Scripts.Interaction
         [SerializeField] private float _overlapTolerance = 0.05f;
 
         [Header("Game Feel")]
-        [Tooltip("Particle system prefab spawned at the placement position when a block is placed.")]
-        [SerializeField] private ParticleSystem _placeVfxPrefab;
+        [Tooltip("VFX prefab spawned at the placement position when a block is placed.")]
+        [SerializeField] private GameObject _placeVfxPrefab;
+
+        [Tooltip("VFX prefab spawned at the block position when a block is destroyed.")]
+        [SerializeField] private GameObject _breakVfxPrefab;
 
         #endregion
 
@@ -247,11 +250,9 @@ namespace _Project.Scripts.Interaction
 
             Debug.Log($"[ARBlockPlacer] Block placed: {prefab.name} at local {snappedLocal}.");
 
-            // Spawn placement VFX.
+            // Spawn placement VFX at the block centre.
             if (_placeVfxPrefab != null)
-            {
                 Instantiate(_placeVfxPrefab, worldPos, Quaternion.identity);
-            }
 
             // Play placement audio via the audio service.
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
@@ -289,6 +290,10 @@ namespace _Project.Scripts.Interaction
 
             Destroy(targetBlock);
             Debug.Log($"[ARBlockPlacer] Block destroyed: {targetBlock.name}.");
+
+            // Spawn break VFX at the block's world position.
+            if (_breakVfxPrefab != null)
+                Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
         }
 
         #endregion

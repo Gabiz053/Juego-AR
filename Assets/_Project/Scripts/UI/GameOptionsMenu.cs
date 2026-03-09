@@ -7,6 +7,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
@@ -51,6 +52,12 @@ namespace _Project.Scripts.UI
         [Tooltip("DropdownButtonState on Btn_Depth — shows ON/OFF colour and label.")]
         [SerializeField] private DropdownButtonState _depthButtonState;
 
+        [Tooltip("DropdownButtonState on Btn_Grid — shows ON/OFF colour and label.")]
+        [SerializeField] private DropdownButtonState _gridButtonState;
+
+        [Tooltip("DropdownButtonState on Btn_PlaneVisual — shows ON/OFF colour and label.")]
+        [SerializeField] private DropdownButtonState _planeVisualButtonState;
+
         [Header("Services")]
         [Tooltip("Handles world reset: destroy blocks, reset anchor, deactivate grid.")]
         [SerializeField] private WorldResetService _worldResetService;
@@ -60,6 +67,12 @@ namespace _Project.Scripts.UI
 
         [Tooltip("Toggles ARCore Depth API occlusion on and off at runtime.")]
         [SerializeField] private ARDepthService _depthService;
+
+        [Tooltip("AR Plane Manager — toggled by the grid button.")]
+        [SerializeField] private ARPlaneManager _planeManager;
+
+        [Tooltip("AR Plane Grid Aligner — toggles plane mesh visuals without stopping detection.")]
+        [SerializeField] private ARPlaneGridAligner _planeGridAligner;
 
         [Tooltip("Controls background music playback volume.")]
         [SerializeField] private MusicService _musicService;
@@ -131,6 +144,12 @@ namespace _Project.Scripts.UI
             if (_depthService != null)
                 _depthButtonState?.SetState(_depthService.IsDepthEnabled);
 
+            if (_planeGridAligner != null)
+            {
+                _gridButtonState?.SetState(_planeGridAligner.IsVisualEnabled);
+                _planeVisualButtonState?.SetState(_planeGridAligner.IsGridEnabled);
+            }
+
             // Sync the slider position and label to the service's initial volume.
             if (_musicService != null && _musicSlider != null)
             {
@@ -200,6 +219,48 @@ namespace _Project.Scripts.UI
 
             // Visual update is handled by HandleDepthToggled via the event.
             Debug.Log($"[GameOptionsMenu] Depth toggle requested — new state: {_depthService.IsDepthEnabled}.");
+        }
+
+        /// <summary>
+        /// Toggles only the grid lines on the sand shader.
+        /// Sand texture stays visible — only the etched lines disappear.
+        /// Called by <c>Btn_Grid</c>.
+        /// </summary>
+        public void ToggleGrid()
+        {
+            if (_planeGridAligner == null)
+            {
+                Debug.LogWarning("[GameOptionsMenu] _planeGridAligner is not assigned — operation ignored.", this);
+                return;
+            }
+
+            bool nowVisible = !_planeGridAligner.IsGridEnabled;
+            _planeGridAligner.SetGrid(nowVisible);
+            _gridButtonState?.SetState(nowVisible);
+            _uiAudio?.PlayToggle();
+
+            Debug.Log($"[GameOptionsMenu] Grid lines {(nowVisible ? "shown" : "hidden")}.");
+        }
+
+        /// <summary>
+        /// Toggles the AR plane MeshRenderer on or off without stopping ARCore detection.
+        /// Sand and grid both disappear — ARCore keeps tracking in the background.
+        /// Called by <c>Btn_PlaneVisual</c>.
+        /// </summary>
+        public void TogglePlaneVisual()
+        {
+            if (_planeGridAligner == null)
+            {
+                Debug.LogWarning("[GameOptionsMenu] _planeGridAligner is not assigned — operation ignored.", this);
+                return;
+            }
+
+            bool nowVisible = !_planeGridAligner.IsVisualEnabled;
+            _planeGridAligner.SetVisual(nowVisible);
+            _planeVisualButtonState?.SetState(nowVisible);
+            _uiAudio?.PlayToggle();
+
+            Debug.Log($"[GameOptionsMenu] Plane mesh {(nowVisible ? "shown" : "hidden")}.");
         }
 
         /// <summary>
@@ -356,6 +417,10 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned!", this);
             if (_depthService == null)
                 Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned — Btn_Depth will not work.", this);
+            if (_planeManager == null)
+                Debug.LogWarning("[GameOptionsMenu] _planeManager is not assigned — Btn_Grid will not work.", this);
+            if (_planeGridAligner == null)
+                Debug.LogWarning("[GameOptionsMenu] _planeGridAligner is not assigned — Btn_PlaneVisual will not work.", this);
             if (_musicService == null)
                 Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned — music slider will not work.", this);
             if (_musicSlider == null)

@@ -48,15 +48,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _blockType: 2
   _placeSounds:
-  - {fileID: 8300000, guid: 9ccb5b8a9abf6d646b89e055b27e352d, type: 3}
   - {fileID: 8300000, guid: bd91aa6f070eef64aba548913ba85d2d, type: 3}
   - {fileID: 8300000, guid: 0f29ae68b0d4510409ef8a53261f2d01, type: 3}
   - {fileID: 8300000, guid: 239349416a92a8d418790762dc8e82e9, type: 3}
   _breakSounds:
   - {fileID: 8300000, guid: 9ccb5b8a9abf6d646b89e055b27e352d, type: 3}
-  - {fileID: 8300000, guid: bd91aa6f070eef64aba548913ba85d2d, type: 3}
-  - {fileID: 8300000, guid: 0f29ae68b0d4510409ef8a53261f2d01, type: 3}
-  - {fileID: 8300000, guid: 239349416a92a8d418790762dc8e82e9, type: 3}
 --- !u!65 &-7357379159169274117
 BoxCollider:
   m_ObjectHideFlags: 0

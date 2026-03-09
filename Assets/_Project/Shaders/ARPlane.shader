@@ -22,6 +22,9 @@ Shader "ARmonia/AR/ARPlane"
         _ShimmerAmt   ("Shimmer Amount major",    Range(0,0.4)) = 0.18
 
         _Opacity      ("Opacity",                 Range(0,1))   = 0.75
+
+        // Controlled at runtime via MaterialPropertyBlock by ARPlaneGridAligner
+        [Toggle] _GridEnabled ("Show Grid Lines", Float)        = 1
     }
 
     SubShader
@@ -62,6 +65,7 @@ Shader "ARmonia/AR/ARPlane"
                 float _ShimmerSpeed;
                 float _ShimmerAmt;
                 float _Opacity;
+                float _GridEnabled;
             CBUFFER_END
 
             float4x4 _GridMatrix;
@@ -135,8 +139,8 @@ Shader "ARmonia/AR/ARPlane"
                 float mz    = GridLine(lp.z, _CellSize * _MajorEvery, _LineWidth * 1.6);
                 float major = saturate(mx + mz);
 
-                col.rgb = lerp(col.rgb, _GridMinor.rgb, minor * _GridMinor.a * pulseScale);
-                col.rgb = lerp(col.rgb, _GridMajor.rgb, major * _GridMajor.a * shimmerScale);
+                col.rgb = lerp(col.rgb, _GridMinor.rgb, minor * _GridMinor.a * pulseScale  * _GridEnabled);
+                col.rgb = lerp(col.rgb, _GridMajor.rgb, major * _GridMajor.a * shimmerScale * _GridEnabled);
                 col.a   = saturate(col.a * (0.97 + 0.03 * pulse));
 
                 return col * _Opacity;
