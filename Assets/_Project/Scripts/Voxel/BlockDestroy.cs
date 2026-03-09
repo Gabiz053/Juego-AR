@@ -158,12 +158,6 @@ namespace _Project.Scripts.Voxel
 
             transform.SetParent(null, worldPositionStays: true);
 
-            // Disable this object's collider while tumbling so it doesn't push
-            // pebbles or other blocks on the way out.
-            Collider ownCollider = GetComponent<Collider>();
-            if (ownCollider != null) ownCollider.enabled = false;
-
-            // Reuse existing Rigidbody (pebbles already have one) or add a new one.
             Rigidbody rb = GetComponent<Rigidbody>();
             if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
 
@@ -172,13 +166,40 @@ namespace _Project.Scripts.Voxel
             rb.useGravity             = true;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-            Vector3 baseDir = overrideDirection.HasValue
-                ? overrideDirection.Value.normalized
-                : (_camera != null
-                    ? (transform.position - _camera.position).normalized
-                    : Random.insideUnitSphere.normalized);
+            // Re-enable the collider NOW (before the impulse) so the block
+            // can collide with the AR ground plane and other objects.
+            Collider ownCollider = GetComponent<Collider>();
+            if (ownCollider != null) ownCollider.enabled = true;
 
-            Vector3 kickDir = (baseDir + Vector3.up * 0.6f).normalized;
+            // Kick direction: always computed in world space from camera to block
+            // so it is not affected by WorldContainer scale or rotation.
+            // If an explicit override is supplied (e.g. from BreakFromTool) we
+            // convert it from the hit-normal convention (away from surface) to
+            // a world-space kick that adds an upward component.
+            Vector3 kickDir;
+            if (overrideDirection.HasValue)
+            {
+                // overrideDirection is the hit normal in world space (away from block).
+                // Use it directly as the outward direction and add upward bias.
+                Vector3 outward = overrideDirection.Value.normalized;
+                kickDir = (outward + Vector3.up * 0.5f).normalized;
+            }
+            else
+            {
+                // Proximity knock: push away from the camera with upward bias.
+                Vector3 awayFromCam = _camera != null
+                    ? (transform.position - _camera.position).normalized
+                    : Random.insideUnitSphere.normalized;
+                kickDir = (awayFromCam + Vector3.up * 0.6f).normalized;
+            }
+
+            // Add a small random lateral spread so blocks don't all fly the same way.
+            Vector3 spread = new Vector3(
+                Random.Range(-0.3f, 0.3f),
+                0f,
+                Random.Range(-0.3f, 0.3f));
+            kickDir = (kickDir + spread).normalized;
+
             rb.AddForce(kickDir * _knockForce, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * _knockForce * 3f, ForceMode.Impulse);
 

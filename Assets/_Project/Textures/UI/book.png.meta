@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 4d4a42f88b6f99e43bfcf1bca44c1d5c
+guid: 0ed0aef589dcb514682ab0c40abaf172
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -69,7 +69,7 @@ TextureImporter:
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-    maxTextureSize: 256
+    maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
     textureCompression: 0
@@ -110,123 +110,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: gui_select_item
+      name: book_0
       rect:
         serializedVersion: 2
-        x: 1
-        y: 211
-        width: 22
-        height: 22
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 6fead1d56dde1384186f7e6fcd48e920
-      internalID: -354206423
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: gui_hotbar
-      rect:
-        serializedVersion: 2
-        x: 1
-        y: 235
-        width: 140
-        height: 20
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 82ac019778689ec41b4eb7e13a939296
-      internalID: 1052215913
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: gui_click
-      rect:
-        serializedVersion: 2
-        x: 1
-        y: 191
-        width: 198
-        height: 18
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: e2be829fcb8093e408422c0b5c4c8f57
-      internalID: -688849089
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: gui_noclick
-      rect:
-        serializedVersion: 2
-        x: 1
-        y: 171
-        width: 198
-        height: 18
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 356d46f9235854846843de91fe8b01e3
-      internalID: -1156349580
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: gui_tools
-      rect:
-        serializedVersion: 2
-        x: 161
-        y: 235
-        width: 20
-        height: 20
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 076738ce62a23054f9451b2ded8cea8b
-      internalID: 717710931
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: gui_0
-      rect:
-        serializedVersion: 2
-        x: 208
-        y: 241
-        width: 15
-        height: 15
+        x: 20
+        y: 75
+        width: 146
+        height: 180
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -235,8 +125,96 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 6d1895064932be747b56c9072fef34a7
-      internalID: 21825411
+      spriteID: 87a472be213dad34699fbcc66c5454d3
+      internalID: 380300226
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: book_1
+      rect:
+        serializedVersion: 2
+        x: 3
+        y: 52
+        width: 18
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e3d4d21e3630baa47b73909fad5542d5
+      internalID: 884521444
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: book_2
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 52
+        width: 18
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2f840e4ce2002cd4db7e45c70eb64881
+      internalID: -791850763
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: book_3
+      rect:
+        serializedVersion: 2
+        x: 3
+        y: 39
+        width: 18
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 441cffdfb7dd0ea4983bcb34fb1ae586
+      internalID: 1314343933
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: book_4
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 39
+        width: 18
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 777e5572af7b2924c9710d5560abafda
+      internalID: -1639307349
       vertices: []
       indices: 
       edges: []
@@ -245,7 +223,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 4e281342f2984d94e9fe10b59e83b743
+    spriteID: 3fb54dcfe73cccd45ad637da98a8dd5f
     internalID: 0
     vertices: []
     indices: 
@@ -255,12 +233,11 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      gui_0: 21825411
-      gui_click: -688849089
-      gui_hotbar: 1052215913
-      gui_noclick: -1156349580
-      gui_select_item: -354206423
-      gui_tools: 717710931
+      book_0: 380300226
+      book_1: 884521444
+      book_2: -791850763
+      book_3: 1314343933
+      book_4: -1639307349
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

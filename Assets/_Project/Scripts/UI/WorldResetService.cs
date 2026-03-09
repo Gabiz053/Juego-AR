@@ -33,6 +33,9 @@ namespace _Project.Scripts.UI
         [Tooltip("GridManager — used to deactivate the grid visual after clearing.")]
         [SerializeField] private GridManager _gridManager;
 
+        [Tooltip("UndoRedoService — its stacks are cleared together with the world reset.")]
+        [SerializeField] private UndoRedoService _undoRedoService;
+
         #endregion
 
         #region Events ────────────────────────────────────────
@@ -70,6 +73,7 @@ namespace _Project.Scripts.UI
             DestroyAllBlocks();
             ResetAnchor();
             DeactivateGrid();
+            _undoRedoService?.Clear();
 
             OnWorldReset?.Invoke();
             Debug.Log("[WorldResetService] World fully reset (blocks + anchor + grid).");
@@ -157,6 +161,8 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[WorldResetService] _arWorldManager is not assigned!", this);
             if (_gridManager == null)
                 Debug.LogError("[WorldResetService] _gridManager is not assigned!", this);
+            if (_undoRedoService == null)
+                Debug.LogError("[WorldResetService] _undoRedoService is not assigned!", this);
         }
 
         #endregion

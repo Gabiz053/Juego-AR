@@ -109,6 +109,21 @@ namespace _Project.Scripts.Interaction
             return prefab;
         }
 
+        /// <summary>
+        /// Returns the prefab for a specific <see cref="BlockType"/> directly.
+        /// Used by <see cref="Interaction.ARBlockPlacer"/> when recording undo/redo
+        /// actions for destroyed blocks.
+        /// </summary>
+        public GameObject GetBlockPrefab(BlockType blockType)
+        {
+            if (_blockDatabase == null)
+            {
+                Debug.LogError("[ToolManager] _blockDatabase is not assigned!", this);
+                return null;
+            }
+            return _blockDatabase.GetPrefab(blockType);
+        }
+
         #endregion
 
         #region Unity Lifecycle ────────────────────────────────

@@ -80,6 +80,10 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Layer mask for pebble objects — included in destroy raycasts so pebbles can be mined with the pickaxe.")]
         [SerializeField] private LayerMask _pebbleLayerMask;
 
+        [Header("Undo / Redo")]
+        [Tooltip("UndoRedoService — records every place and destroy action so they can be reversed.")]
+        [SerializeField] private UndoRedoService _undoRedoService;
+
         #endregion
 
         #region Cached Components ─────────────────────────────
@@ -285,23 +289,42 @@ namespace _Project.Scripts.Interaction
             GameObject newBlock = Instantiate(prefab, _worldContainer);
             newBlock.transform.SetLocalPositionAndRotation(snappedLocal, Quaternion.identity);
 
-            // Forward shared refs to BlockDestroy (VFX + audio) — avoids per-prefab duplication.
+            // Forward shared refs to BlockDestroy (VFX + audio).
             BlockDestroy blockDestroy = newBlock.GetComponent<BlockDestroy>();
             if (blockDestroy != null)
                 blockDestroy.InjectSharedRefs(_breakVfxPrefab, _audioService);
+
+            // Callback that arms BlockDestroy — reused by undo/redo instantiation.
+            void ArmBlock(GameObject instance)
+            {
+                BlockDestroy bd = instance.GetComponent<BlockDestroy>();
+                if (bd != null)
+                {
+                    bd.InjectSharedRefs(_breakVfxPrefab, _audioService);
+                    bd.SetReady();
+                }
+            }
 
             // Trigger spawn animation — releases the pending cell when done.
             BlockSpawn blockSpawn = newBlock.GetComponent<BlockSpawn>();
             if (blockSpawn != null)
             {
-                blockSpawn.Play(_mainCamera.transform, () => _pendingCells.Remove(snappedLocal));
+                blockSpawn.Play(_mainCamera.transform, () =>
+                {
+                    _pendingCells.Remove(snappedLocal);
+                });
             }
             else
             {
-                // No animation — free the cell and arm the destroy detector immediately.
                 _pendingCells.Remove(snappedLocal);
                 if (blockDestroy != null) blockDestroy.SetReady();
             }
+
+            // Record for undo/redo AFTER the block exists.
+            _undoRedoService?.Record(new PlaceBlockAction(
+                newBlock, prefab, _worldContainer,
+                snappedLocal, Quaternion.identity,
+                _breakVfxPrefab, _audioService, ArmBlock));
 
             Debug.Log($"[ARBlockPlacer] Block placed: {prefab.name} at local {snappedLocal}.");
 
@@ -349,6 +372,36 @@ namespace _Project.Scripts.Interaction
         {
             GameObject target = hit.transform.gameObject;
 
+            VoxelBlock blockData = target.GetComponent<VoxelBlock>();
+            if (blockData != null && _undoRedoService != null)
+            {
+                GameObject prefab = _toolManager.GetBlockPrefab(blockData.Type);
+
+                if (prefab != null)
+                {
+                    // Use localPosition directly — the block is a child of WorldContainer
+                    // so localPosition IS already the snapped grid position.
+                    // InverseTransformPoint would incorrectly scale by WorldContainer.scale.
+                    // Blocks are always placed with Quaternion.identity local rotation.
+                    Vector3    localPos = target.transform.localPosition;
+                    Quaternion localRot = Quaternion.identity;
+
+                    void ArmBlock(GameObject instance)
+                    {
+                        BlockDestroy bd = instance.GetComponent<BlockDestroy>();
+                        if (bd != null)
+                        {
+                            bd.InjectSharedRefs(_breakVfxPrefab, _audioService);
+                            bd.SetReady();
+                        }
+                    }
+
+                    _undoRedoService.Record(new DestroyBlockAction(
+                        prefab, _worldContainer, localPos, localRot,
+                        _breakVfxPrefab, _audioService, ArmBlock));
+                }
+            }
+
             BlockDestroy blockDestroy = target.GetComponent<BlockDestroy>();
             if (blockDestroy != null)
             {
@@ -356,7 +409,6 @@ namespace _Project.Scripts.Interaction
             }
             else
             {
-                VoxelBlock blockData = target.GetComponent<VoxelBlock>();
                 if (blockData != null && _audioService != null)
                     _audioService.PlayOneShot(blockData.BreakSounds);
 

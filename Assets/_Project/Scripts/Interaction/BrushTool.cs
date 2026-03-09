@@ -9,6 +9,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.EventSystems;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
+using _Project.Scripts.UI;
 
 namespace _Project.Scripts.Interaction
 {
@@ -43,6 +44,10 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Brightness multiplier applied to the button colour when brush is OFF. 0.45 = clearly dimmed.")]
         [Range(0f, 1f)]
         [SerializeField] private float _dimFactor = 0.45f;
+
+        [Header("Audio")]
+        [Tooltip("UI audio service — plays toggle sound when brush is turned on or off.")]
+        [SerializeField] private UIAudioService _uiAudio;
 
         [Header("Brush Settings")]
         [Tooltip("Minimum seconds between consecutive block placements while dragging.\n" +
@@ -175,6 +180,7 @@ namespace _Project.Scripts.Interaction
 
             IsBrushActive = !IsBrushActive;
             RefreshButtonVisual();
+            _uiAudio?.PlayToggle();
             Debug.Log($"[BrushTool] Brush mode {(IsBrushActive ? "ON" : "OFF")}.");
         }
 
