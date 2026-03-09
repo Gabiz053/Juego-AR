@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 7067083393637771170}
   - component: {fileID: 6973948820099473278}
   - component: {fileID: 1888952808398202052}
+  - component: {fileID: 9053546781714535640}
+  - component: {fileID: 4290553680077001101}
   m_Layer: 6
   m_Name: Voxel_Wood
   m_TagString: Untagged
@@ -76,6 +78,36 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &9053546781714535640
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9138570219458955277}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b637c6689185c1b4988787a1042e7c9f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _knockRadius: 0.18
+  _knockForce: 2.5
+  _destroyDelay: 1.8
+--- !u!114 &4290553680077001101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9138570219458955277}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be7ef57722d65164db934d6c049c95f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _duration: 0.18
+  _peakScale: 1.15
+  _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
 --- !u!1001 &4664215111915325090
 PrefabInstance:
   m_ObjectHideFlags: 0

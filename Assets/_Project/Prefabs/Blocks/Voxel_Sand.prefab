@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 621961050019213938}
   - component: {fileID: -3295761639757813551}
   - component: {fileID: -7357379159169274117}
+  - component: {fileID: 2730902641688844278}
+  - component: {fileID: -8562387348613211636}
   m_Layer: 6
   m_Name: Voxel_Sand
   m_TagString: Untagged
@@ -74,6 +76,36 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2730902641688844278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3193317777048131821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b637c6689185c1b4988787a1042e7c9f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _knockRadius: 0.18
+  _knockForce: 2.5
+  _destroyDelay: 1.8
+--- !u!114 &-8562387348613211636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3193317777048131821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be7ef57722d65164db934d6c049c95f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _duration: 0.18
+  _peakScale: 1.15
+  _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
 --- !u!1001 &7488737683674896354
 PrefabInstance:
   m_ObjectHideFlags: 0

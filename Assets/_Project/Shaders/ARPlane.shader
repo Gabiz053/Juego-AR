@@ -50,7 +50,12 @@ Shader "ARmonia/AR/ARPlane"
             #pragma vertex   vert
             #pragma fragment frag
 
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _SHADOWS_SOFT
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _Sand0, _Sand1, _Sand2, _Sand3, _Sand4;
@@ -75,6 +80,7 @@ Shader "ARmonia/AR/ARPlane"
             {
                 float4 positionHCS : SV_POSITION;
                 float3 positionWS  : TEXCOORD0;
+                float4 shadowCoord : TEXCOORD1;
             };
 
             Varyings vert(Attributes IN)
@@ -83,6 +89,7 @@ Shader "ARmonia/AR/ARPlane"
                 VertexPositionInputs p = GetVertexPositionInputs(IN.positionOS.xyz);
                 OUT.positionHCS = p.positionCS;
                 OUT.positionWS  = p.positionWS;
+                OUT.shadowCoord = GetShadowCoord(p);
                 return OUT;
             }
 
@@ -142,6 +149,12 @@ Shader "ARmonia/AR/ARPlane"
                 col.rgb = lerp(col.rgb, _GridMinor.rgb, minor * _GridMinor.a * pulseScale  * _GridEnabled);
                 col.rgb = lerp(col.rgb, _GridMajor.rgb, major * _GridMajor.a * shimmerScale * _GridEnabled);
                 col.a   = saturate(col.a * (0.97 + 0.03 * pulse));
+
+                // Receive shadows from the directional light.
+                Light mainLight = GetMainLight(IN.shadowCoord);
+                float shadow    = mainLight.shadowAttenuation;
+                // Darken the sand where shadows fall — subtle so the AR feel is preserved.
+                col.rgb *= lerp(0.55, 1.0, shadow);
 
                 return col * _Opacity;
             }

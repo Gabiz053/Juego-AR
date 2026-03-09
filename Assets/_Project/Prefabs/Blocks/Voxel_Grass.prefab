@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 7786747339105329209}
   - component: {fileID: -2922202581956091427}
   - component: {fileID: 7221270812788041616}
+  - component: {fileID: 3226598169617194445}
+  - component: {fileID: 5331922816721975968}
   m_Layer: 6
   m_Name: Voxel_Grass
   m_TagString: Untagged
@@ -76,6 +78,36 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &3226598169617194445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 866892215896532598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b637c6689185c1b4988787a1042e7c9f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _knockRadius: 0.18
+  _knockForce: 2.5
+  _destroyDelay: 1.8
+--- !u!114 &5331922816721975968
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 866892215896532598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be7ef57722d65164db934d6c049c95f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _duration: 0.18
+  _peakScale: 1.15
+  _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
 --- !u!1001 &2762461985131648801
 PrefabInstance:
   m_ObjectHideFlags: 0

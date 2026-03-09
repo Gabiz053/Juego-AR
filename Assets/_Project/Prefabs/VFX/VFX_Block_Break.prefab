@@ -4842,7 +4842,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4263436165233072513}
-  - component: {fileID: 5477031120647387782}
+  - component: {fileID: 3718867851644725072}
   m_Layer: 0
   m_Name: VFX_Block_Break
   m_TagString: Untagged
@@ -4866,7 +4866,7 @@ Transform:
   - {fileID: 114572553957729272}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5477031120647387782
+--- !u!114 &3718867851644725072
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -4875,9 +4875,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 8968638984064251948}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9778fe622f1786340a6d2247d91c9041, type: 3}
+  m_Script: {fileID: 11500000, guid: fe393692c66ac924da53a6a3de7ab78d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _particles: {fileID: 2358819408066314093}
-  _lifetime: 1.5
+  _lifetime: 1
   _colour: {r: 0.72, g: 0.65, b: 0.45, a: 1}

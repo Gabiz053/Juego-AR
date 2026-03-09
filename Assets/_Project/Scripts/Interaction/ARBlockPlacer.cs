@@ -60,6 +60,9 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Maximum distance (metres) from the camera at which blocks can be placed.")]
         [SerializeField] private float _maxBuildDistance = 7f;
 
+        [Tooltip("Minimum distance (metres) from the camera required to place a block. Prevents placing blocks right in front of the lens.")]
+        [SerializeField] private float _minPlaceDistance = 0.4f;
+
         [Tooltip("Slight shrinkage applied to the overlap check box to avoid false positives at block edges.")]
         [SerializeField] private float _overlapTolerance = 0.05f;
 
@@ -67,7 +70,7 @@ namespace _Project.Scripts.Interaction
         [Tooltip("VFX prefab spawned at the placement position when a block is placed.")]
         [SerializeField] private GameObject _placeVfxPrefab;
 
-        [Tooltip("VFX prefab spawned at the block position when a block is destroyed.")]
+        [Tooltip("VFXBlockDestroy prefab — dust particle burst spawned at the block position on destruction (complements the physics fragments).")]
         [SerializeField] private GameObject _breakVfxPrefab;
 
         #endregion
@@ -79,6 +82,13 @@ namespace _Project.Scripts.Interaction
 
         /// <summary>Reusable list for AR raycast results — avoids GC alloc per frame.</summary>
         private readonly List<ARRaycastHit> _arHits = new List<ARRaycastHit>();
+
+        /// <summary>
+        /// Grid cells reserved by blocks currently mid-spawn-animation (collider still disabled).
+        /// Prevents rapid taps from placing a second block in the same cell before the
+        /// first block's collider is live.
+        /// </summary>
+        private readonly HashSet<Vector3> _pendingCells = new HashSet<Vector3>();
 
         #endregion
 
@@ -222,6 +232,14 @@ namespace _Project.Scripts.Interaction
             Vector3 worldPos    = _worldContainer.TransformPoint(snappedLocal);
             float   worldScale  = _worldContainer.localScale.x;
 
+            // Prevent placing a block too close to the camera.
+            float distToCamera = Vector3.Distance(worldPos, _mainCamera.transform.position);
+            if (distToCamera < _minPlaceDistance)
+            {
+                Debug.Log($"[ARBlockPlacer] Placement blocked — too close to camera ({distToCamera:F2}m < {_minPlaceDistance}m).");
+                return;
+            }
+
             // Prevent placing a block on top of the camera.
             if (IsCameraInsideVoxel(worldPos, worldScale))
             {
@@ -229,8 +247,8 @@ namespace _Project.Scripts.Interaction
                 return;
             }
 
-            // Prevent overlapping with existing blocks.
-            if (!IsSpaceEmpty(worldPos, worldScale))
+            // Prevent overlapping with existing blocks OR cells reserved mid-animation.
+            if (!IsSpaceEmpty(worldPos, worldScale) || _pendingCells.Contains(snappedLocal))
             {
                 Debug.Log("[ARBlockPlacer] Placement blocked — space is already occupied.");
                 return;
@@ -244,9 +262,30 @@ namespace _Project.Scripts.Interaction
                 return;
             }
 
+            // Reserve the cell immediately so rapid taps can't double-place.
+            _pendingCells.Add(snappedLocal);
+
             // Instantiate block as child of WorldContainer.
             GameObject newBlock = Instantiate(prefab, _worldContainer);
             newBlock.transform.SetLocalPositionAndRotation(snappedLocal, Quaternion.identity);
+
+            // Forward shared refs to BlockDestroy (VFX + audio) — avoids per-prefab duplication.
+            BlockDestroy blockDestroy = newBlock.GetComponent<BlockDestroy>();
+            if (blockDestroy != null)
+                blockDestroy.InjectSharedRefs(_breakVfxPrefab, _audioService);
+
+            // Trigger spawn animation — releases the pending cell when done.
+            BlockSpawn blockSpawn = newBlock.GetComponent<BlockSpawn>();
+            if (blockSpawn != null)
+            {
+                blockSpawn.Play(_mainCamera.transform, () => _pendingCells.Remove(snappedLocal));
+            }
+            else
+            {
+                // No animation — free the cell and arm the destroy detector immediately.
+                _pendingCells.Remove(snappedLocal);
+                if (blockDestroy != null) blockDestroy.SetReady();
+            }
 
             Debug.Log($"[ARBlockPlacer] Block placed: {prefab.name} at local {snappedLocal}.");
 
@@ -257,9 +296,7 @@ namespace _Project.Scripts.Interaction
             // Play placement audio via the audio service.
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
             if (blockData != null && _audioService != null)
-            {
                 _audioService.PlayOneShot(blockData.PlaceSounds);
-            }
         }
 
         #endregion
@@ -281,19 +318,26 @@ namespace _Project.Scripts.Interaction
 
             GameObject targetBlock = hit.transform.gameObject;
 
-            // Play break audio before destruction via the audio service.
-            VoxelBlock blockData = targetBlock.GetComponent<VoxelBlock>();
-            if (blockData != null && _audioService != null)
+            // Trigger physics-based break — BlockDestroy handles audio, VFX, and tumble.
+            BlockDestroy blockDestroy = targetBlock.GetComponent<BlockDestroy>();
+            if (blockDestroy != null)
             {
-                _audioService.PlayOneShot(blockData.BreakSounds);
+                blockDestroy.BreakFromTool(hit.normal);
+            }
+            else
+            {
+                // Fallback: no BlockDestroy component, plain destroy.
+                VoxelBlock blockData = targetBlock.GetComponent<VoxelBlock>();
+                if (blockData != null && _audioService != null)
+                    _audioService.PlayOneShot(blockData.BreakSounds);
+
+                if (_breakVfxPrefab != null)
+                    Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
+
+                Destroy(targetBlock);
             }
 
-            Destroy(targetBlock);
             Debug.Log($"[ARBlockPlacer] Block destroyed: {targetBlock.name}.");
-
-            // Spawn break VFX at the block's world position.
-            if (_breakVfxPrefab != null)
-                Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
         }
 
         #endregion
@@ -323,7 +367,7 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
-        #region Validation ────────────────────────────────────
+        #region Validation ├───────────────────────────────────
 
         /// <summary>
         /// Logs errors for any missing Inspector references at startup.
