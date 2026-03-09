@@ -36,6 +36,9 @@ namespace _Project.Scripts.Voxel
 
         private void Start()
         {
+            if (_particles != null)
+                _particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
             Configure();
             StartCoroutine(Play());
         }

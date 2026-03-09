@@ -29,6 +29,9 @@ namespace _Project.Scripts.Voxel
 
         private void Start()
         {
+            if (_particles != null)
+                _particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
             Configure();
             if (_particles != null) _particles.Play();
             Destroy(gameObject, _lifetime);

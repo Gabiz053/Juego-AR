@@ -73,6 +73,10 @@ namespace _Project.Scripts.Interaction
         [Tooltip("VFXBlockDestroy prefab — dust particle burst spawned at the block position on destruction (complements the physics fragments).")]
         [SerializeField] private GameObject _breakVfxPrefab;
 
+        [Header("Tools")]
+        [Tooltip("Optional BrushTool — when brush mode is active ARBlockPlacer skips tap handling (BrushTool owns the touch).")]
+        [SerializeField] private BrushTool _brushTool;
+
         #endregion
 
         #region Cached Components ─────────────────────────────
@@ -130,9 +134,15 @@ namespace _Project.Scripts.Interaction
             // Ignore touches over UI elements (buttons, panels, etc.).
             if (EventSystem.current != null &&
                 EventSystem.current.IsPointerOverGameObject(touch.touchId))
-            {
                 return;
-            }
+
+            // Yield to BrushTool only when brush is active AND we are NOT mining.
+            // Destroy taps always pass through so the player can mine with brush ON.
+            bool brushOwnsTouch = _brushTool != null
+                               && _brushTool.IsBrushActive
+                               && _toolManager != null
+                               && _toolManager.CurrentTool != ToolType.Tool_Destroy;
+            if (brushOwnsTouch) return;
 
             HandleTouch(touch.screenPosition);
         }
@@ -173,9 +183,11 @@ namespace _Project.Scripts.Interaction
         /// <summary>
         /// Attempts to place a block. First tries a physics raycast against
         /// existing blocks (stacking), then falls back to an AR plane raycast
-        /// (first block on detected surface).
+        /// (first block on detected surface).<br/>
+        /// Called by <see cref="BrushTool"/> on <c>TouchPhase.Moved</c> as well
+        /// as the internal <c>Began</c> tap handler.
         /// </summary>
-        private void TryPlaceBlock(Vector2 screenPosition)
+        public void TryPlaceBlock(Vector2 screenPosition)
         {
             Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
 
@@ -224,9 +236,10 @@ namespace _Project.Scripts.Interaction
 
         /// <summary>
         /// Snaps the raw local position, validates placement constraints,
-        /// instantiates the block prefab, spawns VFX, and plays audio.
+        /// instantiates the block prefab, spawns VFX, and plays audio.<br/>
+        /// Called by <see cref="BrushTool"/> as well as the internal tap handler.
         /// </summary>
-        private void ProcessAndPlace(Vector3 rawLocalPosition)
+        public void ProcessAndPlace(Vector3 rawLocalPosition)
         {
             Vector3 snappedLocal = _gridManager.GetSnappedPosition(rawLocalPosition);
             Vector3 worldPos    = _worldContainer.TransformPoint(snappedLocal);
@@ -304,9 +317,10 @@ namespace _Project.Scripts.Interaction
         #region Block Destruction ──────────────────────────────
 
         /// <summary>
-        /// Casts a physics ray and destroys the first voxel block hit.
+        /// Casts a physics ray and destroys the first voxel block hit.<br/>
+        /// Called by <see cref="BrushTool"/> for continuous mining as well as the internal tap handler.
         /// </summary>
-        private void TryDestroyBlock(Vector2 screenPosition)
+        public void TryDestroyBlock(Vector2 screenPosition)
         {
             Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
 

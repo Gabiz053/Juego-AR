@@ -40,8 +40,11 @@ namespace _Project.Scripts.Voxel
         [Tooltip("Magnitude of the random impulse applied when the block is knocked.")]
         [SerializeField] private float _knockForce = 2.5f;
 
-        [Tooltip("Seconds the block tumbles before being destroyed.")]
-        [SerializeField] private float _destroyDelay = 1.8f;
+        [Tooltip("Seconds the block tumbles before the shrink begins.")]
+        [SerializeField] private float _destroyDelay = 0.12f;
+
+        [Tooltip("Seconds the block takes to shrink to zero after tumbling.")]
+        [SerializeField] private float _shrinkDuration = 0.18f;
 
         // Break VFX and audio come from ARBlockPlacer via InjectSharedRefs —
         // they are NOT serialized here to avoid duplicating references across
@@ -154,7 +157,29 @@ namespace _Project.Scripts.Voxel
 
             enabled = false;
 
+            // Let the block tumble freely.
             yield return new WaitForSeconds(_destroyDelay);
+
+            // Freeze physics exactly where it landed — no position or rotation change.
+            if (rb != null)
+            {
+                rb.linearVelocity  = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic     = true;
+            }
+
+            // Shrink uniformly from whatever scale/rotation the block settled at.
+            Vector3 startScale = transform.localScale;
+            float   elapsed    = 0f;
+
+            while (elapsed < _shrinkDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t     = Mathf.Clamp01(elapsed / _shrinkDuration);
+                float eased = t * t;   // ease-in — accelerates into nothing
+                transform.localScale = Vector3.LerpUnclamped(startScale, Vector3.zero, eased);
+                yield return null;
+            }
 
             Destroy(gameObject);
         }

@@ -2089,10 +2089,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2043065969}
-        m_TargetAssemblyTypeName: _Project.Scripts.UI.UIManager, Assembly-CSharp
-        m_MethodName: OnSlotClicked
-        m_Mode: 3
+      - m_Target: {fileID: 1238779088}
+        m_TargetAssemblyTypeName: _Project.Scripts.Interaction.BrushTool, Assembly-CSharp
+        m_MethodName: ToggleBrush
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -5228,6 +5228,7 @@ GameObject:
   - component: {fileID: 1238779084}
   - component: {fileID: 1238779085}
   - component: {fileID: 1238779087}
+  - component: {fileID: 1238779088}
   m_Layer: 0
   m_Name: XR Origin (Mobile AR)
   m_TagString: Untagged
@@ -5340,6 +5341,7 @@ MonoBehaviour:
   _overlapTolerance: 0.1
   _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
   _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
+  _brushTool: {fileID: 1238779088}
 --- !u!120 &1238779078
 LineRenderer:
   serializedVersion: 2
@@ -5757,6 +5759,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _planeManager: {fileID: 1238779074}
   _worldContainer: {fileID: 1472623155}
+--- !u!114 &1238779088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71a306568b270174d9dced003be8cd48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _blockPlacer: {fileID: 1238779077}
+  _toolManager: {fileID: 1586780609}
+  _brushButtonImage: {fileID: 363852202}
+  _dimFactor: 0.45
+  _strokeCooldown: 0.06
 --- !u!1 &1241133910
 GameObject:
   m_ObjectHideFlags: 0
@@ -6572,7 +6591,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Iluminacion
+  m_text: Linterna
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 61d00ea0cfe24ce4fb346647b723a296, type: 2}
   m_sharedMaterial: {fileID: 2494829716778255991, guid: 61d00ea0cfe24ce4fb346647b723a296, type: 2}
