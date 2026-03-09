@@ -58,6 +58,7 @@ namespace _Project.Scripts.Voxel
         private VoxelBlock       _voxelBlock;
         private GameObject       _breakVfxPrefab;
         private GameAudioService _audioService;
+        private AudioClip[]      _breakSounds;   // injected by PlowTool for pebbles without VoxelBlock
         private bool             _knocked;
         private bool             _ready;   // set by BlockSpawn when the animation finishes
 
@@ -98,6 +99,19 @@ namespace _Project.Scripts.Voxel
         }
 
         /// <summary>
+        /// Overload used by <see cref="Interaction.PlowTool"/> for pebbles that have no
+        /// <see cref="VoxelBlock"/> component. The extra <paramref name="breakSounds"/>
+        /// array is played on destruction instead of <c>VoxelBlock.BreakSounds</c>.
+        /// </summary>
+        public void InjectSharedRefs(GameObject breakVfxPrefab, GameAudioService audioService,
+                                     AudioClip[] breakSounds)
+        {
+            _breakVfxPrefab = breakVfxPrefab;
+            _audioService   = audioService;
+            _breakSounds    = breakSounds;
+        }
+
+        /// <summary>
         /// Called by <see cref="BlockSpawn"/> when the spawn animation has fully
         /// settled. Until this is called the proximity check is suppressed so the
         /// block cannot be knocked back while it is still flying in from the camera.
@@ -106,6 +120,9 @@ namespace _Project.Scripts.Voxel
         {
             _ready = true;
         }
+
+        /// <summary>True once <see cref="SetReady"/> has been called by <see cref="BlockSpawn"/>.</summary>
+        public bool IsReady => _ready;
 
         /// <summary>
         /// Triggers the physics-based break immediately (used by the Destroy tool).<br/>
@@ -128,23 +145,33 @@ namespace _Project.Scripts.Voxel
         {
             _knocked = true;
 
-            // Audio + VFX
-            if (_audioService != null && _voxelBlock != null)
-                _audioService.PlayOneShot(_voxelBlock.BreakSounds);
+            // Audio — prefer VoxelBlock clips, fall back to injected clips (pebbles).
+            if (_audioService != null)
+            {
+                AudioClip[] clips = (_voxelBlock != null) ? _voxelBlock.BreakSounds : _breakSounds;
+                if (clips != null && clips.Length > 0)
+                    _audioService.PlayOneShot(clips);
+            }
 
             if (_breakVfxPrefab != null)
                 Instantiate(_breakVfxPrefab, transform.position, Quaternion.identity);
 
-            // Unparent from WorldContainer
             transform.SetParent(null, worldPositionStays: true);
 
-            // Add Rigidbody with gravity
-            Rigidbody rb = gameObject.AddComponent<Rigidbody>();
-            rb.mass      = 1f;
-            rb.useGravity = true;
+            // Disable this object's collider while tumbling so it doesn't push
+            // pebbles or other blocks on the way out.
+            Collider ownCollider = GetComponent<Collider>();
+            if (ownCollider != null) ownCollider.enabled = false;
+
+            // Reuse existing Rigidbody (pebbles already have one) or add a new one.
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+
+            rb.isKinematic            = false;
+            rb.mass                   = 1f;
+            rb.useGravity             = true;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-            // Kick direction: supplied override or away from camera
             Vector3 baseDir = overrideDirection.HasValue
                 ? overrideDirection.Value.normalized
                 : (_camera != null
@@ -157,10 +184,8 @@ namespace _Project.Scripts.Voxel
 
             enabled = false;
 
-            // Let the block tumble freely.
             yield return new WaitForSeconds(_destroyDelay);
 
-            // Freeze physics exactly where it landed — no position or rotation change.
             if (rb != null)
             {
                 rb.linearVelocity  = Vector3.zero;
@@ -168,7 +193,6 @@ namespace _Project.Scripts.Voxel
                 rb.isKinematic     = true;
             }
 
-            // Shrink uniformly from whatever scale/rotation the block settled at.
             Vector3 startScale = transform.localScale;
             float   elapsed    = 0f;
 
@@ -176,7 +200,7 @@ namespace _Project.Scripts.Voxel
             {
                 elapsed += Time.deltaTime;
                 float t     = Mathf.Clamp01(elapsed / _shrinkDuration);
-                float eased = t * t;   // ease-in — accelerates into nothing
+                float eased = t * t;
                 transform.localScale = Vector3.LerpUnclamped(startScale, Vector3.zero, eased);
                 yield return null;
             }

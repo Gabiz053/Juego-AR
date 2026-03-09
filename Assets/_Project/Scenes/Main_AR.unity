@@ -2826,8 +2826,8 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 265297850}
-  - {fileID: 363852200}
   - {fileID: 1347067318}
+  - {fileID: 363852200}
   m_Father: {fileID: 1139651219}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -5229,6 +5229,7 @@ GameObject:
   - component: {fileID: 1238779085}
   - component: {fileID: 1238779087}
   - component: {fileID: 1238779088}
+  - component: {fileID: 1238779089}
   m_Layer: 0
   m_Name: XR Origin (Mobile AR)
   m_TagString: Untagged
@@ -5342,6 +5343,9 @@ MonoBehaviour:
   _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
   _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
   _brushTool: {fileID: 1238779088}
+  _pebbleLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
 --- !u!120 &1238779078
 LineRenderer:
   serializedVersion: 2
@@ -5773,9 +5777,48 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _blockPlacer: {fileID: 1238779077}
   _toolManager: {fileID: 1586780609}
+  _plowTool: {fileID: 1238779089}
   _brushButtonImage: {fileID: 363852202}
   _dimFactor: 0.45
   _strokeCooldown: 0.06
+--- !u!114 &1238779089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1238779071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5315301018f89454a8ad4fcfbb01e02b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _toolManager: {fileID: 1586780609}
+  _arRaycastManager: {fileID: 1238779073}
+  _worldContainer: {fileID: 1472623155}
+  _audioService: {fileID: 1238779082}
+  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
+  _pebblePrefabs:
+  - {fileID: 2346634912404660289, guid: ad8b8e820daa6af48a32bd394a01ef22, type: 3}
+  _placeSounds:
+  - {fileID: 8300000, guid: d0c2945c80358f24d9e9ad102964dd20, type: 3}
+  - {fileID: 8300000, guid: b5eaf0dba445ba941afe886ceb126241, type: 3}
+  - {fileID: 8300000, guid: d5f79893325ee0c4598d70925ec60493, type: 3}
+  _breakSounds:
+  - {fileID: 8300000, guid: 59542c3e405d7794084bda8e674dc0c7, type: 3}
+  - {fileID: 8300000, guid: d0efc4fa96861d34789fa1c855eb9d7b, type: 3}
+  _voxelLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  _pebbleLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
+  _maxPlaceDistance: 4
+  _minPlaceDistance: 0.3
+  _scaleMin: 0.8
+  _scaleMax: 1.2
+  _scatterRadius: 0.015
+  _brushCooldown: 0.12
 --- !u!1 &1241133910
 GameObject:
   m_ObjectHideFlags: 0

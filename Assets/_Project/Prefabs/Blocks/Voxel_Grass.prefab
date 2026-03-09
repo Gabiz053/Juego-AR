@@ -92,7 +92,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _knockRadius: 0.18
   _knockForce: 2.5
-  _destroyDelay: 1.8
+  _destroyDelay: 1
+  _shrinkDuration: 0.18
 --- !u!114 &5331922816721975968
 MonoBehaviour:
   m_ObjectHideFlags: 0

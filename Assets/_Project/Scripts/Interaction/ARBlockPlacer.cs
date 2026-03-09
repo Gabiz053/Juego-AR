@@ -77,6 +77,9 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Optional BrushTool — when brush mode is active ARBlockPlacer skips tap handling (BrushTool owns the touch).")]
         [SerializeField] private BrushTool _brushTool;
 
+        [Tooltip("Layer mask for pebble objects — included in destroy raycasts so pebbles can be mined with the pickaxe.")]
+        [SerializeField] private LayerMask _pebbleLayerMask;
+
         #endregion
 
         #region Cached Components ─────────────────────────────
@@ -324,34 +327,46 @@ namespace _Project.Scripts.Interaction
         {
             Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, _maxBuildDistance, _voxelLayerMask))
+            // 1. Try voxel blocks first.
+            if (Physics.Raycast(ray, out RaycastHit hit, _maxBuildDistance, _voxelLayerMask))
             {
-                Debug.Log("[ARBlockPlacer] Destroy ray missed — no voxel hit.");
+                DestroyHit(hit);
                 return;
             }
 
-            GameObject targetBlock = hit.transform.gameObject;
+            // 2. Try pebbles — same ray, pebble layer mask.
+            if (_pebbleLayerMask != 0 &&
+                Physics.Raycast(ray, out RaycastHit pebbleHit, _maxBuildDistance, _pebbleLayerMask))
+            {
+                DestroyHit(pebbleHit);
+                return;
+            }
 
-            // Trigger physics-based break — BlockDestroy handles audio, VFX, and tumble.
-            BlockDestroy blockDestroy = targetBlock.GetComponent<BlockDestroy>();
+            Debug.Log("[ARBlockPlacer] Destroy ray missed — no voxel or pebble hit.");
+        }
+
+        private void DestroyHit(RaycastHit hit)
+        {
+            GameObject target = hit.transform.gameObject;
+
+            BlockDestroy blockDestroy = target.GetComponent<BlockDestroy>();
             if (blockDestroy != null)
             {
                 blockDestroy.BreakFromTool(hit.normal);
             }
             else
             {
-                // Fallback: no BlockDestroy component, plain destroy.
-                VoxelBlock blockData = targetBlock.GetComponent<VoxelBlock>();
+                VoxelBlock blockData = target.GetComponent<VoxelBlock>();
                 if (blockData != null && _audioService != null)
                     _audioService.PlayOneShot(blockData.BreakSounds);
 
                 if (_breakVfxPrefab != null)
                     Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
 
-                Destroy(targetBlock);
+                Destroy(target);
             }
 
-            Debug.Log($"[ARBlockPlacer] Block destroyed: {targetBlock.name}.");
+            Debug.Log($"[ARBlockPlacer] Destroyed: {target.name}.");
         }
 
         #endregion

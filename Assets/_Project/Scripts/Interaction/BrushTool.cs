@@ -33,6 +33,9 @@ namespace _Project.Scripts.Interaction
         [Tooltip("ToolManager — listens for tool changes to track the last build tool.")]
         [SerializeField] private ToolManager _toolManager;
 
+        [Tooltip("PlowTool — receives continuous placement calls when Tool_Plow is active.")]
+        [SerializeField] private PlowTool _plowTool;
+
         [Header("Button Visual")]
         [Tooltip("Image on Btn_Brush that is dimmed when brush is OFF and full-bright when ON.")]
         [SerializeField] private Image _brushButtonImage;
@@ -134,6 +137,13 @@ namespace _Project.Scripts.Interaction
                 return;
             }
 
+            // ?? Plow mode: scatter pebbles continuously (no grid alignment) ???
+            if (_toolManager.CurrentTool == ToolType.Tool_Plow)
+            {
+                _plowTool?.PlacePebbleAtScreen(touch.screenPosition);
+                return;
+            }
+
             // ?? Build mode: paint blocks continuously ?????????????????????????
             if (Time.time - _lastPlaceTime < _strokeCooldown) return;
 
@@ -152,16 +162,20 @@ namespace _Project.Scripts.Interaction
         /// </summary>
         public void ToggleBrush()
         {
-            // Cannot activate brush without a block selected.
-            if (!IsBrushActive && !_hasBuildTool)
+            // Cannot activate brush without a block or plow selected.
+            bool canActivate = _hasBuildTool
+                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Plow)
+                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Destroy);
+
+            if (!IsBrushActive && !canActivate)
             {
-                Debug.Log("[BrushTool] Brush blocked — no block selected (Tool_None active).");
+                Debug.Log("[BrushTool] Brush blocked — no usable tool selected.");
                 return;
             }
 
             IsBrushActive = !IsBrushActive;
             RefreshButtonVisual();
-            Debug.Log($"[BrushTool] Brush mode {(IsBrushActive ? "ON" : "OFF")} — active block: {_lastBuildTool}.");
+            Debug.Log($"[BrushTool] Brush mode {(IsBrushActive ? "ON" : "OFF")}.");
         }
 
         #endregion
