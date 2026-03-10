@@ -1,15 +1,14 @@
 // ──────────────────────────────────────────────
-//  WorldResetService.cs  ·  _Project.Scripts.UI
+//  WorldResetService.cs  ·  _Project.Scripts.Core
 //  Encapsulates the "clear all blocks" world-reset operation.
 // ──────────────────────────────────────────────
 
 using System;
 using UnityEngine;
 using _Project.Scripts.AR;
-using _Project.Scripts.Core;
 using _Project.Scripts.Voxel;
 
-namespace _Project.Scripts.UI
+namespace _Project.Scripts.Core
 {
     /// <summary>
     /// Destroys every placed block, resets the AR spatial anchor, and
@@ -18,7 +17,7 @@ namespace _Project.Scripts.UI
     /// and tested independently of the UI layer.
     /// </summary>
     [DisallowMultipleComponent]
-    [AddComponentMenu("ARmonia/UI/World Reset Service")]
+    [AddComponentMenu("ARmonia/Core/World Reset Service")]
     public class WorldResetService : MonoBehaviour
     {
         #region Inspector ─────────────────────────────────────

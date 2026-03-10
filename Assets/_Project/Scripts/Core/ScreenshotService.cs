@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-//  ScreenshotService.cs  ·  _Project.Scripts.UI
+//  ScreenshotService.cs  ·  _Project.Scripts.Core
 //  Reusable screenshot capture with automatic canvas hiding.
 // ──────────────────────────────────────────────
 
@@ -7,7 +7,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace _Project.Scripts.UI
+namespace _Project.Scripts.Core
 {
     /// <summary>
     /// Captures a full-screen screenshot, temporarily disabling the
@@ -16,7 +16,7 @@ namespace _Project.Scripts.UI
     /// or the project root (Editor) with a timestamped name.
     /// </summary>
     [DisallowMultipleComponent]
-    [AddComponentMenu("ARmonia/UI/Screenshot Service")]
+    [AddComponentMenu("ARmonia/Core/Screenshot Service")]
     public class ScreenshotService : MonoBehaviour
     {
         #region Inspector ─────────────────────────────────────

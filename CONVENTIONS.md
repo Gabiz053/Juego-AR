@@ -3,7 +3,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 43 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
+> **Última auditoría:** 49 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -66,9 +66,9 @@ _Project/
 │   └── Main_AR.unity
 ├── Scripts/
 │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
-│   ├── Core/                ← Grid, armonía, audio, undo/redo, datos de modo
-│   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción
-│   ├── UI/                  ← HUD, menú, orientación, screenshots, servicios UI
+│   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo
+│   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
+│   ├── UI/                  ← HUD, menú, orientación, servicios UI
 │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 ├── Shaders/                 ← Shaders HLSL personalizados (URP)
 └── Textures/
@@ -91,17 +91,28 @@ AR System                                  [Empty — agrupa objetos 3D/AR]
 ├── XR Interaction Manager                 [XRInteractionManager]
 ├── XR Origin (Mobile AR)                  [XROrigin, ARPlaneManager, ARRaycastManager,
 │   │                                       ARAnchorManager, ARTrackedImageManager,
-│   │                                       ARBlockPlacer, ARWorldManager, ARDepthService,
-│   │                                       ARPlaneGridAligner, WorldModeBootstrapper,
-│   │                                       BrushTool, PlowTool, UndoRedoService,
-│   │                                       MusicService, GameAudioService,
-│   │                                       DebugRayVisualizer, LineRenderer,
-│   │                                       AudioSource (SFX), AudioSource (Music)]
-│   └── Camera Offset
-│       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
-│                                           ARCameraManager, ARCameraBackground,
-│                                           AROcclusionManager]
-│           └── CameraFlashLight           [Light (Spot) — linterna de foco]
+│   │                                       ARWorldManager, ARDepthService,
+│   │                                       ARPlaneGridAligner, WorldModeBootstrapper]
+│   ├── Camera Offset
+│   │   └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
+│   │                                       ARCameraManager, ARCameraBackground,
+│   │                                       AROcclusionManager]
+│   │       └── CameraFlashLight           [Light (Spot) — linterna de foco]
+│   ├── Svc_Audio                          [Empty — agrupa servicios de audio]
+│   │       GameAudioService + AudioSource (SFX)
+│   │       MusicService + AudioSource (Music)
+│   ├── Svc_Interaction                    [Empty — agrupa input y herramientas]
+│   │       TouchInputRouter
+│   │       ARBlockPlacer
+│   │       BlockDestroyer
+│   │       BrushTool
+│   │       PlowTool
+│   │       DebugRayVisualizer + LineRenderer
+│   ├── Svc_GameLogic                      [Empty — agrupa lógica de juego]
+│   │       HarmonyService
+│   │       UndoRedoService
+│   └── Svc_Lighting                       [Empty — gestión de iluminación]
+│           LightingService
 ├── WorldContainer                         [GridManager, GridVisualizer]
 ├── ToolManager                            [ToolManager]
 └── Directional Light                      [Light (Directional), URP AdditionalLightData]
@@ -123,7 +134,7 @@ UI System                                  [Empty — agrupa objetos UI]
 │   ├── HUD_ToolPanel                      [Image]
 │   │   └── Tools_LayoutGroup              [VerticalLayoutGroup]
 │   │       ├── Btn_Break      → Icon_Break, Txt_Break
-│   │       ├── Btn_Brush      → Icon_Brush, Txt_Brush
+│   │       ├── Btn_Brush      → Icon_Brush, Txt_Brush  [BrushHUD]
 │   │       └── Btn_Hoe        → Icon_Hoe, Txt_Hoe
 │   │
 │   ├── HUD_Selector                       [Image — highlight amarillo]
@@ -181,17 +192,21 @@ UI System                                  [Empty — agrupa objetos UI]
 
 | Script | GameObject host | RequireComponent |
 |--------|----------------|------------------|
-| `ARBlockPlacer` | XR Origin (Mobile AR) | `ARRaycastManager` |
 | `ARWorldManager` | XR Origin (Mobile AR) | `ARAnchorManager` |
 | `ARDepthService` | XR Origin (Mobile AR) | — |
 | `ARPlaneGridAligner` | XR Origin (Mobile AR) | — |
 | `WorldModeBootstrapper` | XR Origin (Mobile AR) | — |
-| `BrushTool` | XR Origin (Mobile AR) | — |
-| `PlowTool` | XR Origin (Mobile AR) | — |
-| `UndoRedoService` | XR Origin (Mobile AR) | — |
-| `MusicService` | XR Origin (Mobile AR) | — |
-| `GameAudioService` | XR Origin (Mobile AR) | `AudioSource` |
-| `DebugRayVisualizer` | XR Origin (Mobile AR) | `LineRenderer` |
+| `GameAudioService` | Svc_Audio | — |
+| `MusicService` | Svc_Audio | — |
+| `TouchInputRouter` | Svc_Interaction | — |
+| `ARBlockPlacer` | Svc_Interaction | — |
+| `BlockDestroyer` | Svc_Interaction | — |
+| `BrushTool` | Svc_Interaction | — |
+| `PlowTool` | Svc_Interaction | — |
+| `DebugRayVisualizer` | Svc_Interaction | — |
+| `HarmonyService` | Svc_GameLogic | — |
+| `UndoRedoService` | Svc_GameLogic | — |
+| `LightingService` | Svc_Lighting | — |
 | `GridManager` | WorldContainer | — |
 | `GridVisualizer` | WorldContainer | — |
 | `ToolManager` | ToolManager | — |
@@ -200,12 +215,12 @@ UI System                                  [Empty — agrupa objetos UI]
 | `UIAudioService` | MainCanvas | `AudioSource` |
 | `HarmonyHUD` | HUD_Harmony | — |
 | `UndoRedoHUD` | HUD_UndoRedo | — |
+| `BrushHUD` | Btn_Brush | — |
 | `GameOptionsMenu` | HUD_OptionsMenu | — |
 | `PerfectHarmonyPanel` | HUD_PerfectHarmony | `CanvasGroup` |
 | `HarmonyParticles` | HUD_Particles | `ParticleSystem` |
 | `WorldResetService` | Svc_WorldReset | — |
 | `ScreenshotService` | Svc_Screenshot | — |
-| `HarmonyService` | (GO dedicado o XR Origin) | — |
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
 | `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane` | — |
 
@@ -224,17 +239,23 @@ UI System                                  [Empty — agrupa objetos UI]
 | `Icon_` | Imágenes de icono dentro de botones | `Icon_Undo`, `Icon_Sand`, `Icon_Settings` |
 | `Sld_` | Sliders | `Sld_MusicVolume` |
 | `*_LayoutGroup` | Objetos con LayoutGroup component | `Hotbar_LayoutGroup`, `Dialog_LayoutGroup` |
-| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Screenshot`, `Svc_WorldReset` |
+| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Screenshot`, `Svc_WorldReset`, `Svc_Audio`, `Svc_Interaction` |
 | PascalCase | Singletons / contenedores | `WorldContainer`, `ToolManager`, `MainCanvas` |
 
 **Reglas obligatorias:**
-
-- Cada `Btn_X` debe contener al menos un hijo `Txt_X` o `Icon_X` con el mismo
-  sufijo.
+- Cada `Btn_X` debe contener al menos un hijo `Txt_X` o `Icon_X` con el mismo sufijo.
 - Todos los nombres en **inglés**. No español en la jerarquía.
 - Sin espacios en nombres propios. Usar `_` para separar prefijo de nombre.
-- Los objetos estándar de Unity mantienen su nombre por defecto (`AR Session`,
-  `Directional Light`, etc.).
+- Los objetos estándar de Unity mantienen su nombre por defecto (`AR Session`, `Directional Light`, etc.).
+
+### Wiring de botones — regla del Brush
+
+El `Btn_Brush` es una **excepción** al patrón estándar de botones:
+
+| Botón | OnClick destino | Razón |
+|-------|----------------|-------|
+| `Btn_Sand` … `Btn_Hoe` (salvo Brush) | `UIManager.OnSlotClicked(int)` | Son herramientas normales |
+| `Btn_Brush` | `BrushTool.ToggleBrush()` — **llamada directa** | El Brush es un mode overlay, no una herramienta. No pasa por ToolManager. |
 
 ---
 
@@ -438,13 +459,11 @@ nítidos de pixel.
 | `ARmonia/Blocks/VoxelLit` | `VoxelLit.shader` | Toon-lit 3 bandas, point-sampled, vertex AO, emisión, fog, shadow caster + depth. |
 
 **Reglas para shaders:**
-
 - Usar `CBUFFER_START(UnityPerMaterial)` para compatibilidad con SRP Batcher.
 - Incluir `#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE`.
 - Incluir `#pragma multi_compile _ _SHADOWS_SOFT`.
 - Incluir `#pragma multi_compile_fog` si el shader soporta fog.
-- Usar `MaterialPropertyBlock` en vez de material instances para propiedades
-  per-object en runtime.
+- Usar `MaterialPropertyBlock` en vez de material instances para propiedades per-object en runtime.
 
 ---
 
@@ -517,15 +536,16 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
 | **Auto-locate en Awake** | Componentes del mismo GO o jerarquía cercana | `PerfectHarmonyPanel` auto-localiza `CanvasGroup`, `HarmonyParticles`, `UIAudioService` |
 | **InjectSharedRefs** | Inyección post-instantiate para evitar duplicar refs en prefabs | `BlockDestroy.InjectSharedRefs(vfx, audio)` |
+| **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
 
 **Patrones prohibidos:**
-
 | Prohibido | Razón |
 |-----------|-------|
 | Singleton MonoBehaviour (`Instance` pattern) | Acoplamiento global, difícil de testear |
 | `SendMessage()` / `BroadcastMessage()` | Lento, sin type-safety, sin refactoring |
 | Tags para lógica | Usar `GetComponent<T>()` en vez de `CompareTag()` |
 | `static` mutable en MonoBehaviours | Solo permitido en `WorldModeContext` (static class pura) |
+| Rutar toggles de modo por `ToolManager` | `BrushTool` es un mode overlay — su botón llama directamente a `ToggleBrush()` |
 
 ---
 
@@ -533,12 +553,10 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 
 ### Obligatorio
 
-- Todos los nombres en **inglés** — no español en nombres de escena, scripts ni
-  assets.
+- Todos los nombres en **inglés** — no español en nombres de escena, scripts ni assets.
 - Sin espacios en nombres de assets o carpetas.
 - Sin caracteres especiales (solo letras, números, `_`).
-- Cada asset tiene su `.meta` — **nunca mover ni renombrar assets fuera de Unity
-  Editor**.
+- Cada asset tiene su `.meta` — **nunca mover ni renombrar assets fuera de Unity Editor**.
 - Carpetas vacías confirmadas con `.gitkeep`.
 - Bloques en `Prefabs/Blocks/`, VFX en `Prefabs/VFX/`.
 - Scripts AR en `Scripts/AR/`, no mezclados con Core o Interaction.
@@ -559,8 +577,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 - Allocations en hot paths (`Update`, loops de coroutine) — reutilizar buffers.
 - Hardcodear magic numbers — usar `[SerializeField]` o `const`.
 - Duplicar referencias de prefabs en múltiples scripts — usar `InjectSharedRefs()`.
-- Dejar `Debug.Log` en release sin condicional (Unity los stripea
-  automáticamente en builds no-Development, pero mantener limpio).
+- Dejar `Debug.Log` en release sin condicional (Unity los stripea automáticamente en builds no-Development, pero mantener limpio).
 
 ### Mantenimiento de documentación
 

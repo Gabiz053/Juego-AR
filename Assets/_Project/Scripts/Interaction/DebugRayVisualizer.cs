@@ -13,11 +13,8 @@ namespace _Project.Scripts.Interaction
     /// using a <see cref="LineRenderer"/>. Useful during development to
     /// visualise where AR raycasts originate.<br/>
     /// Extracted from <see cref="ARBlockPlacer"/> so debug visualisation
-    /// logic does not pollute production code.<br/>
-    /// Attach to the same GameObject as <c>ARBlockPlacer</c>
-    /// (<c>XR Origin (Mobile AR)</c>).
+    /// logic does not pollute production code.
     /// </summary>
-    [RequireComponent(typeof(LineRenderer))]
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/Debug Ray Visualizer")]
     public class DebugRayVisualizer : MonoBehaviour
@@ -40,6 +37,10 @@ namespace _Project.Scripts.Interaction
 
         #region Inspector ─────────────────────────────────────
 
+        [Header("Dependencies")]
+        [Tooltip("LineRenderer used to draw the debug ray. Assign manually in the Inspector.")]
+        [SerializeField] private LineRenderer _lineRenderer;
+
         [Header("Settings")]
         [Tooltip("Enable or disable the debug ray at runtime.")]
         [SerializeField] private bool _enabled = true;
@@ -58,7 +59,6 @@ namespace _Project.Scripts.Interaction
 
         #region Cached Components ─────────────────────────────
 
-        private LineRenderer _lineRenderer;
         private Camera _mainCamera;
 
         #endregion
@@ -67,7 +67,6 @@ namespace _Project.Scripts.Interaction
 
         private void Awake()
         {
-            _lineRenderer = GetComponent<LineRenderer>();
             _mainCamera = Camera.main;
 
             SetupLineRenderer();

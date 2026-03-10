@@ -1,11 +1,12 @@
 // ??????????????????????????????????????????????
 //  BrushTool.cs  ·  _Project.Scripts.Interaction
 //  Continuous block-painting while the finger is held and dragged.
-//  Hooks into ARBlockPlacer for all placement logic — zero duplication.
+//  Hooks into ARBlockPlacer for placement and BlockDestroyer for
+//  mining — zero duplication.
 // ??????????????????????????????????????????????
 
+using System;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.EventSystems;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
@@ -18,8 +19,11 @@ namespace _Project.Scripts.Interaction
     /// The brush is a <b>mode toggle</b> independent of the active tool slot:<br/>
     /// • Changing block type keeps the brush ON.<br/>
     /// • Selecting the Destroy tool keeps the brush ON (destroy + brush coexist).<br/>
-    /// • The brush button dims when OFF and lights up when ON.<br/>
-    /// Attach to the <c>XR Origin (Mobile AR)</c> GameObject.
+    /// Fires <see cref="OnBrushToggled"/> so <see cref="BrushHUD"/> can
+    /// update the button visual.<br/>
+    /// <b>Btn_Brush.OnClick wires directly to <see cref="ToggleBrush"/></b> —
+    /// the brush does NOT go through <see cref="ToolManager"/> because it is
+    /// a mode overlay, not a regular tool.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/Brush Tool")]
@@ -28,22 +32,17 @@ namespace _Project.Scripts.Interaction
         #region Inspector ?????????????????????????????????????
 
         [Header("Dependencies")]
-        [Tooltip("ARBlockPlacer on the same GameObject — all placement is delegated here.")]
+        [Tooltip("ARBlockPlacer — all placement is delegated here.")]
         [SerializeField] private ARBlockPlacer _blockPlacer;
+
+        [Tooltip("BlockDestroyer — continuous mining is delegated here.")]
+        [SerializeField] private BlockDestroyer _blockDestroyer;
 
         [Tooltip("ToolManager — listens for tool changes to track the last build tool.")]
         [SerializeField] private ToolManager _toolManager;
 
         [Tooltip("PlowTool — receives continuous placement calls when Tool_Plow is active.")]
         [SerializeField] private PlowTool _plowTool;
-
-        [Header("Button Visual")]
-        [Tooltip("Image on Btn_Brush that is dimmed when brush is OFF and full-bright when ON.")]
-        [SerializeField] private Image _brushButtonImage;
-
-        [Tooltip("Brightness multiplier applied to the button colour when brush is OFF. 0.45 = clearly dimmed.")]
-        [Range(0f, 1f)]
-        [SerializeField] private float _dimFactor = 0.45f;
 
         [Header("Audio")]
         [Tooltip("UI audio service — plays toggle sound when brush is turned on or off.")]
@@ -53,6 +52,17 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Minimum seconds between consecutive block placements while dragging.\n" +
                  "0.08 s ? one block per 5 frames at 60 fps. Raise for sparser trails.")]
         [SerializeField] private float _strokeCooldown = 0.08f;
+
+        #endregion
+
+        #region Events ????????????????????????????????????????
+
+        /// <summary>
+        /// Raised whenever brush mode is toggled ON or OFF.<br/>
+        /// The <see langword="bool"/> parameter is <c>true</c> when brush is now active.
+        /// Listened by <see cref="BrushHUD"/> on <c>Btn_Brush</c>.
+        /// </summary>
+        public event Action<bool> OnBrushToggled;
 
         #endregion
 
@@ -70,19 +80,12 @@ namespace _Project.Scripts.Interaction
         /// </summary>
         private bool _hasBuildTool;
 
-        private Color _buttonOriginalColor;
         private float _lastPlaceTime   = -999f;
         private float _lastDestroyTime = -999f;
 
         #endregion
 
         #region Unity Lifecycle ????????????????????????????????
-
-        private void Awake()
-        {
-            if (_brushButtonImage != null)
-                _buttonOriginalColor = _brushButtonImage.color;
-        }
 
         private void OnEnable()
         {
@@ -109,14 +112,13 @@ namespace _Project.Scripts.Interaction
                 _hasBuildTool  = true;
             }
 
-            // Start dimmed (brush OFF by default).
-            RefreshButtonVisual();
+            // Notify listeners of initial state (OFF).
+            OnBrushToggled?.Invoke(IsBrushActive);
         }
 
         private void Update()
         {
             if (!IsBrushActive) return;
-            if (_blockPlacer == null) return;
             if (Touch.activeTouches.Count == 0) return;
 
             Touch touch = Touch.activeTouches[0];
@@ -133,27 +135,27 @@ namespace _Project.Scripts.Interaction
                 EventSystem.current.IsPointerOverGameObject(touch.touchId))
                 return;
 
-            // ?? Destroy mode: mine continuously while finger is held ??????????
+            // Destroy mode: mine continuously while finger is held.
             if (_toolManager.CurrentTool == ToolType.Tool_Destroy)
             {
                 if (Time.time - _lastDestroyTime < _strokeCooldown) return;
-                _blockPlacer.TryDestroyBlock(touch.screenPosition);
+                _blockDestroyer?.TryDestroyBlock(touch.screenPosition);
                 _lastDestroyTime = Time.time;
                 return;
             }
 
-            // ?? Plow mode: scatter pebbles continuously (no grid alignment) ???
+            // Plow mode: scatter pebbles continuously (no grid alignment).
             if (_toolManager.CurrentTool == ToolType.Tool_Plow)
             {
                 _plowTool?.PlacePebbleAtScreen(touch.screenPosition);
                 return;
             }
 
-            // ?? Build mode: paint blocks continuously ?????????????????????????
+            // Build mode: paint blocks continuously.
             if (Time.time - _lastPlaceTime < _strokeCooldown) return;
 
             EnsureBuildToolActive();
-            _blockPlacer.TryPlaceBlock(touch.screenPosition);
+            _blockPlacer?.TryPlaceBlock(touch.screenPosition);
             _lastPlaceTime = Time.time;
         }
 
@@ -163,7 +165,9 @@ namespace _Project.Scripts.Interaction
 
         /// <summary>
         /// Toggles brush mode ON or OFF.<br/>
-        /// Wire this to the <c>Btn_Brush</c> OnClick event in the Inspector.
+        /// <b>Wire this directly to <c>Btn_Brush</c> OnClick in the Inspector.</b><br/>
+        /// Do NOT route through UIManager/ToolManager — the brush is a mode
+        /// overlay, not a regular tool.
         /// </summary>
         public void ToggleBrush()
         {
@@ -179,7 +183,7 @@ namespace _Project.Scripts.Interaction
             }
 
             IsBrushActive = !IsBrushActive;
-            RefreshButtonVisual();
+            OnBrushToggled?.Invoke(IsBrushActive);
             _uiAudio?.PlayToggle();
             Debug.Log($"[BrushTool] Brush mode {(IsBrushActive ? "ON" : "OFF")}.");
         }
@@ -204,7 +208,7 @@ namespace _Project.Scripts.Interaction
             if (newTool == ToolType.Tool_None)
             {
                 IsBrushActive = false;
-                RefreshButtonVisual();
+                OnBrushToggled?.Invoke(IsBrushActive);
                 Debug.Log("[BrushTool] Tool_None selected — brush deactivated.");
             }
         }
@@ -219,26 +223,14 @@ namespace _Project.Scripts.Interaction
                 _toolManager.SelectToolByIndex((int)_lastBuildTool);
         }
 
-        /// <summary>
-        /// Dims the brush button when OFF, restores full colour when ON.
-        /// </summary>
-        private void RefreshButtonVisual()
-        {
-            if (_brushButtonImage == null) return;
-
-            _brushButtonImage.color = IsBrushActive
-                ? _buttonOriginalColor
-                : _buttonOriginalColor * new Color(_dimFactor, _dimFactor, _dimFactor, 1f);
-        }
-
         private void ValidateReferences()
         {
             if (_blockPlacer == null)
                 Debug.LogError("[BrushTool] _blockPlacer is not assigned!", this);
+            if (_blockDestroyer == null)
+                Debug.LogError("[BrushTool] _blockDestroyer is not assigned!", this);
             if (_toolManager == null)
                 Debug.LogError("[BrushTool] _toolManager is not assigned!", this);
-            if (_brushButtonImage == null)
-                Debug.LogWarning("[BrushTool] _brushButtonImage is not assigned — button will not dim.", this);
         }
 
         #endregion

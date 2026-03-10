@@ -1,16 +1,13 @@
 // ──────────────────────────────────────────────
 //  ARBlockPlacer.cs  ·  _Project.Scripts.Interaction
-//  AR touch interaction: places and destroys voxel blocks via
-//  AR plane raycasts and physics raycasts.
+//  Handles voxel block placement via AR plane raycasts and
+//  physics raycasts (stacking on existing blocks).
 // ──────────────────────────────────────────────
 
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-using UnityEngine.InputSystem.EnhancedTouch;
-using UnityEngine.EventSystems;
-using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 using _Project.Scripts.Voxel;
 using _Project.Scripts.Core;
 using _Project.Scripts.AR;
@@ -18,15 +15,13 @@ using _Project.Scripts.AR;
 namespace _Project.Scripts.Interaction
 {
     /// <summary>
-    /// Core AR interaction system — converts touch input into block
-    /// placement or destruction using a combination of AR plane raycasts
-    /// (first block on ground) and 3D physics raycasts (stacking on
-    /// existing blocks).<br/>
-    /// Delegates audio to <see cref="GameAudioService"/> and debug
-    /// visualisation to <see cref="DebugRayVisualizer"/>.<br/>
-    /// Attach to the <c>XR Origin (Mobile AR)</c> GameObject.
+    /// Places voxel blocks on AR surfaces and on top of existing blocks.<br/>
+    /// Uses a combination of AR plane raycasts (first block on ground)
+    /// and 3D physics raycasts (stacking).<br/>
+    /// Called by <see cref="TouchInputRouter"/> on single taps and by
+    /// <see cref="BrushTool"/> during continuous painting.<br/>
+    /// Delegates audio to <see cref="GameAudioService"/>.
     /// </summary>
-    [RequireComponent(typeof(ARRaycastManager))]
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/AR Block Placer")]
     public class ARBlockPlacer : MonoBehaviour
@@ -46,12 +41,12 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Transform that parents all placed blocks (WorldContainer).")]
         [SerializeField] private Transform _worldContainer;
 
+        [Tooltip("ARRaycastManager — used for AR plane raycasts. Assign from the XR Origin GameObject.")]
+        [SerializeField] private ARRaycastManager _arRaycastManager;
+
         [Header("Services")]
         [Tooltip("Centralised audio service for playing block SFX.")]
         [SerializeField] private GameAudioService _audioService;
-
-        [Tooltip("Optional debug ray drawn on each tap. Can be null to disable.")]
-        [SerializeField] private DebugRayVisualizer _debugRayVisualizer;
 
         [Header("Voxel Settings")]
         [Tooltip("Layer mask for existing voxel blocks used by physics raycasts.")]
@@ -70,29 +65,21 @@ namespace _Project.Scripts.Interaction
         [Tooltip("VFX prefab spawned at the placement position when a block is placed.")]
         [SerializeField] private GameObject _placeVfxPrefab;
 
-        [Tooltip("VFXBlockDestroy prefab — dust particle burst spawned at the block position on destruction (complements the physics fragments).")]
+        [Tooltip("VFXBlockDestroy prefab — injected into each block's BlockDestroy component for break VFX.")]
         [SerializeField] private GameObject _breakVfxPrefab;
 
-        [Header("Tools")]
-        [Tooltip("Optional BrushTool — when brush mode is active ARBlockPlacer skips tap handling (BrushTool owns the touch).")]
-        [SerializeField] private BrushTool _brushTool;
-
-        [Tooltip("Layer mask for pebble objects — included in destroy raycasts so pebbles can be mined with the pickaxe.")]
-        [SerializeField] private LayerMask _pebbleLayerMask;
-
         [Header("Undo / Redo")]
-        [Tooltip("UndoRedoService — records every place and destroy action so they can be reversed.")]
+        [Tooltip("UndoRedoService — records every place action so it can be reversed.")]
         [SerializeField] private UndoRedoService _undoRedoService;
 
         [Header("Harmony")]
-        [Tooltip("HarmonyService — notified on every block place/destroy.")]
+        [Tooltip("HarmonyService — notified on every block place.")]
         [SerializeField] private HarmonyService _harmonyService;
 
         #endregion
 
         #region Cached Components ─────────────────────────────
 
-        private ARRaycastManager _arRaycastManager;
         private Camera _mainCamera;
 
         /// <summary>Reusable list for AR raycast results — avoids GC alloc per frame.</summary>
@@ -111,22 +98,9 @@ namespace _Project.Scripts.Interaction
 
         private void Awake()
         {
-            _arRaycastManager = GetComponent<ARRaycastManager>();
-            _mainCamera       = Camera.main;
+            _mainCamera = Camera.main;
 
             Debug.Log("[ARBlockPlacer] Awake — components cached.");
-        }
-
-        private void OnEnable()
-        {
-            EnhancedTouchSupport.Enable();
-            Debug.Log("[ARBlockPlacer] Enhanced touch enabled.");
-        }
-
-        private void OnDisable()
-        {
-            EnhancedTouchSupport.Disable();
-            Debug.Log("[ARBlockPlacer] Enhanced touch disabled.");
         }
 
         private void Start()
@@ -135,68 +109,16 @@ namespace _Project.Scripts.Interaction
             Debug.Log("[ARBlockPlacer] Initialized.");
         }
 
-        private void Update()
-        {
-            if (Touch.activeTouches.Count == 0) return;
-
-            Touch touch = Touch.activeTouches[0];
-            if (touch.phase != UnityEngine.InputSystem.TouchPhase.Began) return;
-
-            // Ignore touches over UI elements (buttons, panels, etc.).
-            if (EventSystem.current != null &&
-                EventSystem.current.IsPointerOverGameObject(touch.touchId))
-                return;
-
-            // Yield to BrushTool only when brush is active AND we are NOT mining.
-            // Destroy taps always pass through so the player can mine with brush ON.
-            bool brushOwnsTouch = _brushTool != null
-                               && _brushTool.IsBrushActive
-                               && _toolManager != null
-                               && _toolManager.CurrentTool != ToolType.Tool_Destroy;
-            if (brushOwnsTouch) return;
-
-            HandleTouch(touch.screenPosition);
-        }
-
         #endregion
 
-        #region Touch Dispatch ─────────────────────────────────
-
-        /// <summary>
-        /// Routes the touch to the correct handler based on the active tool.
-        /// </summary>
-        private void HandleTouch(Vector2 screenPosition)
-        {
-            if (_toolManager == null) return;
-
-            // Delegate debug visualisation to the optional ray visualizer.
-            if (_debugRayVisualizer != null)
-                _debugRayVisualizer.ShowRay(screenPosition);
-
-            if (_toolManager.IsBuildTool)
-            {
-                TryPlaceBlock(screenPosition);
-            }
-            else if (_toolManager.CurrentTool == ToolType.Tool_Destroy)
-            {
-                TryDestroyBlock(screenPosition);
-            }
-            else
-            {
-                Debug.Log($"[ARBlockPlacer] Touch ignored — tool {_toolManager.CurrentTool} has no placement/destroy action.");
-            }
-        }
-
-        #endregion
-
-        #region Block Placement ────────────────────────────────
+        #region Public API ────────────────────────────────────
 
         /// <summary>
         /// Attempts to place a block. First tries a physics raycast against
         /// existing blocks (stacking), then falls back to an AR plane raycast
         /// (first block on detected surface).<br/>
-        /// Called by <see cref="BrushTool"/> on <c>TouchPhase.Moved</c> as well
-        /// as the internal <c>Began</c> tap handler.
+        /// Called by <see cref="TouchInputRouter"/> and
+        /// <see cref="BrushTool"/> for continuous painting.
         /// </summary>
         public void TryPlaceBlock(Vector2 screenPosition)
         {
@@ -215,7 +137,8 @@ namespace _Project.Scripts.Interaction
             }
 
             // 2. Fall back to AR plane raycast (ground placement).
-            if (_arRaycastManager.Raycast(screenPosition, _arHits, TrackableType.PlaneWithinPolygon))
+            if (_arRaycastManager != null &&
+                _arRaycastManager.Raycast(screenPosition, _arHits, TrackableType.PlaneWithinPolygon))
             {
                 Pose hitPose = _arHits[0].pose;
 
@@ -248,7 +171,7 @@ namespace _Project.Scripts.Interaction
         /// <summary>
         /// Snaps the raw local position, validates placement constraints,
         /// instantiates the block prefab, spawns VFX, and plays audio.<br/>
-        /// Called by <see cref="BrushTool"/> as well as the internal tap handler.
+        /// Called by <see cref="BrushTool"/> as well as <see cref="TryPlaceBlock"/>.
         /// </summary>
         public void ProcessAndPlace(Vector3 rawLocalPosition)
         {
@@ -346,93 +269,6 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
-        #region Block Destruction ──────────────────────────────
-
-        /// <summary>
-        /// Casts a physics ray and destroys the first voxel block hit.<br/>
-        /// Called by <see cref="BrushTool"/> for continuous mining as well as the internal tap handler.
-        /// </summary>
-        public void TryDestroyBlock(Vector2 screenPosition)
-        {
-            Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
-
-            // 1. Try voxel blocks first.
-            if (Physics.Raycast(ray, out RaycastHit hit, _maxBuildDistance, _voxelLayerMask))
-            {
-                DestroyHit(hit);
-                return;
-            }
-
-            // 2. Try pebbles — same ray, pebble layer mask.
-            if (_pebbleLayerMask != 0 &&
-                Physics.Raycast(ray, out RaycastHit pebbleHit, _maxBuildDistance, _pebbleLayerMask))
-            {
-                DestroyHit(pebbleHit);
-                return;
-            }
-
-            Debug.Log("[ARBlockPlacer] Destroy ray missed — no voxel or pebble hit.");
-        }
-
-        private void DestroyHit(RaycastHit hit)
-        {
-            GameObject target = hit.transform.gameObject;
-
-            VoxelBlock blockData = target.GetComponent<VoxelBlock>();
-            if (blockData != null && _undoRedoService != null)
-            {
-                GameObject prefab = _toolManager.GetBlockPrefab(blockData.Type);
-
-                if (prefab != null)
-                {
-                    // Use localPosition directly — the block is a child of WorldContainer
-                    // so localPosition IS already the snapped grid position.
-                    // InverseTransformPoint would incorrectly scale by WorldContainer.scale.
-                    // Blocks are always placed with Quaternion.identity local rotation.
-                    Vector3    localPos = target.transform.localPosition;
-                    Quaternion localRot = Quaternion.identity;
-
-                    void ArmBlock(GameObject instance)
-                    {
-                        BlockDestroy bd = instance.GetComponent<BlockDestroy>();
-                        if (bd != null)
-                        {
-                            bd.InjectSharedRefs(_breakVfxPrefab, _audioService);
-                            bd.SetReady();
-                        }
-                    }
-
-                    _undoRedoService.Record(new DestroyBlockAction(
-                        prefab, _worldContainer, localPos, localRot,
-                        _breakVfxPrefab, _audioService, ArmBlock));
-                }
-            }
-
-            BlockDestroy blockDestroy = target.GetComponent<BlockDestroy>();
-            if (blockDestroy != null)
-            {
-                blockDestroy.BreakFromTool(hit.normal);
-            }
-            else
-            {
-                if (blockData != null && _audioService != null)
-                    _audioService.PlayOneShot(blockData.BreakSounds);
-
-                if (_breakVfxPrefab != null)
-                    Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
-
-                Destroy(target);
-            }
-
-            // Notify harmony after the block has been removed.
-            if (blockData != null)
-                _harmonyService?.NotifyBlockDestroyed(blockData.Type);
-
-            Debug.Log($"[ARBlockPlacer] Destroyed: {target.name}.");
-        }
-
-        #endregion
-
         #region Spatial Helpers ────────────────────────────────
 
         /// <summary>
@@ -458,11 +294,8 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
-        #region Validation ├───────────────────────────────────
+        #region Validation ────────────────────────────────────
 
-        /// <summary>
-        /// Logs errors for any missing Inspector references at startup.
-        /// </summary>
         private void ValidateReferences()
         {
             if (_toolManager == null)
@@ -473,12 +306,12 @@ namespace _Project.Scripts.Interaction
                 Debug.LogError("[ARBlockPlacer] _arWorldManager is not assigned!", this);
             if (_worldContainer == null)
                 Debug.LogError("[ARBlockPlacer] _worldContainer is not assigned!", this);
+            if (_arRaycastManager == null)
+                Debug.LogError("[ARBlockPlacer] _arRaycastManager is not assigned!", this);
             if (_mainCamera == null)
                 Debug.LogError("[ARBlockPlacer] Main Camera not found!", this);
             if (_audioService == null)
                 Debug.LogWarning("[ARBlockPlacer] _audioService is not assigned — block sounds will be silent.", this);
-            if (_debugRayVisualizer == null)
-                Debug.LogWarning("[ARBlockPlacer] _debugRayVisualizer is not assigned — no debug ray.", this);
             if (_placeVfxPrefab == null)
                 Debug.LogWarning("[ARBlockPlacer] _placeVfxPrefab is not assigned — no placement VFX.", this);
         }

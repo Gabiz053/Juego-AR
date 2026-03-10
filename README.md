@@ -33,7 +33,7 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
 8. [Pantalla de inicio (planificada)](#pantalla-de-inicio-planificada)
-9. [Lista completa de scripts (43)](#lista-completa-de-scripts-43)
+9. [Lista completa de scripts (49)](#lista-completa-de-scripts-49)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -71,9 +71,9 @@ Assets/
 │   │   └── Main_AR.unity        ← Escena principal (única escena)
 │   ├── Scripts/
 │   │   ├── AR/                  ← 4 scripts
-│   │   ├── Core/                ← 13 scripts (incluye enums, interfaces, statics)
-│   │   ├── Interaction/         ← 6 scripts
-│   │   ├── UI/                  ← 12 scripts
+│   │   ├── Core/                ← 16 scripts (incluye enums, interfaces, statics, servicios)
+│   │   ├── Interaction/         ← 9 scripts
+│   │   ├── UI/                  ← 11 scripts
 │   │   └── Voxel/               ← 9 scripts
 │   ├── Shaders/
 │   │   ├── ARPlane.shader       ← Shader HLSL arena zen con grid animado
@@ -260,22 +260,37 @@ seleccionado, desactivando el otro. Para Bonsái necesita una
 
 ## Mapa de comunicación entre sistemas
 
+### Flujo de activación del Brush
+
+```text
+Btn_Brush.OnClick → BrushTool.ToggleBrush()     ← llamada DIRECTA, no pasa por ToolManager
+  │
+  ├─ IsBrushActive = !IsBrushActive
+  ├─ event OnBrushToggled(bool)
+  │     └─ BrushHUD.RefreshVisual() → dim/restore botón
+  └─ UIAudioService.PlayToggle()
+
+Nota: el Brush es un MODE OVERLAY, no una herramienta normal.
+      No pasa por UIManager ni ToolManager.
+      Btn_Brush.OnClick apunta directamente a BrushTool.ToggleBrush().
+```
+
 ### Flujo principal: del dedo al bloque
 
 ```text
 Touch (Enhanced Touch API, TouchPhase.Began)
   │
   ▼
-ARBlockPlacer.Update()         ← Ignora toques sobre UI (IsPointerOverGameObject)
+TouchInputRouter.Update()      ← Ignora toques sobre UI (IsPointerOverGameObject)
   │
   ├─ BrushTool.IsBrushActive?
   │   └─ Sí → BrushTool.Update() se come el touch
   │            ├─ TouchPhase.Moved/Stationary cada _strokeCooldown (0.08s)
   │            ├─ Si ToolManager.IsBuildTool → ARBlockPlacer.TryPlaceBlock()
-  │            ├─ Si Tool_Destroy → ARBlockPlacer.TryDestroyBlock() (via screen pos)
+  │            ├─ Si Tool_Destroy → BlockDestroyer.TryDestroyBlock()
   │            └─ Si Tool_Plow → PlowTool.PlacePebbleAtScreen()
   │
-  ├─ ToolManager.IsBuildTool? → HandleTouch() → TryPlaceBlock()
+  ├─ ToolManager.IsBuildTool? → ARBlockPlacer.TryPlaceBlock()
   │     │
   │     ├─ Physics.Raycast(_voxelLayerMask)  → Hit bloque existente → stacking
   │     │     └─ hitPoint + hitNormal * gridSize → nueva posición local
@@ -312,7 +327,7 @@ ARBlockPlacer.Update()         ← Ignora toques sobre UI (IsPointerOverGameObje
   │     ├─ UndoRedoService.Record(new PlaceBlockAction(...))
   │     └─ HarmonyService.NotifyBlockPlaced(blockType)
   │
-  └─ ToolManager.CurrentTool == Tool_Destroy? → TryDestroyBlock()
+  └─ ToolManager.CurrentTool == Tool_Destroy? → BlockDestroyer.TryDestroyBlock()
         ├─ Physics.Raycast(_voxelLayerMask | _pebbleLayerMask)
         ├─ UndoRedoService.Record(new DestroyBlockAction(...))
         ├─ BlockDestroy.BreakFromTool(hitNormal)
@@ -388,7 +403,7 @@ HarmonyService.Recalculate()     ← Solo cuando algo cambia, nunca en Update()
 UndoRedoService (Stack<IUndoableAction>, cap = 20 configurable)
   │
   ├─ Record(PlaceBlockAction)     ← ARBlockPlacer tras cada colocación
-  ├─ Record(DestroyBlockAction)   ← ARBlockPlacer antes de cada destrucción
+  ├─ Record(DestroyBlockAction)   ← BlockDestroyer antes de cada destrucción
   │     └─ Cada Record() limpia la pila de Redo
   │     └─ Si undoStack > _maxHistory → TrimBottom() (O(n), solo al cap)
   │
@@ -478,9 +493,10 @@ Btn_Settings → GameOptionsMenu.ToggleMenu()
 
 Botones dentro del dropdown:
   ├─ Btn_Lighting → ToggleLighting()
-  │     ├─ CameraFlashLight (SpotLight) ON/OFF
-  │     ├─ Directional Light OFF/ON (si _disableGlobalOnFocus)
-  │     └─ DropdownButtonState actualiza color
+  │     └─ LightingService.ToggleLighting()
+  │           ├─ CameraFlashLight (SpotLight) ON/OFF
+  │           ├─ Directional Light OFF/ON (si _disableGlobalOnFocus)
+  │           └─ event OnLightingToggled → DropdownButtonState actualiza color
   ├─ Btn_Depth → ToggleDepth()
   │     └─ ARDepthService.ToggleDepth()
   │           ├─ AROcclusionManager.requestedEnvironmentDepthMode
@@ -532,14 +548,14 @@ OrientationManager.Update()
 | Hierba | `Build_Grass` | 5 | Bloque verde. Mínimo 10 para gate de armonía. |
 | Vacío | `Tool_None` | 6 | Mano vacía. Toque no hace nada. |
 | Destruir | `Tool_Destroy` | 7 | Raycast físico → `BlockDestroy.BreakFromTool()`. Funciona sobre bloques y piedritas. |
-| Pincel | `Tool_Brush` | 8 | Toggle ON/OFF independiente. Arrastra para placement/destroy continuo cada 0.08s. Compatible con build, destroy y plow. |
-| Decorador | `Tool_Plow` | 9 | Esparce piedras procedurales con rotación, escala y scatter aleatorios. Con Pincel activo, esparce continuamente cada 0.06s. |
+| Pincel | `Tool_Brush` | 8 | **Mode overlay** — toggle ON/OFF. `Btn_Brush.OnClick` llama directamente a `BrushTool.ToggleBrush()`, no pasa por `UIManager`. Arrastra para placement/destroy continuo cada 0.08s. Compatible con build, destroy y plow. |
 
 **Conversión:** `ToolManager` castea `(BlockType)(int)CurrentTool` para obtener el
 prefab de `BlockDatabase`. Los valores 0-5 de `ToolType` coinciden 1:1 con `BlockType`.
 
-**ADVERTENCIA:** Los valores int de `ToolType` están baked en los `OnClick` events
-de los botones de la escena. No se deben cambiar.
+**ADVERTENCIA:** Los valores int de `ToolType` 0–7 y 9 están baked en los `OnClick` events
+de los botones de la escena. No se deben cambiar. `Tool_Brush (8)` es excepción — su botón
+llama directamente a `BrushTool.ToggleBrush()`, no usa el valor int.
 
 ---
 
@@ -595,7 +611,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 ---
 
-## Lista completa de scripts (43)
+## Lista completa de scripts (49)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -606,7 +622,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `ARWorldManager` | ~140 | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ≈ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
 | `WorldModeBootstrapper` | ~160 | Lee `WorldModeContext.Selected`, busca el `WorldModeSO` correspondiente en `_modeConfigs[]`, aplica `WorldContainer.localScale`, habilita `ARPlaneManager` o `ARTrackedImageManager` según `AnchorType`, suscribe a `trackablesChanged` para auto-anclar. Campo `_devOverrideMode` para testing sin title screen. |
 
-### Core (13 scripts) — `_Project.Scripts.Core`
+### Core (16 scripts) — `_Project.Scripts.Core`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -614,8 +630,11 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `GridVisualizer` | MonoBehaviour | Crea un `GameObject` hijo con `MeshFilter` + `MeshRenderer`. Genera mesh de líneas con fade radial (alpha ∝ 1 - sqrDist/sqrRadius). Solo reconstruye al cambiar celda central. Buffers reutilizados (`List<Vector3>`, etc.) para zero-GC. |
 | `HarmonyConfig` | ScriptableObject | `varietyWeight` (0.45), `decorationWeight` (0.35), `quantityWeight` (0.20), `fullVarietyTypeCount` (6), `targetBlockCount` (50), `targetPebbleCount` (25), `minSandBlocks` (10), `minGrassBlocks` (10), `gateStrength` (0.85). |
 | `HarmonyService` | MonoBehaviour | Evalúa armonía. `Dictionary<BlockType,int>` para conteos. Eventos: `OnHarmonyChanged(float)`, `OnPerfectHarmony`, `OnWorldReset`. `NotifyBlockPlaced/Destroyed`, `NotifyPebblePlaced/Destroyed`, `NotifyWorldReset`, `NotifyUndoRedo` (→ `RebuildCounters` O(n) scan). |
-| `GameAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. One-shot SFX con pitch variation (±0.15). Anti-repetición en arrays. |
+| `GameAudioService` | MonoBehaviour | One-shot SFX con pitch variation (±0.15). Anti-repetición en arrays. `AudioSource` asignado via Inspector. |
 | `MusicService` | MonoBehaviour | Shuffle Fisher-Yates, crossfade entre tracks (2s), volume slider. `AudioSource` dedicado (asignado en Inspector, separado de `GameAudioService`). Evento `OnVolumeChanged`. |
+| `LightingService` | MonoBehaviour | Toggle entre modo Global (Directional Light ON, Spot OFF) y Focus (Directional OFF, Spot ON). Evento `OnLightingToggled(bool)`. Configurable `_disableGlobalOnFocus`. |
+| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, `ScreenCapture.CaptureScreenshot`. Evento `OnScreenshotCaptured(fileName)`. |
+| `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
 | `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + posición local + callback. |
 | `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + arm. `Redo()` → `Destroy(restoredInstance)`. |
@@ -624,33 +643,34 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `WorldModeContext` | Static class | `static WorldMode Selected = Normal`. Cross-escena sin MonoBehaviour. |
 | `WorldModeSO` | ScriptableObject | `Mode`, `DisplayName`, `WorldContainerScale`, `AnchorType` (enum: `ARPlane`/`TrackedImage`), `ImageLibrary`, `ImagePhysicalWidth`, `MaxBlocks`. |
 
-### Interaction (6 scripts) — `_Project.Scripts.Interaction`
+### Interaction (9 scripts) — `_Project.Scripts.Interaction`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `ToolType` | Enum | 10 valores: `Build_Sand(0)` a `Build_Grass(5)`, `Tool_None(6)`, `Tool_Destroy(7)`, `Tool_Brush(8)`, `Tool_Plow(9)`. |
 | `ToolManager` | MonoBehaviour | `CurrentTool` (default `Build_Sand`), `IsBuildTool` (rango 0–5), `SelectToolByIndex(int)`, `GetCurrentBlockPrefab()`, `GetBlockPrefab(BlockType)`. Evento `OnToolChanged`. |
-| `ARBlockPlacer` | MonoBehaviour | `[RequireComponent(ARRaycastManager)]`. Input principal. `TryPlaceBlock()`, `TryDestroyBlock()`, `ProcessAndPlace()`. `_pendingCells` HashSet contra double-tap. Refs: ToolManager, GridManager, ARWorldManager, WorldContainer, GameAudioService, DebugRayVisualizer, BrushTool, UndoRedoService, HarmonyService. |
-| `BrushTool` | MonoBehaviour | Toggle `IsBrushActive`. En Update si activo: consume `Touch.activeTouches`, llama placement/destroy/plow cada `_strokeCooldown` (0.08s). Guarda `_lastBuildTool` para restaurar al desactivar. Dim visual del botón (×`_dimFactor` 0.45). |
+| `TouchInputRouter` | MonoBehaviour | Punto de entrada de input táctil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo, despacha a `ARBlockPlacer` o `BlockDestroyer` según herramienta. |
+| `ARBlockPlacer` | MonoBehaviour | Solo colocación de bloques. `TryPlaceBlock()`, `ProcessAndPlace()`. `_pendingCells` HashSet contra double-tap. `ARRaycastManager` asignado via Inspector. Refs: ToolManager, GridManager, ARWorldManager, WorldContainer, GameAudioService, UndoRedoService, HarmonyService. |
+| `BlockDestroyer` | MonoBehaviour | Solo destrucción de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). Registra `DestroyBlockAction` en `UndoRedoService`. Notifica `HarmonyService`. |
+| `BrushTool` | MonoBehaviour | Toggle `IsBrushActive`. `Btn_Brush.OnClick` llama directamente a `ToggleBrush()` (no pasa por ToolManager — es un mode overlay). En Update si activo: consume `Touch.activeTouches`, llama `ARBlockPlacer`/`BlockDestroyer`/`PlowTool` cada `_strokeCooldown` (0.08s). Evento `OnBrushToggled(bool)`. |
 | `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`, `HarmonyService.NotifyPebblePlaced()`. `PlacePebbleAtScreen()` para uso desde BrushTool. |
-| `DebugRayVisualizer` | MonoBehaviour | `[RequireComponent(LineRenderer)]`. Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. Offset cámara -0.1 Y. |
+| `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
 
-### UI (12 scripts) — `_Project.Scripts.UI`
+### UI (11 scripts) — `_Project.Scripts.UI`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `UIManager` | MonoBehaviour | Selector highlight (`_selectorRect`) que sigue al slot activo. `_slotRects[]` indexado por valor int de `ToolType`. `OnSlotClicked(int)` delega a `ToolManager.SelectToolByIndex()`. Delay de 0.1s para que los Layout Groups se asienten antes de posicionar. |
-| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. Esquinas redondeadas procedurales (9-slice generado en runtime). |
+| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. |
 | `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Configura ParticleSystem proceduralmente en `Awake`. Burst 120 particulas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocoton, lavanda, blanco. Se posiciona frente a `Camera.main`. |
 | `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. |
 | `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton` con iconos. Suscrito a `UndoRedoService.OnStackChanged`. Alpha enabled/disabled (1.0/0.35). `OnUndoPressed()`/`OnRedoPressed()`. |
-| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Toggles: lighting (global/focus), depth, grid, plane visual. Slider de musica (0 a 100). Delega a `WorldResetService`, `ScreenshotService`, `ARDepthService`. |
+| `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color` con `_dimFactor` (0.45) cuando brush está OFF/ON. Mismo patrón que `UndoRedoHUD`. |
+| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`. Slider de música (0–100). |
 | `OrientationManager` | MonoBehaviour | Detecta portrait/landscape en `Update()` (`Screen.width > Screen.height`). Oculta hotbar, tool panel, selector en landscape. Fuerza `Tool_None`. Restaura `_previousTool` en portrait con `WaitForEndOfFrame`. |
-| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, `ScreenCapture.CaptureScreenshot`. Evento `OnScreenshotCaptured(fileName)`. |
-| `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
-| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases de armonia. Pitch variation mas/menos 0.05. Anti-repeticion por pool. |
+| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases de armonia. Pitch variation ±0.05. Anti-repeticion por pool. |
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down y scale-up automatico en cada boton. |
-| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF. `_dimFactor` configurable. `SetState(bool)`. |
+| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF en el dropdown de opciones. `_dimFactor` configurable. `SetState(bool)`. Usado por `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`. |
 
 ### Voxel (9 scripts) — `_Project.Scripts.Voxel`
 
@@ -720,7 +740,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `com.unity.xr.arfoundation` | 6.0.6 | AR Foundation: sesion, planos, anclas, raycast, oclusion, imagenes. |
 | `com.unity.xr.arcore` | 6.0.6 | ARCore XR Plugin para Android. |
 | `com.unity.xr.interaction.toolkit` | 3.0.10 | XR Interaction Toolkit (XR Origin, Ray Interactor). |
-| `com.unity.inputsystem` | 1.17.0 | Enhanced Touch API (input tactil). |
+| `com.unity.inputsystem` | 1.17.0 | Enhanced Touch API (input táctil). |
 | `com.unity.render-pipelines.universal` | 17.0.4 | Universal Render Pipeline. |
 | `com.unity.ugui` | 2.0.0 | UI Canvas, Button, Image, Slider. |
 | `com.unity.cloud.gltfast` | (git) | Importador glTF para modelos `.glb` de bloques. |

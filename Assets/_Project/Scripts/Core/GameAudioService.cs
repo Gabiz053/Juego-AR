@@ -15,15 +15,17 @@ namespace _Project.Scripts.Core
     /// is chosen at random while avoiding immediate back-to-back repetition.<br/>
     /// Any system that needs to play SFX (block placement, destruction,
     /// UI feedback, etc.) can reference this service instead of owning
-    /// its own <see cref="AudioSource"/>.<br/>
-    /// Attach to <c>XR Origin (Mobile AR)</c>.
+    /// its own <see cref="AudioSource"/>.
     /// </summary>
-    [RequireComponent(typeof(AudioSource))]
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Game Audio Service")]
     public class GameAudioService : MonoBehaviour
     {
         #region Inspector ─────────────────────────────────────
+
+        [Header("Dependencies")]
+        [Tooltip("Dedicated AudioSource for SFX playback. Assign manually in the Inspector.")]
+        [SerializeField] private AudioSource _audioSource;
 
         [Header("Pitch Variation")]
         [Tooltip("Maximum random offset applied to pitch (±). 0 = no variation.")]
@@ -33,8 +35,6 @@ namespace _Project.Scripts.Core
         #endregion
 
         #region Cached Components ─────────────────────────────
-
-        private AudioSource _audioSource;
 
         // Tracks the last clip index played from an array to avoid
         // immediate back-to-back repetition when the pool has > 1 entry.
@@ -46,13 +46,14 @@ namespace _Project.Scripts.Core
 
         private void Awake()
         {
-            _audioSource = GetComponent<AudioSource>();
+            if (_audioSource != null)
+            {
+                // Sensible defaults for a UI/SFX audio source.
+                _audioSource.playOnAwake  = false;
+                _audioSource.spatialBlend = 0f;
+            }
 
-            // Sensible defaults for a UI/SFX audio source.
-            _audioSource.playOnAwake  = false;
-            _audioSource.spatialBlend = 0f;
-
-            Debug.Log("[GameAudioService] Awake — AudioSource cached and configured.");
+            Debug.Log("[GameAudioService] Awake — AudioSource configured.");
         }
 
         private void Start()

@@ -1,13 +1,12 @@
 // ──────────────────────────────────────────────
 //  GameOptionsMenu.cs  ·  _Project.Scripts.UI
 //  Pure UI controller for the settings dropdown — delegates heavy
-//  operations to WorldResetService and ScreenshotService.
+//  operations to dedicated services.
 // ──────────────────────────────────────────────
 
 using System;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.XR.ARFoundation;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
@@ -21,11 +20,9 @@ namespace _Project.Scripts.UI
     /// • <see cref="WorldResetService"/> — block destruction, anchor reset, grid hide.<br/>
     /// • <see cref="ScreenshotService"/> — canvas-hiding screenshot capture.<br/>
     /// • <see cref="ARDepthService"/> — toggle Depth API occlusion at runtime.<br/>
+    /// • <see cref="LightingService"/> — toggle Global/Focus lighting.<br/>
     /// • <see cref="MusicService"/> — toggle background music on/off.<br/>
     /// • <see cref="UIAudioService"/> — plays UI sound feedback on every interaction.<br/>
-    /// The lighting button swaps between two exclusive modes:<br/>
-    /// • <b>Global mode</b> — scene Directional Light ON, camera spot OFF.<br/>
-    /// • <b>Focus mode</b> — scene Directional Light OFF, camera Spot Light ON.<br/>
     /// Attach to the <c>HUD_OptionsMenu</c> GameObject.
     /// </summary>
     [DisallowMultipleComponent]
@@ -43,16 +40,6 @@ namespace _Project.Scripts.UI
 
         [Tooltip("Root of the clear-all confirmation dialog (Popup_ConfirmClearAll).")]
         [SerializeField] private GameObject _confirmPopup;
-
-        [Header("Lighting")]
-        [Tooltip("Scene directional light — active in Global mode, off in Focus mode (only if _disableGlobalOnFocus is true).")]
-        [SerializeField] private Light _directionalLight;
-
-        [Tooltip("Spot/Point light child of the AR Camera — off in Global mode, active in Focus mode (Linterna).")]
-        [SerializeField] private Light _cameraSpotLight;
-
-        [Tooltip("When ON, turning on the camera spot light also disables the directional light.\nWhen OFF, both lights can be on simultaneously.")]
-        [SerializeField] private bool _disableGlobalOnFocus = true;
 
         [Header("Button States (toggle buttons only)")]
         [Tooltip("DropdownButtonState on Btn_Linterna — shows ON/OFF colour and label.")]
@@ -77,10 +64,10 @@ namespace _Project.Scripts.UI
         [Tooltip("Toggles ARCore Depth API occlusion on and off at runtime.")]
         [SerializeField] private ARDepthService _depthService;
 
-        [Tooltip("AR Plane Manager — toggled by the grid button.")]
-        [SerializeField] private ARPlaneManager _planeManager;
+        [Tooltip("Manages Global/Focus lighting modes.")]
+        [SerializeField] private LightingService _lightingService;
 
-        [Tooltip("AR Plane Grid Aligner — toggles plane mesh visuals without stopping detection.")]
+        [Tooltip("AR Plane Grid Aligner — toggles plane mesh visuals and grid lines.")]
         [SerializeField] private ARPlaneGridAligner _planeGridAligner;
 
         [Tooltip("Controls background music playback volume.")]
@@ -122,7 +109,11 @@ namespace _Project.Scripts.UI
             if (_screenshotService != null)
                 _screenshotService.OnScreenshotCaptured += HandleScreenshotCaptured;
 
-            if (_depthService != null) _depthService.OnDepthToggled += HandleDepthToggled;
+            if (_depthService != null)
+                _depthService.OnDepthToggled += HandleDepthToggled;
+
+            if (_lightingService != null)
+                _lightingService.OnLightingToggled += HandleLightingToggled;
 
             Debug.Log("[GameOptionsMenu] Subscribed to service events.");
         }
@@ -135,7 +126,11 @@ namespace _Project.Scripts.UI
             if (_screenshotService != null)
                 _screenshotService.OnScreenshotCaptured -= HandleScreenshotCaptured;
 
-            if (_depthService != null) _depthService.OnDepthToggled -= HandleDepthToggled;
+            if (_depthService != null)
+                _depthService.OnDepthToggled -= HandleDepthToggled;
+
+            if (_lightingService != null)
+                _lightingService.OnLightingToggled -= HandleLightingToggled;
 
             Debug.Log("[GameOptionsMenu] Unsubscribed from service events.");
         }
@@ -146,11 +141,11 @@ namespace _Project.Scripts.UI
             SetPanelActive(_confirmPopup, false);
             SetPanelActive(_blockerPanel, false);
 
-            // Initial state: Global mode — directional ON, camera spot OFF.
-            ApplyLightingMode(globalMode: true);
-
             if (_depthService != null)
                 _depthButtonState?.SetState(_depthService.IsDepthEnabled);
+
+            if (_lightingService != null)
+                _lightingButtonState?.SetState(_lightingService.IsFocusMode);
 
             if (_planeGridAligner != null)
             {
@@ -194,21 +189,18 @@ namespace _Project.Scripts.UI
         }
 
         /// <summary>
-        /// Swaps between Global lighting mode and Focus (camera spot / Linterna) mode.<br/>
-        /// • <b>Global mode</b> (button ON)  — camera spot disabled; directional light restored if <c>_disableGlobalOnFocus</c> is true.<br/>
-        /// • <b>Focus mode</b>  (button OFF) — camera spot enabled; directional light disabled only if <c>_disableGlobalOnFocus</c> is true.<br/>
+        /// Delegates to <see cref="LightingService.ToggleLighting"/>.<br/>
         /// Called by <c>Btn_Linterna</c>.
         /// </summary>
         public void ToggleLighting()
         {
-            if (_cameraSpotLight == null)
+            if (_lightingService == null)
             {
-                Debug.LogWarning("[GameOptionsMenu] _cameraSpotLight reference is missing.", this);
+                Debug.LogWarning("[GameOptionsMenu] _lightingService is not assigned — operation ignored.", this);
                 return;
             }
 
-            bool isCurrentlyFocus = _cameraSpotLight.enabled;
-            ApplyLightingMode(globalMode: isCurrentlyFocus);
+            _lightingService.ToggleLighting();
             _uiAudio?.PlayToggle();
         }
 
@@ -226,8 +218,6 @@ namespace _Project.Scripts.UI
 
             _depthService.ToggleDepth();
             _uiAudio?.PlayToggle();
-
-            Debug.Log($"[GameOptionsMenu] Depth toggle requested — new state: {_depthService.IsDepthEnabled}.");
         }
 
         /// <summary>
@@ -246,8 +236,6 @@ namespace _Project.Scripts.UI
             _planeGridAligner.SetGrid(nowVisible);
             _gridButtonState?.SetState(nowVisible);
             _uiAudio?.PlayToggle();
-
-            Debug.Log($"[GameOptionsMenu] Grid lines {(nowVisible ? "shown" : "hidden")}.");
         }
 
         /// <summary>
@@ -266,21 +254,14 @@ namespace _Project.Scripts.UI
             _planeGridAligner.SetVisual(nowVisible);
             _planeVisualButtonState?.SetState(nowVisible);
             _uiAudio?.PlayToggle();
-
-            Debug.Log($"[GameOptionsMenu] Plane mesh {(nowVisible ? "shown" : "hidden")}.");
         }
 
         /// <summary>
         /// Sets the background music volume from the UI Slider (0–100).
-        /// Called by the <c>Sld_MusicVolume</c> OnValueChanged event.
         /// </summary>
         public void OnMusicVolumeChanged(float sliderValue)
         {
-            if (_musicService == null)
-            {
-                Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned — slider ignored.", this);
-                return;
-            }
+            if (_musicService == null) return;
 
             _musicService.SetVolume(sliderValue / 100f);
             RefreshMusicLabel(sliderValue);
@@ -288,7 +269,6 @@ namespace _Project.Scripts.UI
 
         // ── Clear-All Flow ──────────────────────────────────
 
-        /// <summary>Opens the confirmation popup and closes the dropdown.</summary>
         public void RequestClearAll()
         {
             if (_confirmPopup == null) return;
@@ -296,57 +276,44 @@ namespace _Project.Scripts.UI
             _confirmPopup.SetActive(true);
             ToggleMenu();
             _uiAudio?.PlayClick();
-
-            Debug.Log("[GameOptionsMenu] Clear-all requested — confirmation popup shown.");
         }
 
-        /// <summary>Delegates to <see cref="WorldResetService.ResetWorld"/> and dismisses the popup.</summary>
         public void ConfirmClearAll()
         {
             if (_worldResetService != null)
                 _worldResetService.ResetWorld();
             else
-                Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned — cannot clear world!", this);
+                Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned!", this);
 
             SetPanelActive(_confirmPopup, false);
             _uiAudio?.PlayConfirm();
-
-            Debug.Log("[GameOptionsMenu] Clear-all confirmed — delegated to WorldResetService.");
         }
 
-        /// <summary>Dismisses the confirmation popup without clearing anything.</summary>
         public void CancelClearAll()
         {
             SetPanelActive(_confirmPopup, false);
             _uiAudio?.PlayCancel();
-
-            Debug.Log("[GameOptionsMenu] Clear-all cancelled by user.");
         }
 
         // ── Utilities ───────────────────────────────────────
 
-        /// <summary>Delegates screenshot capture to <see cref="ScreenshotService"/>.</summary>
         public void TakePhoto()
         {
             if (_screenshotService != null)
             {
                 _screenshotService.Capture();
                 _uiAudio?.PlayPhoto();
-
-                Debug.Log("[GameOptionsMenu] Photo requested — delegated to ScreenshotService.");
             }
             else
             {
-                Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned — cannot take photo!", this);
+                Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned!", this);
             }
         }
 
-        /// <summary>Quits the application (no-op in the Editor).</summary>
         public void ExitGame()
         {
             _uiAudio?.PlayClick();
-
-            Debug.Log("[GameOptionsMenu] Exit requested — quitting application.");
+            Debug.Log("[GameOptionsMenu] Exit requested.");
             Application.Quit();
 
 #if UNITY_EDITOR
@@ -361,13 +328,11 @@ namespace _Project.Scripts.UI
         private void HandleWorldReset()
         {
             OnWorldReset?.Invoke();
-            Debug.Log("[GameOptionsMenu] World reset event forwarded from WorldResetService.");
         }
 
         private void HandleScreenshotCaptured(string fileName)
         {
             ToggleMenu();
-            Debug.Log($"[GameOptionsMenu] Screenshot event received ({fileName}) — menu closed.");
         }
 
         private void HandleDepthToggled(bool isEnabled)
@@ -375,30 +340,14 @@ namespace _Project.Scripts.UI
             _depthButtonState?.SetState(isEnabled);
         }
 
+        private void HandleLightingToggled(bool isFocusMode)
+        {
+            _lightingButtonState?.SetState(isFocusMode);
+        }
+
         #endregion
 
         #region Internals ─────────────────────────────────────
-
-        /// <summary>
-        /// Applies one of the two exclusive lighting modes and syncs the button visual.<br/>
-        /// <paramref name="globalMode"/> = <c>true</c>  → camera spot OFF, directional restored if <c>_disableGlobalOnFocus</c> (button ON).<br/>
-        /// <paramref name="globalMode"/> = <c>false</c> → camera spot ON,  directional off only if <c>_disableGlobalOnFocus</c>           (button OFF).
-        /// </summary>
-        private void ApplyLightingMode(bool globalMode)
-        {
-            if (_cameraSpotLight != null)
-                _cameraSpotLight.enabled = !globalMode;
-            else if (!globalMode)
-                Debug.LogWarning("[GameOptionsMenu] _cameraSpotLight is not assigned — focus mode has no light.", this);
-
-            if (_directionalLight != null && _disableGlobalOnFocus)
-                _directionalLight.enabled = globalMode;
-
-            // Button is ON when in Focus mode (linterna encendida).
-            _lightingButtonState?.SetState(!globalMode);
-
-            Debug.Log($"[GameOptionsMenu] Lighting mode → {(globalMode ? "GLOBAL (directional)" : "FOCUS (linterna)")} | disableGlobal={_disableGlobalOnFocus}.");
-        }
 
         private static void SetPanelActive(GameObject panel, bool active)
         {
@@ -419,26 +368,20 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[GameOptionsMenu] _blockerPanel is not assigned!", this);
             if (_confirmPopup == null)
                 Debug.LogError("[GameOptionsMenu] _confirmPopup is not assigned!", this);
-            if (_directionalLight == null)
-                Debug.LogError("[GameOptionsMenu] _directionalLight is not assigned!", this);
-            if (_cameraSpotLight == null)
-                Debug.LogWarning("[GameOptionsMenu] _cameraSpotLight is not assigned — Btn_Linterna will not work.", this);
+            if (_lightingService == null)
+                Debug.LogError("[GameOptionsMenu] _lightingService is not assigned!", this);
             if (_worldResetService == null)
                 Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned!", this);
             if (_screenshotService == null)
                 Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned!", this);
             if (_depthService == null)
-                Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned — Btn_Depth will not work.", this);
-            if (_planeManager == null)
-                Debug.LogWarning("[GameOptionsMenu] _planeManager is not assigned — Btn_Grid will not work.", this);
+                Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned.", this);
             if (_planeGridAligner == null)
-                Debug.LogWarning("[GameOptionsMenu] _planeGridAligner is not assigned — Btn_PlaneVisual will not work.", this);
+                Debug.LogWarning("[GameOptionsMenu] _planeGridAligner is not assigned.", this);
             if (_musicService == null)
-                Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned — music slider will not work.", this);
-            if (_musicSlider == null)
-                Debug.LogWarning("[GameOptionsMenu] _musicSlider is not assigned — slider will not sync.", this);
+                Debug.LogWarning("[GameOptionsMenu] _musicService is not assigned.", this);
             if (_uiAudio == null)
-                Debug.LogWarning("[GameOptionsMenu] _uiAudio is not assigned — UI will have no sound.", this);
+                Debug.LogWarning("[GameOptionsMenu] _uiAudio is not assigned.", this);
         }
 
         #endregion
