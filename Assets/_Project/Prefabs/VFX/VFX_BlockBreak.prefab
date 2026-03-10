@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2358819408066314093}
   - component: {fileID: 3666267840264708522}
   m_Layer: 0
-  m_Name: Particle System
+  m_Name: VFX_BlockBreak
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4844,7 +4844,7 @@ GameObject:
   - component: {fileID: 4263436165233072513}
   - component: {fileID: 3718867851644725072}
   m_Layer: 0
-  m_Name: VFX_Block_Break
+  m_Name: VFX_BlockBreak
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

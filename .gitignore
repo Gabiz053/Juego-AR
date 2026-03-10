@@ -15,6 +15,9 @@
 /[Uu]ser[Ss]ettings/
 *.log
 
+# ---- Screenshots generados por ScreenshotService ----
+ARmonia_*.png
+
 # ---- MemoryCaptures (pesados y datos sensibles) ----
 /[Mm]emoryCaptures/
 

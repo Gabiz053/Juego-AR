@@ -16,7 +16,7 @@ Documento de referencia para mantener consistencia en todo el proyecto.
 4. [Variables y campos C#](#4-variables-y-campos-c)
 5. [Materiales](#5-materiales)
 6. [Prefabs](#6-prefabs)
-7. [Texturas](#7-texturas)
+7. [Texturas y modelos 3D](#7-texturas)
 8. [Audio](#8-audio)
 9. [Escenas](#9-escenas)
 10. [Shaders](#10-shaders)
@@ -50,14 +50,16 @@ _Project/
 ├── Audio/
 │   ├── Music/               ← Pistas de fondo (.mp3)
 │   └── SFX/
-│       ├── UI/              ← Sonidos de interfaz
+│       ├── UI/              ← Sonidos de interfaz (SFX_*)
 │       └── Voxels/          ← Sonidos de bloques y herramientas
 ├── Materials/
 │   ├── AR/                  ← Materiales de planos AR y grid
 │   └── Blocks/              ← Materiales de bloques voxel
+├── Models/
+│   └── Blocks/              ← Modelos .glb importados (Model_Glass, Model_Grass, etc.)
 ├── Prefabs/
 │   ├── AR/                  ← Planos AR, interactores XR
-│   ├── Blocks/              ← Bloques voxel y piedritas
+│   ├── Blocks/              ← Bloques voxel y piedritas (+ _Deprecated/)
 │   ├── UI/                  ← (reservada para prefabs de UI)
 │   └── VFX/                 ← Efectos de partículas
 ├── Scenes/
@@ -70,9 +72,9 @@ _Project/
 │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 ├── Shaders/                 ← Shaders HLSL personalizados (URP)
 └── Textures/
-    ├── Blocks/              ← Modelos .glb importados
+    ├── AR/                  ← Texturas de suelo AR (T_Sand, T_ZenFloor)
     ├── Icons/               ← Icono de app
-    └── UI/                  ← Sprites PNG para hotbar y menú
+    └── UI/                  ← Sprites PNG para hotbar y menú (Icon_*, UI_*)
 ```
 
 ---
@@ -115,7 +117,7 @@ UI System                                  [Empty — agrupa objetos UI]
 │   │       ├── Btn_Stone      → Icon_Stone, Txt_Stone
 │   │       ├── Btn_Wood       → Icon_Wood, Txt_Wood
 │   │       ├── Btn_Torch      → Icon_Torch, Txt_Torch
-│   │       ├── Btn_Grass      → icon_Grass, Txt_Grass
+│   │       ├── Btn_Grass      → Icon_Grass, Txt_Grass
 │   │       └── Btn_None       → Txt_None
 │   │
 │   ├── HUD_ToolPanel                      [Image]
@@ -143,7 +145,7 @@ UI System                                  [Empty — agrupa objetos UI]
 │   │   ├── Svc_Screenshot                 [ScreenshotService]
 │   │   ├── Btn_Settings       → Icon_Settings, Txt_Settings
 │   │   └── Panel_OptionsDropdown          [VerticalLayoutGroup, ContentSizeFitter]
-│   │       ├── Btn_Linterna               [DropdownButtonState] → Txt_Lighting
+│   │       ├── Btn_Lighting               [DropdownButtonState] → Txt_Lighting
 │   │       ├── Btn_Depth                  [DropdownButtonState] → Txt_Depth
 │   │       ├── Btn_Grid                   [DropdownButtonState] → Txt_Grid
 │   │       ├── Btn_Plane                  [DropdownButtonState] → Txt_Plane
@@ -205,7 +207,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ScreenshotService` | Svc_Screenshot | — |
 | `HarmonyService` | (GO dedicado o XR Origin) | — |
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
-| `DropdownButtonState` | `Btn_Linterna`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane` | — |
+| `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane` | — |
 
 ### Reglas de nombrado de GameObjects
 
@@ -348,8 +350,8 @@ Cada script sigue este orden de `#region`:
 |-----------|---------|---------|
 | Bloques voxel | `Voxel_` | `Voxel_Sand.prefab`, `Voxel_Torch.prefab` |
 | Piedras decorativas | `Pebble_` | `Pebble_Stone.prefab` |
-| Elementos AR | `AR_` | `AR_Default_Plane.prefab` |
-| Efectos visuales | `VFX_` | `VFX_BlockPlace.prefab`, `VFX_Block_Break.prefab` |
+| Elementos AR | `AR_` | `AR_Default_Plane.prefab`, `AR_RayInteractor.prefab` |
+| Efectos visuales | `VFX_` | `VFX_BlockPlace.prefab`, `VFX_BlockBreak.prefab` |
 | Elementos UI | `UI_` | `UI_HotbarSlot.prefab` |
 
 **Componentes obligatorios por tipo de prefab:**
@@ -359,7 +361,7 @@ Cada script sigue este orden de `#region`:
 | Bloque voxel (`Voxel_*`) | `VoxelBlock` + `BlockDestroy` + `BlockSpawn` + `BoxCollider` + `MeshRenderer` |
 | Piedra (`Pebble_*`) | `ProceduralPebble` + `BlockDestroy` + `BlockSpawn` + `PebbleSupport` + `MeshCollider (convex)` |
 | VFX place (`VFX_BlockPlace`) | `VFXBlockPlace` + `ParticleSystem` |
-| VFX destroy (`VFX_Block_Break`) | `VFXBlockDestroy` + `ParticleSystem` |
+| VFX destroy (`VFX_BlockBreak`) | `VFXBlockDestroy` + `ParticleSystem` |
 
 ---
 
@@ -380,13 +382,21 @@ Cada script sigue este orden de `#region`:
 `Filter Mode = Point (no filter)` y `Compression = None` para mantener bordes
 nítidos de pixel.
 
+### Modelos 3D
+
+| Regla | Ejemplo |
+|-------|---------|
+| Prefijo `Model_` + PascalCase | `Model_Glass.glb`, `Model_Stone.glb` |
+| Ubicación: `_Project/Models/Blocks/` | No mezclar con texturas |
+| Formato `.glb` (glTF Binary) | Unity importa mesh + texturas embebidas |
+
 ---
 
 ## 8. Audio
 
 | Tipo | Prefijo | Ejemplo |
 |------|---------|---------|
-| Efectos de sonido | `SFX_` | `SFX_BlockPlace.mp3`, `Sand_mining2.ogg.mp3` |
+| Efectos de sonido | `SFX_` | `SFX_BlockPlace.mp3`, `SFX_MenuClick.mp3` |
 | Música de fondo | `MUS_` o nombre original | `1-13. Wet Hands.mp3` |
 | Voz / Narración | `VO_` | `VO_Tutorial01.mp3` |
 

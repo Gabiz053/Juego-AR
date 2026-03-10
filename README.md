@@ -55,16 +55,18 @@ Assets/
 │   ├── Audio/
 │   │   ├── Music/               ← 12 pistas MP3 (C418 Minecraft OST)
 │   │   └── SFX/
-│   │       ├── UI/              ← 5 clips (click, levelup, orb, toast, button)
+│   │       ├── UI/              ← 5 clips (SFX_MenuClick, SFX_LevelUp, SFX_Orb, SFX_ToastComplete, SFX_ButtonPress)
 │   │       └── Voxels/          ← 23 clips (dig, hit, mining, brush, hoe, break)
 │   ├── Materials/
-│   │   ├── AR/                  ← M_ARGround 1.mat, M_GridLines.mat, texturas arena
-│   │   └── Blocks/              ← M_BlockDirt/Sand/Stone/Torch/Wood.mat, sand 5.mat
+│   │   ├── AR/                  ← M_ARGround.mat, M_GridLines.mat
+│   │   └── Blocks/              ← M_BlockDirt/Sand/Stone/Torch/Wood.mat, M_Sand.mat
+│   ├── Models/
+│   │   └── Blocks/              ← 5 modelos .glb (Model_Glass, Model_Grass, Model_Stone, Model_Torch, Model_Wood)
 │   ├── Prefabs/
-│   │   ├── AR/                  ← AR_Default_Plane.prefab, Ray_Interactor.prefab
-│   │   ├── Blocks/              ← 7 prefabs activos + carpeta old_voxels/ (5 obsoletos)
+│   │   ├── AR/                  ← AR_Default_Plane.prefab, AR_RayInteractor.prefab
+│   │   ├── Blocks/              ← 7 prefabs activos + carpeta _Deprecated/ (5 obsoletos)
 │   │   ├── UI/                  ← (vacía, .gitkeep)
-│   │   └── VFX/                 ← VFX_BlockPlace.prefab, VFX_Block_Break.prefab
+│   │   └── VFX/                 ← VFX_BlockPlace.prefab, VFX_BlockBreak.prefab
 │   ├── Scenes/
 │   │   └── Main_AR.unity        ← Escena principal (única escena)
 │   ├── Scripts/
@@ -77,9 +79,9 @@ Assets/
 │   │   ├── ARPlane.shader       ← Shader HLSL arena zen con grid animado
 │   │   └── VoxelLit.shader      ← Shader HLSL toon-lit para bloques voxel
 │   └── Textures/
-│       ├── Blocks/              ← 5 modelos .glb importados (glass, grass, stone, torch, wood)
+│       ├── AR/                  ← T_Sand.png, T_ZenFloor.png
 │       ├── Icons/               ← ARmoniaIcon.png, ARmoniaIconBackground.jpg
-│       └── UI/                  ← 18 sprites PNG (iconos Minecraft para hotbar y menú)
+│       └── UI/                  ← 18 sprites PNG (Icon_Sand, Icon_Stone, UI_Background, etc.)
 ├── Resources/                   ← (vacía, uso interno Unity)
 ├── Settings/                    ← URP Pipeline Assets y Volume Profiles
 │   ├── Mobile_RPAsset.asset     ← URP Render Pipeline Asset (Android)
@@ -123,31 +125,31 @@ Assets/
 | `Voxel_Torch.prefab` | `VoxelBlock` + `BlockDestroy` + `BlockSpawn` + `BoxCollider` + `MeshRenderer` + `Light (URP)` | `ARmonia/Blocks/VoxelLit` |
 | `Pebble_Stone.prefab` | `ProceduralPebble` + `BlockDestroy` + `BlockSpawn` + `PebbleSupport` + `MeshCollider (convex)` | material asignado en Inspector |
 
-**Bloques obsoletos (`old_voxels/`, 5):** `Voxel_Dirt`, `Voxel_Sand`, `Voxel_Stone`, `Voxel_Torch`, `Voxel_Wood` — versiones anteriores conservadas como respaldo.
+**Bloques obsoletos (`_Deprecated/`, 5):** `Voxel_Dirt`, `Voxel_Sand`, `Voxel_Stone`, `Voxel_Torch`, `Voxel_Wood` — versiones anteriores conservadas como respaldo.
 
 **VFX (2):**
 
 | Prefab | Componente | Descripción |
 |--------|------------|-------------|
 | `VFX_BlockPlace.prefab` | `VFXBlockPlace` + `ParticleSystem` | Burst de partículas + scale pop al colocar un bloque. Auto-destrucción a los 0.8s. |
-| `VFX_Block_Break.prefab` | `VFXBlockDestroy` + `ParticleSystem` | Burst de cubitos con gravedad al destruir. Auto-destrucción a 1.0s. |
+| `VFX_BlockBreak.prefab` | `VFXBlockDestroy` + `ParticleSystem` | Burst de cubitos con gravedad al destruir. Auto-destrucción a 1.0s. |
 
-**AR (2):** `AR_Default_Plane.prefab`, `Ray_Interactor.prefab`.
+**AR (2):** `AR_Default_Plane.prefab`, `AR_RayInteractor.prefab`.
 
 ### Materiales (8 archivos)
 
 | Material | Shader | Uso |
 |----------|--------|-----|
-| `M_ARGround 1.mat` | `ARmonia/AR/ARPlane` | Suelo AR: arena zen con grid superpuesto, sombras, pulse y shimmer. |
+| `M_ARGround.mat` | `ARmonia/AR/ARPlane` | Suelo AR: arena zen con grid superpuesto, sombras, pulse y shimmer. |
 | `M_GridLines.mat` | Vertex colour shader | Líneas del `GridVisualizer` (mesh procedural). |
 | `M_BlockDirt.mat` | `ARmonia/Blocks/VoxelLit` | Bloque tierra (obsoleto, reemplazado por Sand). |
 | `M_BlockSand.mat` | `ARmonia/Blocks/VoxelLit` | Bloque arena. |
 | `M_BlockStone.mat` | `ARmonia/Blocks/VoxelLit` | Bloque piedra. |
 | `M_BlockTorch.mat` | `ARmonia/Blocks/VoxelLit` | Bloque antorcha (con emisión). |
 | `M_BlockWood.mat` | `ARmonia/Blocks/VoxelLit` | Bloque madera. |
-| `sand 5.mat` | (variante) | Material auxiliar arena. |
+| `M_Sand.mat` | (variante) | Material auxiliar arena. |
 
-Texturas auxiliares en `Materials/AR/`: `sand.png` (patrón arena), `SueloZen_Generado.png` (textura generada).
+Texturas auxiliares en `Textures/AR/`: `T_Sand.png` (patrón arena), `T_ZenFloor.png` (textura generada).
 
 ### Audio (40 archivos)
 
@@ -155,8 +157,8 @@ Texturas auxiliares en `Materials/AR/`: `sand.png` (patrón arena), `SueloZen_Ge
 `Oxygène`, `Équinoxe`, `Mice on Venus`, `Dry Hands`, `Wet Hands`, `Sweden`,
 `Alpha`, `Moog City 2`.
 
-**SFX UI (5 clips):** `levelup.mp3`, `minecraft---menu-click-2.mp3`,
-`minecraft-ui-toast-challenge-complete.mp3`, `orb.mp3`, `Stone_button_press.ogg.mp3`.
+**SFX UI (5 clips):** `SFX_LevelUp.mp3`, `SFX_MenuClick.mp3`,
+`SFX_ToastComplete.mp3`, `SFX_Orb.mp3`, `SFX_ButtonPress.mp3`.
 
 **SFX Voxels (23 clips):**
 
@@ -171,23 +173,24 @@ Texturas auxiliares en `Materials/AR/`: `sand.png` (patrón arena), `SueloZen_Ge
 | Arado | `Hoe_till1–4` |
 | General | `SFX_BlockPlace`, `Random_break` |
 
-### Texturas e iconos (25 archivos)
+### Modelos 3D (5 archivos)
 
-**Modelos 3D (`Textures/Blocks/`, 5 archivos `.glb`):** `minecraft_-_glass_bien.glb`,
-`minecraft_grass_block_bien.glb`, `minecraft_stone_block_medio bien.glb`,
-`minecraft_torch_bien.glb`, `minecraft_wood_bien.glb`.
+**`Models/Blocks/` (5 archivos `.glb`):** `Model_Glass.glb`,
+`Model_Grass.glb`, `Model_Stone.glb`, `Model_Torch.glb`, `Model_Wood.glb`.
 
-> **Nota:** Estos `.glb` están en la carpeta `Textures/Blocks/` pero son modelos 3D
-> importados, no texturas. Unity los importa como meshes con texturas embebidas.
+> **Nota:** Unity importa estos `.glb` como meshes con texturas embebidas.
 
-**Iconos app (2):** `ARmoniaIcon.png`, `ARmoniaIconBackground.jpg`.
+### Texturas e iconos (22 archivos)
 
-**Sprites UI (18 PNG):** `background`, `book`, `demo_bg`, `gui`, `icons`,
-`minecraft_barrier`, `minecraft_brush`, `minecraft_cobblestone`,
-`minecraft_command_block`, `minecraft_diamond_pickaxe`, `minecraft_glass`,
-`minecraft_golden_hoe`, `minecraft_grass_block`, `minecraft_light`,
-`minecraft_oak_planks`, `minecraft_oak_wood`, `minecraft_sand`,
-`minecraft_stone`, `minecraft_torch`.
+**Texturas AR (`Textures/AR/`, 2):** `T_Sand.png`, `T_ZenFloor.png`.
+
+**Iconos app (`Textures/Icons/`, 2):** `ARmoniaIcon.png`, `ARmoniaIconBackground.jpg`.
+
+**Sprites UI (`Textures/UI/`, 18 PNG):** `Icon_Barrier`, `Icon_Brush`,
+`Icon_Cobblestone`, `Icon_CommandBlock`, `Icon_DiamondPickaxe`, `Icon_Glass`,
+`Icon_GoldenHoe`, `Icon_GrassBlock`, `Icon_Light`, `Icon_OakPlanks`,
+`Icon_OakWood`, `Icon_Sand`, `Icon_Stone`, `Icon_Torch`,
+`UI_Background`, `UI_Book`, `UI_DemoBg`, `UI_Gui`, `UI_Icons`.
 
 ### Fuentes (5 archivos)
 
@@ -314,7 +317,7 @@ ARBlockPlacer.Update()         ← Ignora toques sobre UI (IsPointerOverGameObje
         ├─ UndoRedoService.Record(new DestroyBlockAction(...))
         ├─ BlockDestroy.BreakFromTool(hitNormal)
         │     ├─ Audio: VoxelBlock.BreakSounds o inyectados por PlowTool
-        │     ├─ VFX_Block_Break instantiated
+        │     ├─ VFX_BlockBreak instantiated
         │     ├─ Unparent del WorldContainer
         │     ├─ AddComponent<Rigidbody>() + AddForce(kickDir * knockForce)
         │     ├─ AddTorque(random * knockForce * 3)
@@ -474,7 +477,7 @@ Btn_Settings → GameOptionsMenu.ToggleMenu()
   └─ UIAudioService.PlayMenuOpen()
 
 Botones dentro del dropdown:
-  ├─ Btn_Linterna → ToggleLighting()
+  ├─ Btn_Lighting → ToggleLighting()
   │     ├─ CameraFlashLight (SpotLight) ON/OFF
   │     ├─ Directional Light OFF/ON (si _disableGlobalOnFocus)
   │     └─ DropdownButtonState actualiza color
@@ -533,7 +536,7 @@ OrientationManager.Update()
 | Decorador | `Tool_Plow` | 9 | Esparce piedras procedurales con rotación, escala y scatter aleatorios. Con Pincel activo, esparce continuamente cada 0.06s. |
 
 **Conversión:** `ToolManager` castea `(BlockType)(int)CurrentTool` para obtener el
-prefab de `BlockDatabase`. Los valores 0–5 de `ToolType` coinciden 1:1 con `BlockType`.
+prefab de `BlockDatabase`. Los valores 0-5 de `ToolType` coinciden 1:1 con `BlockType`.
 
 **ADVERTENCIA:** Los valores int de `ToolType` están baked en los `OnClick` events
 de los botones de la escena. No se deben cambiar.
@@ -613,7 +616,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `HarmonyService` | MonoBehaviour | Evalúa armonía. `Dictionary<BlockType,int>` para conteos. Eventos: `OnHarmonyChanged(float)`, `OnPerfectHarmony`, `OnWorldReset`. `NotifyBlockPlaced/Destroyed`, `NotifyPebblePlaced/Destroyed`, `NotifyWorldReset`, `NotifyUndoRedo` (→ `RebuildCounters` O(n) scan). |
 | `GameAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. One-shot SFX con pitch variation (±0.15). Anti-repetición en arrays. |
 | `MusicService` | MonoBehaviour | Shuffle Fisher-Yates, crossfade entre tracks (2s), volume slider. `AudioSource` dedicado (asignado en Inspector, separado de `GameAudioService`). Evento `OnVolumeChanged`. |
-| `IUndoableAction` | Interface | Contrato `Undo()` / `Redo()`. |
+| `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
 | `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + posición local + callback. |
 | `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + arm. `Redo()` → `Destroy(restoredInstance)`. |
 | `UndoRedoService` | MonoBehaviour | `Stack<IUndoableAction>` × 2 con cap (`_maxHistory`, default 20). `Record()` limpia redo. `TrimBottom()` O(n) solo al cap. Evento `OnStackChanged(canUndo, canRedo)`. Tras cada undo/redo → `HarmonyService.NotifyUndoRedo()`. |
@@ -637,7 +640,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `UIManager` | MonoBehaviour | Selector highlight (`_selectorRect`) que sigue al slot activo. `_slotRects[]` indexado por valor int de `ToolType`. `OnSlotClicked(int)` delega a `ToolManager.SelectToolByIndex()`. Delay de 0.1s para que los Layout Groups se asienten antes de posicionar. |
-| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop (1.0 a 1.20 a 1.0 en 0.45s), shake (mas/menos 7px en 0.28s). Flag `_frozen` para post-perfect. Esquinas redondeadas procedurales (9-slice generado en runtime). |
+| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. Esquinas redondeadas procedurales (9-slice generado en runtime). |
 | `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Configura ParticleSystem proceduralmente en `Awake`. Burst 120 particulas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocoton, lavanda, blanco. Se posiciona frente a `Camera.main`. |
 | `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. |
 | `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton` con iconos. Suscrito a `UndoRedoService.OnStackChanged`. Alpha enabled/disabled (1.0/0.35). `OnUndoPressed()`/`OnRedoPressed()`. |
@@ -659,7 +662,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `BlockSpawn` | MonoBehaviour | Coroutine en espacio local. Fase 1 (80%): vuelo ease-out cubico, scale de 0 a 1.15. Fase 2 (20%): settle de 1.15 a 1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. `_cameraLocalOffset` = (0, -0.12, 0.15). |
 | `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`). `BreakFromTool(hitNormal)`: unparent, `Rigidbody` + impulso + torque, VFX, audio, tumble (`_destroyDelay` 0.12s), shrink (`_shrinkDuration` 0.18s), `Destroy`. `InjectSharedRefs()` para VFX y audio sin duplicar en prefabs. |
 | `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered en `Awake`. Flat shading (verts duplicados por triangulo). Base plana (Y menor que 0 se pone a Y=0). Box-projection UV. Seed 0 = random. |
-| `PebbleSupport` | MonoBehaviour | Poll periodico (`InvokeRepeating`, `_checkInterval` 0.35s). Raycast hacia `-_supportDir` (`_checkDistance` 0.20m, solo `_voxelMask`). Si no hay soporte, llama a `BlockDestroy.BreakFromTool()`. Si `_onARPlane`, nunca auto-break. |
+| `PebbleSupport` | MonoBehaviour | Poll periodico (`InvokeRepeating`, `_checkInterval` 0.35s). Raycast hacia `-_supportDir` (`_checkDistance` 0.20m, solo `_voxelMask`). Si no hay apoyo, llama a `BlockDestroy.BreakFromTool()`. Si `_onARPlane`, nunca auto-break. |
 | `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst (10 a 16 particulas) + scale pop (1.18x en 0.06s, luego 1.0 en 0.14s). Auto-destroy a 0.8s. Configura todo proceduralmente en `Start()`. |
 | `VFXBlockDestroy` | MonoBehaviour | ParticleSystem burst de cubitos (`Cube.fbx`) con gravedad 2.0, tumble rotacional, fade alpha. Auto-destroy a 1.0s. Configura todo proceduralmente en `Start()`. |
 
@@ -694,8 +697,6 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 - **Modo Bonsai:** Codigo del bootstrapper completo, pero no hay `XRReferenceImageLibrary` configurada. Falta testing real.
 - **Pebble Undo/Redo:** Bloques voxel tienen undo/redo completo. Las piedritas del `PlowTool` **no** se registran en `UndoRedoService`.
-- **Modelos 3D en carpeta equivocada:** 5 archivos `.glb` estan en `Textures/Blocks/` en lugar de una carpeta dedicada `Models/`.
-- **Material `sand 5.mat`:** Nombre no sigue la convencion `M_*`.
 
 ### Funcionalidades no implementadas
 
