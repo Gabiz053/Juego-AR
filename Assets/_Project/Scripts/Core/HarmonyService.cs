@@ -165,21 +165,19 @@ namespace _Project.Scripts.Core
             float decoration = ScoreDecoration();
             float quantity   = ScoreQuantity();
 
-            float raw = variety    * _config.varietyWeight
-                      + decoration * _config.decorationWeight
-                      + quantity   * _config.quantityWeight;
+            float raw  = variety    * _config.varietyWeight
+                       + decoration * _config.decorationWeight
+                       + quantity   * _config.quantityWeight;
 
-            // ?? Minimums gate ??????????????????????????????
-            // Scales the score down until Sand and Grass minimums are met.
-            // gateStrength=0.85 means the score is capped at 15% of its value
-            // when neither minimum is met, rising to full once both are satisfied.
-            float gate = ScoreMinimumGate();
-            float score = Mathf.Clamp01(raw * gate);
+            float gate  = ScoreMinimumGate();
+            // Snap raw to 1 when all pillars are fully satisfied (float precision).
+            float score = Mathf.Clamp01(raw > 0.999f && gate >= 1f ? 1f : raw * gate);
 
-            if (Mathf.Approximately(score, _lastScore)) return;
+            // Threshold: treat anything within 0.005 as unchanged to avoid jitter.
+            if (Mathf.Abs(score - _lastScore) < 0.005f) return;
 
             float previous = _lastScore;
-            _lastScore = score;
+            _lastScore     = score;
             OnHarmonyChanged?.Invoke(score);
 
             if (score >= 1f && !_perfectFired)
@@ -223,7 +221,7 @@ namespace _Project.Scripts.Core
         // ?? Minimums gate ??????????????????????????????????
         // Returns a multiplier in [1-gateStrength .. 1].
         // Each unmet minimum contributes half the gate penalty.
-        // Both met ? 1.0 (no penalty).
+        // Both met ? 1.0 (no penalty, score can reach 1.0).
         // Neither met ? (1 - gateStrength).
         private float ScoreMinimumGate()
         {
@@ -240,7 +238,10 @@ namespace _Project.Scripts.Core
             if (grassCount < _config.minGrassBlocks)
                 penalty += half * (1f - (float)grassCount / _config.minGrassBlocks);
 
-            return 1f - penalty;
+            // Clamp to avoid floating point making gate slightly below 1
+            // when minimums are exactly met.
+            float gate = 1f - penalty;
+            return gate > 0.999f ? 1f : gate;
         }
 
         #endregion

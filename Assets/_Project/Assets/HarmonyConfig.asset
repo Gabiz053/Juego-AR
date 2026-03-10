@@ -15,7 +15,9 @@ MonoBehaviour:
   varietyWeight: 0.5
   decorationWeight: 0.3
   quantityWeight: 0.2
-  fullVarietyTypeCount: 4
+  fullVarietyTypeCount: 6
   targetBlockCount: 20
   targetPebbleCount: 10
-  perfectCooldown: 30
+  minSandBlocks: 5
+  minGrassBlocks: 5
+  gateStrength: 0.85
