@@ -36,6 +36,10 @@ namespace _Project.Scripts.UI
         [Tooltip("UndoRedoService — its stacks are cleared together with the world reset.")]
         [SerializeField] private UndoRedoService _undoRedoService;
 
+        [Header("Harmony")]
+        [Tooltip("HarmonyService — reset to zero when the world is cleared.")]
+        [SerializeField] private HarmonyService _harmonyService;
+
         #endregion
 
         #region Events ────────────────────────────────────────
@@ -74,6 +78,7 @@ namespace _Project.Scripts.UI
             ResetAnchor();
             DeactivateGrid();
             _undoRedoService?.Clear();
+            _harmonyService?.NotifyWorldReset();
 
             OnWorldReset?.Invoke();
             Debug.Log("[WorldResetService] World fully reset (blocks + anchor + grid).");
@@ -106,14 +111,18 @@ namespace _Project.Scripts.UI
             for (int i = _worldContainer.childCount - 1; i >= 0; i--)
             {
                 GameObject child = _worldContainer.GetChild(i).gameObject;
-                if (child.GetComponent<VoxelBlock>() != null)
+
+                bool isBlock  = child.GetComponent<VoxelBlock>()      != null;
+                bool isPebble = child.GetComponent<ProceduralPebble>() != null;
+
+                if (isBlock || isPebble)
                 {
                     Destroy(child);
                     destroyed++;
                 }
             }
 
-            Debug.Log($"[WorldResetService] Destroyed {destroyed} block(s) from WorldContainer.");
+            Debug.Log($"[WorldResetService] Destroyed {destroyed} object(s) from WorldContainer.");
         }
 
         /// <summary>
@@ -163,6 +172,8 @@ namespace _Project.Scripts.UI
                 Debug.LogError("[WorldResetService] _gridManager is not assigned!", this);
             if (_undoRedoService == null)
                 Debug.LogError("[WorldResetService] _undoRedoService is not assigned!", this);
+            if (_harmonyService == null)
+                Debug.LogError("[WorldResetService] _harmonyService is not assigned!", this);
         }
 
         #endregion

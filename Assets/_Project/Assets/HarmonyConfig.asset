@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7703a7627585cb840bd5d6fc45a927bc, type: 3}
+  m_Name: HarmonyConfig
+  m_EditorClassIdentifier: 
+  varietyWeight: 0.5
+  decorationWeight: 0.3
+  quantityWeight: 0.2
+  fullVarietyTypeCount: 4
+  targetBlockCount: 20
+  targetPebbleCount: 10
+  perfectCooldown: 30

@@ -54,6 +54,10 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Break VFX prefab injected into each pebble's BlockDestroy.")]
         [SerializeField] private GameObject _breakVfxPrefab;
 
+        [Header("Harmony")]
+        [Tooltip("HarmonyService — notified on every pebble place.")]
+        [SerializeField] private HarmonyService _harmonyService;
+
         [Header("Pebble Prefabs")]
         [Tooltip("Pool of pebble prefabs to pick from at random. " +
                  "Each should have ProceduralPebble + BlockSpawn + BlockDestroy.")]
@@ -255,6 +259,8 @@ namespace _Project.Scripts.Interaction
 
             if (_audioService != null && _placeSounds != null && _placeSounds.Length > 0)
                 _audioService.PlayOneShot(_placeSounds);
+
+            _harmonyService?.NotifyPebblePlaced();
 
             Debug.Log($"[PlowTool] Pebble '{prefab.name}' placed at {spawnPos} (ARPlane={onARPlane}).");
         }

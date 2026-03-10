@@ -26,6 +26,10 @@ namespace _Project.Scripts.Core
         [Tooltip("Maximum number of actions kept in the undo stack. Oldest entries are discarded.")]
         [SerializeField] private int _maxHistory = 20;
 
+        [Header("Harmony")]
+        [Tooltip("HarmonyService — rescans garden after every undo/redo.")]
+        [SerializeField] private HarmonyService _harmonyService;
+
         #endregion
 
         #region Events ????????????????????????????????????????
@@ -89,6 +93,7 @@ namespace _Project.Scripts.Core
             _redoStack.Push(action);
 
             NotifyChanged();
+            _harmonyService?.NotifyUndoRedo();
             Debug.Log($"[UndoRedoService] Undid {action.GetType().Name}. " +
                       $"Undo={_undoStack.Count} Redo={_redoStack.Count}");
         }
@@ -106,6 +111,7 @@ namespace _Project.Scripts.Core
             _undoStack.Push(action);
 
             NotifyChanged();
+            _harmonyService?.NotifyUndoRedo();
             Debug.Log($"[UndoRedoService] Redid {action.GetType().Name}. " +
                       $"Undo={_undoStack.Count} Redo={_redoStack.Count}");
         }

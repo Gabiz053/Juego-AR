@@ -84,6 +84,10 @@ namespace _Project.Scripts.Interaction
         [Tooltip("UndoRedoService — records every place and destroy action so they can be reversed.")]
         [SerializeField] private UndoRedoService _undoRedoService;
 
+        [Header("Harmony")]
+        [Tooltip("HarmonyService — notified on every block place/destroy.")]
+        [SerializeField] private HarmonyService _harmonyService;
+
         #endregion
 
         #region Cached Components ─────────────────────────────
@@ -326,14 +330,16 @@ namespace _Project.Scripts.Interaction
                 snappedLocal, Quaternion.identity,
                 _breakVfxPrefab, _audioService, ArmBlock));
 
+            // Notify harmony — block type comes from the VoxelBlock component.
+            VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
+            if (blockData != null)
+                _harmonyService?.NotifyBlockPlaced(blockData.Type);
+
             Debug.Log($"[ARBlockPlacer] Block placed: {prefab.name} at local {snappedLocal}.");
 
-            // Spawn placement VFX at the block centre.
             if (_placeVfxPrefab != null)
                 Instantiate(_placeVfxPrefab, worldPos, Quaternion.identity);
 
-            // Play placement audio via the audio service.
-            VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
             if (blockData != null && _audioService != null)
                 _audioService.PlayOneShot(blockData.PlaceSounds);
         }
@@ -417,6 +423,10 @@ namespace _Project.Scripts.Interaction
 
                 Destroy(target);
             }
+
+            // Notify harmony after the block has been removed.
+            if (blockData != null)
+                _harmonyService?.NotifyBlockDestroyed(blockData.Type);
 
             Debug.Log($"[ARBlockPlacer] Destroyed: {target.name}.");
         }

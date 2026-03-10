@@ -46,6 +46,19 @@ namespace _Project.Scripts.UI
         [Tooltip("One or more clips played at random when a screenshot is taken.")]
         [SerializeField] private AudioClip[] _photoSounds;
 
+        [Header("Harmony Phase Sounds")]
+        [Tooltip("Played when harmony reaches 25 % (phase 1 — Añade más variedad).")]
+        [SerializeField] private AudioClip _harmonyPhase1Sound;
+
+        [Tooltip("Played when harmony reaches 50 % (phase 2 — Jardín equilibrado).")]
+        [SerializeField] private AudioClip _harmonyPhase2Sound;
+
+        [Tooltip("Played when harmony reaches 75 % (phase 3 — Gran armonía).")]
+        [SerializeField] private AudioClip _harmonyPhase3Sound;
+
+        [Tooltip("Played when harmony reaches 100 % (phase 4 — ¡Armonía perfecta!).")]
+        [SerializeField] private AudioClip _harmonyPhase4Sound;
+
         [Header("Pitch Variation")]
         [Tooltip("Maximum random pitch offset applied per play (±). 0 = no variation.")]
         [Range(0f, 0.3f)]
@@ -59,13 +72,13 @@ namespace _Project.Scripts.UI
 
         // Per-pool trackers of the last index played — prevents the same clip
         // from being chosen twice in a row when a pool has more than one entry.
-        private int _lastClickIndex      = -1;
-        private int _lastToggleIndex     = -1;
-        private int _lastMenuOpenIndex   = -1;
-        private int _lastConfirmIndex    = -1;
-        private int _lastCancelIndex     = -1;
-        private int _lastSlotSelectIndex = -1;
-        private int _lastPhotoIndex      = -1;
+        private int _lastClickIndex        = -1;
+        private int _lastToggleIndex       = -1;
+        private int _lastMenuOpenIndex     = -1;
+        private int _lastConfirmIndex      = -1;
+        private int _lastCancelIndex       = -1;
+        private int _lastSlotSelectIndex   = -1;
+        private int _lastPhotoIndex        = -1;
 
         #endregion
 
@@ -113,6 +126,30 @@ namespace _Project.Scripts.UI
 
         /// <summary>Plays a random screenshot capture sound.</summary>
         public void PlayPhoto()      => Play(_photoSounds,      ref _lastPhotoIndex);
+
+        /// <summary>
+        /// Plays the specific clip assigned to the given harmony phase.<br/>
+        /// <paramref name="phase"/> must be 1–4 (25 / 50 / 75 / 100 %).
+        /// No-op if the clip for that phase is not assigned.
+        /// </summary>
+        public void PlayHarmonyPhase(int phase)
+        {
+            AudioClip clip = phase switch
+            {
+                1 => _harmonyPhase1Sound,
+                2 => _harmonyPhase2Sound,
+                3 => _harmonyPhase3Sound,
+                4 => _harmonyPhase4Sound,
+                _ => null
+            };
+
+            if (clip == null) return;
+
+            float prevPitch        = _audioSource.pitch;
+            _audioSource.pitch     = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
+            _audioSource.PlayOneShot(clip);
+            _audioSource.pitch     = prevPitch;
+        }
 
         #endregion
 
