@@ -34,7 +34,7 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
 8. [Pantalla de inicio (planificada)](#pantalla-de-inicio-planificada)
-9. [Lista completa de scripts (50)](#lista-completa-de-scripts-50)
+9. [Lista completa de scripts (51)](#lista-completa-de-scripts-51)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -72,7 +72,7 @@ Assets/
 │   │   └── Main_AR.unity        ← Escena principal (única escena)
 │   ├── Scripts/
 │   │   ├── AR/                  ← 4 scripts
-│   │   ├── Core/                ← 17 scripts (incluye enums, interfaces, statics, servicios)
+│   │   ├── Core/                ← 18 scripts (incluye enums, interfaces, statics, servicios)
 │   │   ├── Interaction/         ← 8 scripts
 │   │   ├── UI/                  ← 12 scripts
 │   │   └── Voxel/               ← 9 scripts
@@ -141,7 +141,7 @@ Assets/
 
 | Material | Shader | Uso |
 |----------|--------|-----|
-| `M_ARGround.mat` | `ARmonia/AR/ARPlane` | Suelo AR: arena zen con grid superpuesto, sombras, pulse y shimmer. |
+| `M_ARGUMENTOUT.mat` | `ARmonia/AR/ARPlane` | Suelo AR: arena zen con grid superpuesto, sombras, pulse y shimmer. |
 | `M_GridLines.mat` | Vertex colour shader | Líneas del `GridVisualizer` (mesh procedural). |
 | `M_BlockDirt.mat` | `ARmonia/Blocks/VoxelLit` | Bloque tierra (obsoleto, reemplazado por Sand). |
 | `M_BlockSand.mat` | `ARmonia/Blocks/VoxelLit` | Bloque arena. |
@@ -508,6 +508,10 @@ Botones dentro del dropdown:
   │     └─ ARPlaneGridAligner.SetGrid(bool) → MaterialPropertyBlock _GridEnabled
   ├─ Btn_Plane → TogglePlaneVisual()
   │     └─ ARPlaneGridAligner.SetVisual(bool) → MeshRenderer.enabled en planos
+  ├─ Btn_Vibration → ToggleVibration()
+  │     └─ HapticService.ToggleHaptics()
+  │           ├─ IsEnabled = !IsEnabled (default OFF)
+  │           └─ event OnHapticsToggled → DropdownButtonState actualiza color
   ├── Sld_MusicVolume → OnMusicVolumeChanged(0–100)
   │     └─ MusicService.SetVolume(0–1)
   ├─ Btn_Photo → TakePhoto()
@@ -518,6 +522,7 @@ Botones dentro del dropdown:
   │           ├─ Canvas.enabled = true
   │           ├─ UIAudioService.PlayPhoto() (shutter sound)
   │           ├─ Flash overlay (GameObject ON → alpha 1→0 → OFF)
+  │           ├─ HapticService.VibrateLight() (pop táctil)
   │           ├─ NativeGallery.SaveImageToGallery() (Android/iOS)
   │           │   └─ Editor fallback: File.WriteAllBytes(persistentDataPath)
   │           ├─ ScreenshotToastPanel.Show(texture)
@@ -622,7 +627,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 ---
 
-## Lista completa de scripts (50)
+## Lista completa de scripts (51)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -633,7 +638,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `ARWorldManager` | ~140 | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ≈ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
 | `WorldModeBootstrapper` | ~160 | Lee `WorldModeContext.Selected`, busca el `WorldModeSO` correspondiente en `_modeConfigs[]`, aplica `WorldContainer.localScale`, habilita `ARPlaneManager` o `ARTrackedImageManager` según `AnchorType`, suscribe a `trackablesChanged` para auto-anclar. Campo `_devOverrideMode` para testing sin title screen. |
 
-### Core (17 scripts) — `_Project.Scripts.Core`
+### Core (18 scripts) — `_Project.Scripts.Core`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -644,15 +649,12 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `GameAudioService` | MonoBehaviour | One-shot SFX con pitch variation (±0.15). Anti-repetición en arrays. `AudioSource` asignado via Inspector. |
 | `MusicService` | MonoBehaviour | Shuffle Fisher-Yates, crossfade entre tracks (2s), volume slider. `AudioSource` dedicado (asignado en Inspector, separado de `GameAudioService`). Evento `OnVolumeChanged`. |
 | `LightingService` | MonoBehaviour | Toggle entre modo Global (Directional Light ON, Spot OFF) y Focus (Directional OFF, Spot ON). Evento `OnLightingToggled(bool)`. Configurable `_disableGlobalOnFocus`. |
-| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, lee píxeles con `Texture2D.ReadPixels`, guarda a galería via `NativeGallery.SaveImageToGallery()` (Android/iOS) con fallback a `Application.persistentDataPath` en Editor. Flash visual (`_flashOverlayObject` GameObject activado → CanvasGroup alpha 1→0 → desactivado). Audio via `UIAudioService.PlayPhoto()`. Toast de confirmación via `ScreenshotToastPanel.Show(texture)` con thumbnail. Evento `OnScreenshotCaptured(path)`. |
+| `HapticService` | MonoBehaviour | Wrapper del plugin Vibration (Benoit Freslon). Presets: `VibrateLight()` (pop ≈50ms, UI/colocar/foto), `VibrateMedium()` (peek ≈100ms, destruir), `VibrateHeavy()` (nope triple-tap, armonía perfecta). Toggle ON/OFF via `ToggleHaptics()`, default OFF. Evento `OnHapticsToggled(bool)`. Lazy `Init()` del plugin nativo. |
+| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, lee píxeles con `Texture2D.ReadPixels`, guarda a galería via `NativeGallery.SaveImageToGallery()` (Android/iOS) con fallback a `Application.persistentDataPath` en Editor. Flash visual (`_flashOverlayObject` GameObject activado → CanvasGroup alpha 1→0 → desactivado). Audio via `UIAudioService.PlayPhoto()`. Haptic via `HapticService.VibrateLight()`. Toast de confirmación via `ScreenshotToastPanel.Show(texture)` con thumbnail. Evento `OnScreenshotCaptured(path)`. |
 | `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
 | `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: deshabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
 | `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + `PlaceBlockAction.ArmForImmediate()`. `Redo()` → `Destroy(restoredInstance)`. Creado por `BlockDestroyer` (tap) y `BlockDestroy` (proximity knock). |
-| `UndoRedoService` | MonoBehaviour | `Stack<IUndoableAction>` × 2 con cap (`_maxHistory`, default 20). `Record()` limpia redo. `TrimBottom()` O(n) solo al cap. Evento `OnStackChanged(canUndo, canRedo). Tras cada undo/redo → `HarmonyService.NotifyUndoRedo()`. |
-| `WorldMode` | Enum | `Bonsai = 0`, `Normal = 1`, `Real = 2`. |
-| `WorldModeContext` | Static class | `static WorldMode Selected = Normal`. Cross-escena sin MonoBehaviour. |
-| `WorldModeSO` | ScriptableObject | `Mode`, `DisplayName`, `WorldContainerScale`, `AnchorType` (enum: `ARPlane`/`TrackedImage`), `ImageLibrary`, `ImagePhysicalWidth`, `MaxBlocks`. |
 
 ### Interaction (8 scripts) — `_Project.Scripts.Interaction`
 
@@ -672,17 +674,17 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `UIManager` | MonoBehaviour | Selector highlight (`_selectorRect`) que sigue al slot activo. `_slotRects[]` indexado por valor int de `ToolType`. `OnSlotClicked(int)` delega a `ToolManager.SelectToolByIndex()`. Delay de 0.1s para que los Layout Groups se asienten antes de posicionar. |
-| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. |
+| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. Vibración háptica escalada por fase via `PlayPhaseHaptic()`: fase 0-1 → light, fase 2 → medium, fase 3 → heavy. |
 | `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Configura ParticleSystem proceduralmente en `Awake`. Burst 120 particulas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocoton, lavanda, blanco. Se posiciona frente a `Camera.main`. |
-| `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. |
+| `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`, `HapticService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. `VibrateHeavy()` en celebración. El GO debe estar **activo** (usa CanvasGroup alpha=0, no SetActive). |
 | `ScreenshotToastPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Toast de confirmación tras captura. `Show(Texture2D)` activa el GameObject, asigna thumbnail al `RawImage`, fade in SmoothStep (0.3s). `Btn_Accept` auto-wired en `EnsureInitialized()` → fade out (0.2s) → `ReleaseTexture()` → `SetActive(false)`. Inicia desactivado. |
 | `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton` con iconos. Suscrito a `UndoRedoService.OnStackChanged`. Alpha enabled/disabled (1.0/0.35). `OnUndoPressed()`/`OnRedoPressed()`. |
 | `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color` con `_dimFactor` (0.45) cuando brush está OFF/ON. Mismo patrón que `UndoRedoHUD`. |
-| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`. Slider de música (0–100). Cierre de menú post-screenshot con `CloseMenuDelayed()` (1 frame) para que `ButtonPressAnimation` complete. |
+| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`, `HapticService`. `ToggleVibration()` con `DropdownButtonState` (default OFF). Slider de música (0–100). Cierre de menú post-screenshot con `CloseMenuDelayed()` (1 frame) para que `ButtonPressAnimation` complete. |
 | `OrientationManager` | MonoBehaviour | Detecta portrait/landscape en `Update()` (`Screen.width > Screen.height`). Oculta hotbar, tool panel, selector en landscape. Fuerza `Tool_None`. Restaura `_previousTool` en portrait con `WaitForEndOfFrame`. |
-| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases dearmonía. Pitch variation ±0.05. Anti-repeticion por pool. |
+| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases de armonía. Pitch variation ±0.05. Anti-repeticion por pool. Vibración háptica integrada en todos los `Play*()` (excepto `PlayPhoto`). |
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down y scale-up automatico en cada boton. |
-| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF en el dropdown de opciones. `_dimFactor` configurable. `SetState(bool)`. Usado por `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`. |
+| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF en el dropdown de opciones. `_dimFactor` configurable. `SetState(bool)`. Usado por `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration`. |
 
 ### Voxel (9 scripts) — `_Project.Scripts.Voxel`
 
@@ -691,12 +693,12 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `BlockType` | Enum | `Sand(0)`, `Glass(1)`, `Stone(2)`, `Wood(3)`, `Torch(4)`, `Grass(5)`. |
 | `BlockDatabase` | ScriptableObject | Array de `BlockEntry` (type + prefab). Lazy `Dictionary<BlockType,GameObject>` para O(1). `GetPrefab()`, `TryGetPrefab()`, `Count`. |
 | `VoxelBlock` | MonoBehaviour | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. Fuente única de verdad para audio en bloques voxel. Properties de solo lectura. |
-| `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Fase 1 (80%): vuelo ease-out cubico, scale 0→1.15. Fase 2 (20%): settle 1.15→1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Al terminar: `PlayPlaceFeedback()` (VFX `_placeVfxPrefab` + audio). Lee audio de `VoxelBlock.PlaceSounds` si existe, fallback a `_placeSounds` para pebbles. Auto-localiza `GameAudioService` via `FindAnyObjectByType`. |
-| `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`, **solo con Tool_Destroy activo**). `IsKnocked` impide double-trigger. Proximity knock: marca `_knocked=true` → `RecordUndoForProximity()` (registra `DestroyBlockAction` con `InverseTransformPoint`, notifica Harmony) → `KnockRoutine`. `BreakFromTool(hitNormal)`: marca `_knocked=true` → `KnockRoutine` (undo lo registra el caller `BlockDestroyer`). `KnockRoutine`: audio + VFX `_breakVfxPrefab` + unparent + `Rigidbody` impulso/torque + tumble (`_destroyDelay` 0.12s) + shrink (`_shrinkDuration` 0.18s) + `Destroy`. Lee audio de `VoxelBlock.BreakSounds` si existe, fallback a `_breakSounds` para pebbles. Auto-localiza `ToolManager`, `GameAudioService`, `UndoRedoService`, `HarmonyService` via `FindAnyObjectByType`. Cachea `_worldContainer = transform.parent` en `Start`. |
+| `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Fase 1 (80%): vuelo ease-out cubico, scale 0→1.15. Fase 2 (20%): settle 1.15→1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Haptic `VibrateLight()` al inicio de la animación (respuesta táctil inmediata). Al terminar: `PlayPlaceFeedback()` (VFX `_placeVfxPrefab` + audio). Lee audio de `VoxelBlock.PlaceSounds` si existe, fallback a `_placeSounds` para pebbles. Auto-localiza `GameAudioService`, `HapticService` via `FindAnyObjectByType`. |
+| `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`, **solo con Tool_Destroy activo**). `IsKnocked` impide double-trigger. Proximity knock: marca `_knocked=true` → `RecordUndoForProximity()` (registra `DestroyBlockAction` con `InverseTransformPoint`, notifica Harmony) → `KnockRoutine`. `BreakFromTool(hitNormal)`: marca `_knocked=true` → `KnockRoutine` (undo lo registra el caller `BlockDestroyer`). `KnockRoutine`: haptic `VibrateMedium()` + audio + VFX `_breakVfxPrefab` + unparent + `Rigidbody` impulso/torque + tumble (`_destroyDelay` 0.12s) + shrink (`_shrinkDuration` 0.18s) + `Destroy`. Lee audio de `VoxelBlock.BreakSounds` si existe, fallback a `_breakSounds` para pebbles. Auto-localiza `ToolManager`, `GameAudioService`, `HapticService`, `UndoRedoService`, `HarmonyService` via `FindAnyObjectByType`. Cachea `_worldContainer = transform.parent` en `Start`. |
 | `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered en `Awake`. Flat shading (verts duplicados por triangulo). Base plana (Y menor que 0 se pone a Y=0). Box-projection UV. Seed 0 = random. |
 | `PebbleSupport` | MonoBehaviour | Poll periodico (`InvokeRepeating`, `_checkInterval` 0.35s). Raycast hacia `-_supportDir` (`_checkDistance` 0.20m, solo `_voxelMask`). Si no hay apoyo, llama a `BlockDestroy.BreakFromTool()`. Si `_onARPlane`, nunca auto-break. |
 | `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst (10 a 16 particulas) + scale pop (1.18x en 0.06s, luego 1.0 en 0.14s). Auto-destroy a 0.8s. Configura todo proceduralmente en `Start()`. |
-| `VFXBlockDestroy` | MonoBehaviour | ParticleSystem burst de cubitos (`Cube.fbx`) con gravedad 2.0, tumble rotacional, fade alpha. Auto-destroy a 1.0s. Configura todo proceduralmente en `Start()`. |
+| `VFXBlockDestroy` | MonoBehaviour | ParticleSystem burst de cubitos (`Cube.fbx`) con gravedad 2.0, tumble rotacional, fade alpha. Auto-destroy a 1.0s. Configura todo proceduralmente en `Start()`.
 
 ---
 
@@ -715,15 +717,10 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 - **HarmonyHUD:** barra animada, gradiente tricolor, frases por fase, pop/shake, esquinas redondeadas procedurales.
 - **Panel Armonia Perfecta:** fade, partículas procedurales multicolor, botón Continuar.
 - **Undo/Redo:** patrón Command, stack con cap de 20, HUD con botones atenuados.
-- **Menú opciones:** 7 toggles/acciones (iluminación, profundidad, grid, plano visual, música, foto, reset).
-- **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonia), `MusicService` (shuffle, crossfade, slider).
+- **Menú opciones:** 8 toggles/acciones (iluminación, profundidad, grid, plano visual, vibración, música, foto, reset).
+- **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonia + haptic integrado), `MusicService` (shuffle, crossfade, slider).
+- **Vibración háptica:** `HapticService` via plugin Vibration (Benoit Freslon). 3 presets (light/medium/heavy). Toggle ON/OFF en menú (default OFF). Integrado en colocación, destrucción, UI, fases de armonía, armonía perfecta y captura de foto.
 - **Screenshot:** captura sin UI visible, guardado en galería via NativeGallery (Android/iOS), flash visual blanco, sonido de cámara, toast de confirmación con thumbnail y botón Aceptar, timestamp en nombre de archivo.
-- **Orientación:** oculta hotbar en landscape, restaura en portrait.
-- **Modos de escala:** Bonsai/Normal/Real con bootstrapper.
-- **Proximidad knock:** auto-destrucción si la cámara entra en 0.18m del bloque **solo con la herramienta de pico (Tool_Destroy) activa**.
-- **2 shaders HLSL personalizados:** arena zen con grid animado y voxel toon-lit con AO.
-- **Animación de botones:** squeeze automático en cada `Btn_*`.
-- **Botones de estado:** dim visual para toggles ON/OFF.
 
 ### Funcionalidades a medias
 
@@ -760,6 +757,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `com.unity.visualscripting` | 1.9.7 | Visual Scripting (no utilizado activamente). |
 | `com.unity.ai.navigation` | 2.0.9 | AI Navigation (no utilizado activamente). |
 | `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo (Android / iOS). |
+| `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hápticas nativas (Android / iOS). Pop, Peek, Nope presets. |
 | `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand/Face Tracking de la futura pantalla de inicio. |
 
 ---
@@ -779,5 +777,16 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 5. Build target: **Android** (ARCore). Probar en Samsung S24 Ultra o dispositivo
    compatible con ARCore.
 6. Bundle ID: `com.Gabiz.ARmonia`.
+
+
+
+
+
+
+
+
+
+
+
 
 

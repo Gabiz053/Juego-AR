@@ -56,6 +56,7 @@ namespace _Project.Scripts.Voxel
         private Transform        _worldContainer;
         private VoxelBlock       _voxelBlock;
         private GameAudioService _audioService;
+        private HapticService    _hapticService;
         private ToolManager      _toolManager;
         private UndoRedoService  _undoRedoService;
         private HarmonyService   _harmonyService;
@@ -72,6 +73,7 @@ namespace _Project.Scripts.Voxel
             _voxelBlock      = GetComponent<VoxelBlock>();
             _toolManager     = FindAnyObjectByType<ToolManager>();
             _audioService    = FindAnyObjectByType<GameAudioService>();
+            _hapticService   = FindAnyObjectByType<HapticService>();
             _undoRedoService = FindAnyObjectByType<UndoRedoService>();
             _harmonyService  = FindAnyObjectByType<HarmonyService>();
         }
@@ -166,6 +168,9 @@ namespace _Project.Scripts.Voxel
         /// </summary>
         private IEnumerator KnockRoutine(Vector3? overrideDirection)
         {
+            // -- Haptic --
+            _hapticService?.VibrateMedium();
+
             // -- Audio --
             if (_audioService != null)
             {

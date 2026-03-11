@@ -1,9 +1,11 @@
 // ------------------------------------------------------------
+// ------------------------------------------------------------
 //  UIAudioService.cs  -  _Project.Scripts.UI
 //  Centralised audio service for all UI interaction sounds.
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Core;
 
 namespace _Project.Scripts.UI
 {
@@ -63,7 +65,8 @@ namespace _Project.Scripts.UI
 
         #region State ---------------------------------------------
 
-        private AudioSource _audioSource;
+        private AudioSource   _audioSource;
+        private HapticService _hapticService;
 
         private int _lastClickIndex      = -1;
         private int _lastToggleIndex     = -1;
@@ -82,6 +85,8 @@ namespace _Project.Scripts.UI
             _audioSource = GetComponent<AudioSource>();
             _audioSource.playOnAwake  = false;
             _audioSource.spatialBlend = 0f;
+
+            _hapticService = FindAnyObjectByType<HapticService>();
         }
 
         private void Start()
@@ -93,25 +98,49 @@ namespace _Project.Scripts.UI
 
         #region Public API ----------------------------------------
 
-        /// <summary>Plays a random button-click sound.</summary>
-        public void PlayClick()      => Play(_clickSounds,      ref _lastClickIndex);
+        /// <summary>Plays a random button-click sound with a soft haptic tick.</summary>
+        public void PlayClick()
+        {
+            Play(_clickSounds, ref _lastClickIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random toggle sound.</summary>
-        public void PlayToggle()     => Play(_toggleSounds,     ref _lastToggleIndex);
+        /// <summary>Plays a random toggle sound with a soft haptic tick.</summary>
+        public void PlayToggle()
+        {
+            Play(_toggleSounds, ref _lastToggleIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random menu open/close sound.</summary>
-        public void PlayMenuOpen()   => Play(_menuOpenSounds,   ref _lastMenuOpenIndex);
+        /// <summary>Plays a random menu open/close sound with a soft haptic tick.</summary>
+        public void PlayMenuOpen()
+        {
+            Play(_menuOpenSounds, ref _lastMenuOpenIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random confirmation sound.</summary>
-        public void PlayConfirm()    => Play(_confirmSounds,    ref _lastConfirmIndex);
+        /// <summary>Plays a random confirmation sound with a soft haptic tick.</summary>
+        public void PlayConfirm()
+        {
+            Play(_confirmSounds, ref _lastConfirmIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random cancel sound.</summary>
-        public void PlayCancel()     => Play(_cancelSounds,     ref _lastCancelIndex);
+        /// <summary>Plays a random cancel sound with a soft haptic tick.</summary>
+        public void PlayCancel()
+        {
+            Play(_cancelSounds, ref _lastCancelIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random hotbar slot-selection sound.</summary>
-        public void PlaySlotSelect() => Play(_slotSelectSounds, ref _lastSlotSelectIndex);
+        /// <summary>Plays a random hotbar slot-selection sound with a soft haptic tick.</summary>
+        public void PlaySlotSelect()
+        {
+            Play(_slotSelectSounds, ref _lastSlotSelectIndex);
+            _hapticService?.VibrateLight();
+        }
 
-        /// <summary>Plays a random screenshot sound.</summary>
+        /// <summary>Plays a random screenshot sound (no haptic � handled by ScreenshotService).</summary>
         public void PlayPhoto()      => Play(_photoSounds,      ref _lastPhotoIndex);
 
         /// <summary>Plays the harmony phase clip (1-4 = 25/50/75/100%).</summary>

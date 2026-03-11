@@ -1,4 +1,5 @@
 // ------------------------------------------------------------
+// ------------------------------------------------------------
 //  PerfectHarmonyPanel.cs  -  _Project.Scripts.UI
 //  Controls the "Perfect Harmony" celebration overlay.
 // ------------------------------------------------------------
@@ -14,7 +15,10 @@ namespace _Project.Scripts.UI
     /// <summary>
     /// Shows a zen celebration overlay when the player reaches 100%
     /// harmony.  Auto-wires <see cref="CanvasGroup"/>, 
-    /// <see cref="HarmonyParticles"/> and <see cref="UIAudioService"/>.
+    /// <see cref="HarmonyParticles"/> and <see cref="UIAudioService"/>.<br/>
+    /// <b>Important:</b> the <c>GameObject</c> must stay <b>active</b> in
+    /// the scene � visibility is controlled via <see cref="CanvasGroup"/>
+    /// alpha, not <c>SetActive</c>.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CanvasGroup))]
@@ -48,6 +52,7 @@ namespace _Project.Scripts.UI
         private CanvasGroup      _canvasGroup;
         private HarmonyParticles _particles;
         private UIAudioService   _uiAudio;
+        private HapticService    _hapticService;
 
         #endregion
 
@@ -65,12 +70,18 @@ namespace _Project.Scripts.UI
             if (root != null)
                 _uiAudio = root.GetComponentInChildren<UIAudioService>();
 
+            _hapticService = FindAnyObjectByType<HapticService>();
+
+            // Start invisible � DO NOT use SetActive(false) or events
+            // from HarmonyService will never reach this panel.
             _canvasGroup.alpha          = 0f;
             _canvasGroup.interactable   = false;
             _canvasGroup.blocksRaycasts = false;
 
             if (_continueButton != null)
                 _continueButton.gameObject.SetActive(false);
+
+            Debug.Log("[PerfectHarmonyPanel] Awake complete -- invisible, waiting for perfect harmony.");
         }
 
         private void OnEnable()
@@ -93,6 +104,12 @@ namespace _Project.Scripts.UI
 
         private void Start()
         {
+            // Safety: if the GameObject was disabled in the editor by mistake,
+            // warn the developer loudly so it's obvious why the panel fails.
+            if (!gameObject.activeInHierarchy)
+                Debug.LogError("[PerfectHarmonyPanel] GameObject is DISABLED -- panel will never show! " +
+                               "Enable it and use CanvasGroup alpha=0 for invisibility.", this);
+
             ValidateReferences();
         }
 
@@ -110,8 +127,14 @@ namespace _Project.Scripts.UI
 
         #region Internals -----------------------------------------
 
-        private void HandlePerfectHarmony() => StartCoroutine(ShowSequence());
+        /// <summary>Triggered by <see cref="HarmonyService.OnPerfectHarmony"/>.</summary>
+        private void HandlePerfectHarmony()
+        {
+            Debug.Log("[PerfectHarmonyPanel] Perfect harmony reached -- showing panel.");
+            StartCoroutine(ShowSequence());
+        }
 
+        /// <summary>Resets the panel to invisible on world reset.</summary>
         private void HandleWorldReset()
         {
             _particles?.StopAmbient();
@@ -126,8 +149,14 @@ namespace _Project.Scripts.UI
 
             if (_continueButton != null)
                 _continueButton.gameObject.SetActive(false);
+
+            Debug.Log("[PerfectHarmonyPanel] Reset -- hidden.");
         }
 
+        /// <summary>
+        /// Fade-in sequence: shows button, fades in with SmoothStep,
+        /// then plays particles, audio and haptic celebration.
+        /// </summary>
         private IEnumerator ShowSequence()
         {
             if (_continueButton != null)
@@ -165,8 +194,13 @@ namespace _Project.Scripts.UI
 
             _particles?.Play();
             _uiAudio?.PlayConfirm();
+            _hapticService?.VibrateHeavy();
         }
 
+        /// <summary>
+        /// Fade-out sequence triggered by Btn_Continue.  Hides the panel
+        /// via <see cref="CanvasGroup"/> alpha.
+        /// </summary>
         private IEnumerator FadeOut()
         {
             _uiAudio?.PlayClick();

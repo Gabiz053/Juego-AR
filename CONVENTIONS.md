@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 50 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
+> **Última auditoría:** 51 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -99,9 +99,10 @@ AR System                                  [Empty — agrupa objetos 3D/AR]
 │   │                                       ARCameraManager, ARCameraBackground,
 │   │                                       AROcclusionManager]
 │   │       └── CameraFlashLight           [Light (Spot) — linterna de foco]
-│   ├── Svc_Audio                          [Empty — agrupa servicios de audio]
+│   ├── Svc_Audio                          [Empty — agrupa servicios de audio y hápticos]
 │   │       GameAudioService + AudioSource (SFX)
 │   │       MusicService + AudioSource (Music)
+│   │       HapticService
 │   ├── Svc_Interaction                    [Empty — agrupa input y herramientas]
 │   │       TouchInputRouter
 │   │       ARBlockPlacer
@@ -161,6 +162,7 @@ UI System                                  [Empty — agrupa objetos UI]
 │   │       ├── Btn_Depth                  [DropdownButtonState] → Txt_Depth
 │   │       ├── Btn_Grid                   [DropdownButtonState] → Txt_Grid
 │   │       ├── Btn_Plane                  [DropdownButtonState] → Txt_Plane
+│   │       ├── Btn_Vibration              [DropdownButtonState] → Txt_Vibration
 │   │       ├── Panel_MusicVolume
 │   │       │   ├── Sld_MusicVolume        [Slider]
 │   │       │   │   ├── Background
@@ -216,6 +218,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `HarmonyService` | Svc_GameLogic | — |
 | `UndoRedoService` | Svc_GameLogic | — |
 | `LightingService` | Svc_Lighting | — |
+| `HapticService` | Svc_Audio | — |
 | `GridManager` | WorldContainer | — |
 | `GridVisualizer` | WorldContainer | — |
 | `ToolManager` | ToolManager | — |
@@ -232,7 +235,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ScreenshotService` | Svc_Screenshot | — |
 | `ScreenshotToastPanel` | Popup_ScreenshotToast | `CanvasGroup` |
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
-| `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane` | — |
+| `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration` | — |
 
 ### Reglas de nombrado de GameObjects
 
@@ -245,7 +248,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `Overlay_` | Fondos oscuros/transparentes | `Overlay_Background` |
 | `Bar_` / `Img_` | Componentes de barras de progreso | `Img_BarBackground`, `Img_BarFill` |
 | `Btn_` | Botones (contiene un hijo `Txt_` o `Icon_`) | `Btn_Sand`, `Btn_Settings`, `Btn_Confirm` |
-| `Txt_` | Labels de TextMeshPro | `Txt_Sand`, `Txt_HarmonyStatus`, `Txt_ConfirmMessage` |
+| `Txt_` | Labels de TextMesh Pro | `Txt_Sand`, `Txt_HarmonyStatus`, `Txt_ConfirmMessage` |
 | `Icon_` | Imágenes de icono dentro de botones | `Icon_Undo`, `Icon_Sand`, `Icon_Settings` |
 | `Sld_` | Sliders | `Sld_MusicVolume` |
 | `*_LayoutGroup` | Objetos con LayoutGroup component | `Hotbar_LayoutGroup`, `Dialog_LayoutGroup` |
@@ -456,6 +459,22 @@ nítidos de pixel.
 | `Audio/Music/` | Pistas de fondo (12 tracks) |
 | `Audio/SFX/UI/` | Sonidos de interfaz (5 clips) |
 | `Audio/SFX/Voxels/` | Sonidos de bloques y herramientas (23 clips) |
+
+### Vibración háptica
+
+**Plugin:** [Vibration](https://github.com/BenoitFreslon/Vibration) (Benoit Freslon) — paquete UPM.
+
+**Servicio central:** `HapticService` en `Svc_Audio`.  
+Empieza **desactivado** — el usuario lo activa desde `Btn_Vibration` en el dropdown.
+
+| Preset | Método | Duración | Uso |
+|--------|--------|----------|-----|
+| Light (Pop) | `VibrateLight()` | ≈ 50 ms | UI taps, colocar bloque, foto |
+| Medium (Peek) | `VibrateMedium()` | ≈ 100 ms | Destruir bloque |
+| Heavy (Nope) | `VibrateHeavy()` | Patrón triple | Fases altas de armonía, armonía perfecta |
+
+**Patrón de integración:** los scripts llaman `_hapticService?.VibrateX()`.
+`UIAudioService` incluye vibración en todos los métodos `Play*()` (excepto `PlayPhoto`, que la maneja `ScreenshotService`).
 
 ---
 

@@ -51,6 +51,7 @@ namespace _Project.Scripts.Voxel
 
         private VoxelBlock       _voxelBlock;
         private GameAudioService _audioService;
+        private HapticService    _hapticService;
 
         #endregion
 
@@ -58,8 +59,9 @@ namespace _Project.Scripts.Voxel
 
         private void Awake()
         {
-            _voxelBlock   = GetComponent<VoxelBlock>();
-            _audioService = FindAnyObjectByType<GameAudioService>();
+            _voxelBlock    = GetComponent<VoxelBlock>();
+            _audioService  = FindAnyObjectByType<GameAudioService>();
+            _hapticService = FindAnyObjectByType<HapticService>();
         }
 
         private void Start()
@@ -96,6 +98,10 @@ namespace _Project.Scripts.Voxel
 
             Collider col = GetComponent<Collider>();
             if (col != null) col.enabled = false;
+
+            // Haptic fires immediately so the player feels the tap response
+            // at the moment they touch, not after the fly-in completes.
+            _hapticService?.VibrateLight();
 
             Vector3 finalLocal = transform.localPosition;
 
@@ -155,8 +161,9 @@ namespace _Project.Scripts.Voxel
 
         /// <summary>
         /// Fires place VFX and plays a random place sound.
-        /// Reads from <see cref="VoxelBlock.PlaceSounds"/> when present;
-        /// falls back to <see cref="_placeSounds"/> for pebbles.
+        /// Reads from <see cref="VoxelBlock.PlaceSounds"/> when
+        /// present; falls back to <see cref="_placeSounds"/> for pebbles.
+        /// Haptic feedback is handled at the start of the spawn animation.
         /// </summary>
         private void PlayPlaceFeedback()
         {

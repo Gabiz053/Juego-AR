@@ -34,12 +34,14 @@ namespace _Project.Scripts.UI
         [SerializeField] private DropdownButtonState _depthButtonState;
         [SerializeField] private DropdownButtonState _gridButtonState;
         [SerializeField] private DropdownButtonState _planeVisualButtonState;
+        [SerializeField] private DropdownButtonState _vibrationButtonState;
 
         [Header("Services")]
         [SerializeField] private WorldResetService  _worldResetService;
         [SerializeField] private ScreenshotService  _screenshotService;
         [SerializeField] private ARDepthService     _depthService;
         [SerializeField] private LightingService    _lightingService;
+        [SerializeField] private HapticService      _hapticService;
         [SerializeField] private ARPlaneGridAligner _planeGridAligner;
         [SerializeField] private MusicService       _musicService;
         [SerializeField] private UIAudioService     _uiAudio;
@@ -70,6 +72,8 @@ namespace _Project.Scripts.UI
                 _depthService.OnDepthToggled += HandleDepthToggled;
             if (_lightingService != null)
                 _lightingService.OnLightingToggled += HandleLightingToggled;
+            if (_hapticService != null)
+                _hapticService.OnHapticsToggled += HandleHapticsToggled;
         }
 
         private void OnDisable()
@@ -82,6 +86,8 @@ namespace _Project.Scripts.UI
                 _depthService.OnDepthToggled -= HandleDepthToggled;
             if (_lightingService != null)
                 _lightingService.OnLightingToggled -= HandleLightingToggled;
+            if (_hapticService != null)
+                _hapticService.OnHapticsToggled -= HandleHapticsToggled;
         }
 
         private void Start()
@@ -101,6 +107,10 @@ namespace _Project.Scripts.UI
                 _gridButtonState?.SetState(false);
                 _planeVisualButtonState?.SetState(_planeGridAligner.IsVisualEnabled);
             }
+
+            // Vibration starts OFF — button dimmed.
+            if (_hapticService != null)
+                _vibrationButtonState?.SetState(_hapticService.IsEnabled);
 
             if (_musicService != null && _musicSlider != null)
             {
@@ -160,6 +170,14 @@ namespace _Project.Scripts.UI
             bool nowVisible = !_planeGridAligner.IsVisualEnabled;
             _planeGridAligner.SetVisual(nowVisible);
             _planeVisualButtonState?.SetState(nowVisible);
+            _uiAudio?.PlayToggle();
+        }
+
+        /// <summary>Toggles haptic vibration ON / OFF.</summary>
+        public void ToggleVibration()
+        {
+            if (_hapticService == null) return;
+            _hapticService.ToggleHaptics();
             _uiAudio?.PlayToggle();
         }
 
@@ -237,6 +255,9 @@ namespace _Project.Scripts.UI
 
         /// <summary>Syncs the lighting button dim state with the service.</summary>
         private void HandleLightingToggled(bool on) => _lightingButtonState?.SetState(on);
+
+        /// <summary>Syncs the vibration button dim state with the service.</summary>
+        private void HandleHapticsToggled(bool on) => _vibrationButtonState?.SetState(on);
 
         #endregion
 

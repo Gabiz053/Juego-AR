@@ -68,10 +68,11 @@ namespace _Project.Scripts.Core
 
         #region Cached Components / State -------------------------
 
-        private bool        _isCapturing;
-        private int         _captureCount;
-        private Coroutine   _activeFlash;
-        private CanvasGroup _flashCanvasGroup;
+        private bool          _isCapturing;
+        private int           _captureCount;
+        private Coroutine     _activeFlash;
+        private CanvasGroup   _flashCanvasGroup;
+        private HapticService _hapticService;
 
         private readonly WaitForEndOfFrame _waitEndOfFrame = new WaitForEndOfFrame();
 
@@ -81,6 +82,7 @@ namespace _Project.Scripts.Core
 
         private void Start()
         {
+            _hapticService = FindAnyObjectByType<HapticService>();
             InitFlashOverlay();
             RequestGalleryPermission();
             ValidateReferences();
@@ -124,9 +126,10 @@ namespace _Project.Scripts.Core
             // Restore UI immediately after pixel read.
             if (_canvasToHide != null) _canvasToHide.enabled = true;
 
-            // Feedback: shutter sound + white flash.
+            // Feedback: shutter sound + white flash + haptic.
             _uiAudio?.PlayPhoto();
             PlayFlash();
+            _hapticService?.VibrateLight();
 
             // Build a unique filename (timestamp + session counter).
             _captureCount++;

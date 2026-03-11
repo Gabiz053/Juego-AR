@@ -1,7 +1,8 @@
 {
   "dependencies": {
+    "com.benoitfreslon.vibration": "https://github.com/BenoitFreslon/Vibration.git",
     "com.unity.2d.sprite": "1.0.0",
-    "com.unity.ai.navigation": "2.0.9",
+    "com.unity.ai.navigation": "2.0.11",
     "com.unity.cloud.gltfast": "https://github.com/Unity-Technologies/com.unity.cloud.gltfast.git?path=/Packages/com.unity.cloud.gltfast",
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.ide.rider": "3.0.38",

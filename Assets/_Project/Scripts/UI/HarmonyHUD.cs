@@ -72,6 +72,7 @@ namespace _Project.Scripts.UI
         private Vector2        _hudOriginalAnchoredPos;
         private int            _lastPhaseIndex = -1;
         private UIAudioService _uiAudio;
+        private HapticService  _hapticService;
         private bool           _frozen;
 
         #endregion
@@ -95,6 +96,8 @@ namespace _Project.Scripts.UI
             Canvas root = GetComponentInParent<Canvas>();
             if (root != null)
                 _uiAudio = root.GetComponentInChildren<UIAudioService>();
+
+            _hapticService = FindAnyObjectByType<HapticService>();
 
             if (_cornerRadius > 0f)
                 ApplyRoundedCorners();
@@ -149,6 +152,7 @@ namespace _Project.Scripts.UI
             if (phaseChanged)
             {
                 _uiAudio?.PlayHarmonyPhase(newPhase);
+                PlayPhaseHaptic(newPhase);
 
                 if (_popCoroutine != null) StopCoroutine(_popCoroutine);
                 _popCoroutine = newPhase == 3
@@ -190,6 +194,22 @@ namespace _Project.Scripts.UI
             _frozen         = false;
             _lastPhaseIndex = -1;
             ApplyImmediate(0f);
+        }
+
+        /// <summary>
+        /// Escalating haptic pulse that grows stronger with each
+        /// harmony phase: 0 = light, 1 = light, 2 = medium, 3 = heavy.
+        /// </summary>
+        private void PlayPhaseHaptic(int phase)
+        {
+            if (_hapticService == null) return;
+
+            switch (phase)
+            {
+                case 0: case 1: _hapticService.VibrateLight();  break;
+                case 2:         _hapticService.VibrateMedium(); break;
+                case 3:         _hapticService.VibrateHeavy();  break;
+            }
         }
 
         #endregion
