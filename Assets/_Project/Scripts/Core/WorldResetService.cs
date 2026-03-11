@@ -1,7 +1,7 @@
-// ──────────────────────────────────────────────
-//  WorldResetService.cs  ·  _Project.Scripts.Core
+// ------------------------------------------------------------
+//  WorldResetService.cs  -  _Project.Scripts.Core
 //  Encapsulates the "clear all blocks" world-reset operation.
-// ──────────────────────────────────────────────
+// ------------------------------------------------------------
 
 using System;
 using UnityEngine;
@@ -12,64 +12,47 @@ namespace _Project.Scripts.Core
 {
     /// <summary>
     /// Destroys every placed block, resets the AR spatial anchor, and
-    /// deactivates the construction grid.  Extracted from
-    /// <see cref="GameOptionsMenu"/> so the reset logic can be reused
-    /// and tested independently of the UI layer.
+    /// deactivates the construction grid.  Reusable independently of UI.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/World Reset Service")]
     public class WorldResetService : MonoBehaviour
     {
-        #region Inspector ─────────────────────────────────────
+        #region Inspector -----------------------------------------
 
         [Header("AR World References")]
-        [Tooltip("Transform that parents all placed blocks (WorldContainer).")]
+        [Tooltip("Transform that parents all placed blocks.")]
         [SerializeField] private Transform _worldContainer;
 
-        [Tooltip("ARWorldManager — used to reset the AR spatial anchor.")]
+        [Tooltip("ARWorldManager -- resets the AR spatial anchor.")]
         [SerializeField] private ARWorldManager _arWorldManager;
 
-        [Tooltip("GridManager — used to deactivate the grid visual after clearing.")]
+        [Tooltip("GridManager -- deactivates the grid after clearing.")]
         [SerializeField] private GridManager _gridManager;
 
-        [Tooltip("UndoRedoService — its stacks are cleared together with the world reset.")]
+        [Tooltip("UndoRedoService -- stacks are cleared on reset.")]
         [SerializeField] private UndoRedoService _undoRedoService;
 
         [Header("Harmony")]
-        [Tooltip("HarmonyService — reset to zero when the world is cleared.")]
+        [Tooltip("HarmonyService -- reset to zero when cleared.")]
         [SerializeField] private HarmonyService _harmonyService;
 
         #endregion
 
-        #region Events ────────────────────────────────────────
+        #region Events --------------------------------------------
 
-        /// <summary>
-        /// Raised after the world has been fully reset (blocks destroyed,
-        /// anchor cleared, grid hidden).  Other systems can subscribe to
-        /// react — e.g. analytics, UI refresh, tutorial triggers.
-        /// </summary>
+        /// <summary>Raised after the world has been fully reset.</summary>
         public event Action OnWorldReset;
 
         #endregion
 
-        #region Unity Lifecycle ────────────────────────────────
+        #region Public API ----------------------------------------
 
-        private void Start()
-        {
-            ValidateReferences();
-            Debug.Log("[WorldResetService] Initialized.");
-        }
-
-        #endregion
-
-        #region Public API ────────────────────────────────────
+        /// <summary>Current number of placed blocks under the world container.</summary>
+        public int BlockCount => _worldContainer != null ? _worldContainer.childCount : 0;
 
         /// <summary>
-        /// Executes the full world reset sequence:
-        /// 1) Destroy all child blocks,
-        /// 2) Reset the AR anchor,
-        /// 3) Deactivate the grid,
-        /// 4) Raise <see cref="OnWorldReset"/>.
+        /// Full reset: destroy blocks, reset anchor, hide grid, clear stacks.
         /// </summary>
         public void ResetWorld()
         {
@@ -78,89 +61,54 @@ namespace _Project.Scripts.Core
             DeactivateGrid();
             _undoRedoService?.Clear();
             _harmonyService?.NotifyWorldReset();
-
             OnWorldReset?.Invoke();
-            Debug.Log("[WorldResetService] World fully reset (blocks + anchor + grid).");
         }
-
-        /// <summary>
-        /// Returns the current number of placed blocks under the world container.
-        /// </summary>
-        public int BlockCount => _worldContainer != null ? _worldContainer.childCount : 0;
 
         #endregion
 
-        #region Internals ─────────────────────────────────────
+        #region Unity Lifecycle -----------------------------------
 
-        /// <summary>
-        /// Destroys all child GameObjects under <see cref="_worldContainer"/>
-        /// that have a <see cref="VoxelBlock"/> component, iterating in
-        /// reverse to avoid index shifting. Infrastructure children
-        /// (e.g. grid visual mesh) are left untouched.
-        /// </summary>
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
+        #region Internals -----------------------------------------
+
         private void DestroyAllBlocks()
         {
-            if (_worldContainer == null)
-            {
-                Debug.LogWarning("[WorldResetService] _worldContainer is null — cannot destroy blocks.", this);
-                return;
-            }
+            if (_worldContainer == null) return;
 
-            int destroyed = 0;
             for (int i = _worldContainer.childCount - 1; i >= 0; i--)
             {
                 GameObject child = _worldContainer.GetChild(i).gameObject;
 
-                bool isBlock  = child.GetComponent<VoxelBlock>()      != null;
+                bool isBlock  = child.GetComponent<VoxelBlock>()       != null;
                 bool isPebble = child.GetComponent<ProceduralPebble>() != null;
 
                 if (isBlock || isPebble)
-                {
                     Destroy(child);
-                    destroyed++;
-                }
             }
-
-            Debug.Log($"[WorldResetService] Destroyed {destroyed} object(s) from WorldContainer.");
         }
 
-        /// <summary>
-        /// Resets the AR spatial anchor so a new placement can be established.
-        /// </summary>
         private void ResetAnchor()
         {
-            if (_arWorldManager == null)
-            {
-                Debug.LogWarning("[WorldResetService] _arWorldManager is null — cannot reset anchor.", this);
-                return;
-            }
-
-            _arWorldManager.ResetAnchor();
-            Debug.Log("[WorldResetService] AR anchor reset.");
+            if (_arWorldManager != null)
+                _arWorldManager.ResetAnchor();
         }
 
-        /// <summary>
-        /// Deactivates the construction grid visual.
-        /// </summary>
         private void DeactivateGrid()
         {
-            if (_gridManager == null)
-            {
-                Debug.LogWarning("[WorldResetService] _gridManager is null — cannot deactivate grid.", this);
-                return;
-            }
-
-            _gridManager.DeactivateGrid();
-            Debug.Log("[WorldResetService] Grid deactivated.");
+            if (_gridManager != null)
+                _gridManager.DeactivateGrid();
         }
 
         #endregion
 
-        #region Validation ────────────────────────────────────
+        #region Validation ----------------------------------------
 
-        /// <summary>
-        /// Logs errors for any missing Inspector references at startup.
-        /// </summary>
         private void ValidateReferences()
         {
             if (_worldContainer == null)

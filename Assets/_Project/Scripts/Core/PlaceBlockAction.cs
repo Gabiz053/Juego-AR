@@ -1,8 +1,9 @@
-// ??????????????????????????????????????????????
-//  PlaceBlockAction.cs  ·  _Project.Scripts.Core
+// ------------------------------------------------------------
+//  PlaceBlockAction.cs  -  _Project.Scripts.Core
 //  Undoable command for placing a single voxel block.
-// ??????????????????????????????????????????????
+// ------------------------------------------------------------
 
+using System;
 using UnityEngine;
 
 namespace _Project.Scripts.Core
@@ -15,32 +16,31 @@ namespace _Project.Scripts.Core
     /// </summary>
     public sealed class PlaceBlockAction : IUndoableAction
     {
-        // The live instance — null after Undo, valid after Redo.
+        #region State -------------------------------------------------
+
         private GameObject _instance;
 
-        // Everything needed to recreate the block on Redo.
-        private readonly GameObject  _prefab;
-        private readonly Transform   _parent;
-        private readonly Vector3     _localPosition;
-        private readonly Quaternion  _localRotation;
+        private readonly GameObject         _prefab;
+        private readonly Transform          _parent;
+        private readonly Vector3            _localPosition;
+        private readonly Quaternion         _localRotation;
+        private readonly GameObject         _breakVfxPrefab;
+        private readonly GameAudioService   _audioService;
+        private readonly Action<GameObject> _onInstantiated;
 
-        // Shared refs forwarded to BlockDestroy after each Redo instantiation.
-        private readonly GameObject              _breakVfxPrefab;
-        private readonly GameAudioService        _audioService;
+        #endregion
 
-        // Callback that arms BlockDestroy once the block is ready
-        // (mirrors the BlockSpawn.Play callback used during normal placement).
-        private readonly System.Action<GameObject> _onInstantiated;
+        #region Constructor -------------------------------------------
 
         public PlaceBlockAction(
-            GameObject          instance,
-            GameObject          prefab,
-            Transform           parent,
-            Vector3             localPosition,
-            Quaternion          localRotation,
-            GameObject          breakVfxPrefab,
-            GameAudioService    audioService,
-            System.Action<GameObject> onInstantiated)
+            GameObject         instance,
+            GameObject         prefab,
+            Transform          parent,
+            Vector3            localPosition,
+            Quaternion         localRotation,
+            GameObject         breakVfxPrefab,
+            GameAudioService   audioService,
+            Action<GameObject> onInstantiated)
         {
             _instance       = instance;
             _prefab         = prefab;
@@ -52,26 +52,30 @@ namespace _Project.Scripts.Core
             _onInstantiated = onInstantiated;
         }
 
-        /// <summary>Undo: immediately destroy the placed block without physics tumble.</summary>
+        #endregion
+
+        #region IUndoableAction ---------------------------------------
+
+        /// <summary>Destroy the placed block without physics tumble.</summary>
         public void Undo()
         {
-            if (_instance != null)
-            {
-                Object.Destroy(_instance);
-                _instance = null;
-            }
+            if (_instance == null) return;
+
+            UnityEngine.Object.Destroy(_instance);
+            _instance = null;
         }
 
-        /// <summary>Redo: re-instantiate the block at the snapped grid position.</summary>
+        /// <summary>Re-instantiate the block at its snapped grid position.</summary>
         public void Redo()
         {
             if (_prefab == null || _parent == null) return;
 
-            _instance = Object.Instantiate(_prefab, _parent);
-            // Always use identity rotation — blocks are always axis-aligned.
+            _instance = UnityEngine.Object.Instantiate(_prefab, _parent);
             _instance.transform.SetLocalPositionAndRotation(_localPosition, Quaternion.identity);
 
             _onInstantiated?.Invoke(_instance);
         }
+
+        #endregion
     }
 }

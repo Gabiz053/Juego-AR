@@ -1,32 +1,25 @@
-// ??????????????????????????????????????????????
-//  PebbleSupport.cs  ·  _Project.Scripts.Voxel
+// ------------------------------------------------------------
+//  PebbleSupport.cs  -  _Project.Scripts.Voxel
 //  Monitors whether a pebble still has a voxel block beneath it.
 //  If the supporting block is destroyed the pebble breaks itself.
-// ??????????????????????????????????????????????
+// ------------------------------------------------------------
 
 using UnityEngine;
 
 namespace _Project.Scripts.Voxel
 {
     /// <summary>
-    /// Attached alongside <see cref="ProceduralPebble"/> and <see cref="BlockDestroy"/>.<br/>
-    /// After the spawn animation completes (<see cref="Arm"/> is called by
-    /// <see cref="Interaction.PlowTool"/>), begins polling downward to check whether
-    /// a voxel block still supports this pebble.<br/>
-    /// <br/>
-    /// Rules:<br/>
-    /// • <b>AR plane</b> — never breaks on its own (ground is permanent).<br/>
-    /// • <b>Voxel block</b> — breaks if no voxel collider is found directly below.<br/>
-    /// • Poll only starts after <see cref="Arm"/> — the spawn animation is immune.<br/>
-    /// • Uses a provided <see cref="LayerMask"/> so other pebbles are never counted
-    ///   as valid support.
+    /// Polls downward after the spawn animation to verify a voxel block
+    /// still supports this pebble.  Pebbles on the AR ground plane never
+    /// auto-break.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Voxel/Pebble Support")]
     public class PebbleSupport : MonoBehaviour
     {
-        #region Inspector ?????????????????????????????????????
+        #region Inspector -----------------------------------------
 
+        [Header("Support Check")]
         [Tooltip("How often (seconds) the support check runs once armed.")]
         [SerializeField] private float _checkInterval = 0.35f;
 
@@ -35,73 +28,57 @@ namespace _Project.Scripts.Voxel
 
         #endregion
 
-        #region State ?????????????????????????????????????????
+        #region State ---------------------------------------------
 
-        private bool      _armed;       // true once spawn animation has finished
-        private bool      _onARPlane;   // if true, never auto-breaks
-        private LayerMask _voxelMask;   // only voxel blocks count as support
-        private Vector3   _supportDir = Vector3.down;  // direction used when raycasting for support
+        private bool      _armed;
+        private bool      _onARPlane;
+        private LayerMask _voxelMask;
+        private Vector3   _supportDir = Vector3.down;
 
         #endregion
 
-        #region Public API ????????????????????????????????????
+        #region Public API ----------------------------------------
 
-        /// <summary>
-        /// Called by <see cref="Interaction.PlowTool"/> right after instantiation,
-        /// before the spawn animation starts.
-        /// </summary>
-        /// <param name="onARPlane">True if placed on the AR ground plane — disables all auto-break.</param>
-        /// <param name="voxelMask">Layer mask that includes only voxel blocks.</param>
+        /// <summary>Configures the pebble for floor placement.</summary>
         public void Configure(bool onARPlane, LayerMask voxelMask)
         {
-            _onARPlane   = onARPlane;
-            _voxelMask   = voxelMask;
-            // Default support direction: straight down (floor placement).
-            _supportDir  = Vector3.down;
+            _onARPlane  = onARPlane;
+            _voxelMask  = voxelMask;
+            _supportDir = Vector3.down;
         }
 
-        /// <summary>
-        /// Overload that also receives the surface normal so wall-mounted pebbles
-        /// cast their support ray into the wall instead of toward the floor.
-        /// </summary>
+        /// <summary>Configures the pebble with a custom surface normal (wall mount).</summary>
         public void Configure(bool onARPlane, LayerMask voxelMask, Vector3 surfaceNormal)
         {
             _onARPlane  = onARPlane;
             _voxelMask  = voxelMask;
-            // Invert the surface normal ? direction into the supporting surface.
             _supportDir = -surfaceNormal.normalized;
         }
 
         /// <summary>
-        /// Called once the spawn animation has settled. Starts the support poll.
+        /// Called once the spawn animation has settled.  Starts the support poll.
         /// </summary>
         public void Arm()
         {
             if (_armed) return;
             _armed = true;
 
-            // Ground pebbles never need checking.
-            if (_onARPlane) return;
-
-            // No voxel mask means we cannot reliably detect support — skip.
-            if (_voxelMask == 0) return;
+            if (_onARPlane || _voxelMask == 0) return;
 
             InvokeRepeating(nameof(Poll), _checkInterval, _checkInterval);
         }
 
         #endregion
 
-        #region Poll ??????????????????????????????????????????
+        #region Internals -----------------------------------------
 
         private void Poll()
         {
-            // Offset origin away from the surface so the ray never starts inside
-            // the supporting collider (Physics.Raycast ignores the origin collider).
-            const float originLift = 0.05f;
-            Vector3 origin = transform.position - _supportDir * originLift;
+            const float ORIGIN_LIFT = 0.05f;
+            Vector3 origin = transform.position - _supportDir * ORIGIN_LIFT;
 
-            if (Physics.Raycast(origin, _supportDir, _checkDistance + originLift, _voxelMask))
-                return;   // support found — all good
+            if (Physics.Raycast(origin, _supportDir, _checkDistance + ORIGIN_LIFT, _voxelMask))
+                return;
 
             BlockDestroy bd = GetComponent<BlockDestroy>();
             if (bd != null) bd.BreakFromTool(-_supportDir);

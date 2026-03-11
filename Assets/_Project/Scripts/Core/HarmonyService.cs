@@ -1,8 +1,8 @@
-// ??????????????????????????????????????????????
-//  HarmonyService.cs  ·  _Project.Scripts.Core
-//  Passive garden evaluator — listens to placement/destroy events,
-//  recalculates harmony, and broadcasts the result.
-// ??????????????????????????????????????????????
+// ------------------------------------------------------------
+//  HarmonyService.cs  -  _Project.Scripts.Core
+//  Passive garden evaluator -- recalculates harmony on events
+//  from placement / destroy systems, never polls Update.
+// ------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -14,45 +14,31 @@ namespace _Project.Scripts.Core
     /// <summary>
     /// Evaluates the harmony of the AR garden and emits
     /// <see cref="OnHarmonyChanged"/> whenever the score changes.<br/>
-    /// <br/>
-    /// <b>Three pillars:</b><br/>
-    /// • <b>Variety</b>   — how many distinct block types are present.<br/>
-    /// • <b>Decoration</b>— how many pebbles have been placed.<br/>
-    /// • <b>Quantity</b>  — rewards building toward a target block count.<br/>
-    /// <br/>
-    /// The service never polls <c>Update</c>. It recalculates only when the
-    /// garden changes, driven entirely by events from <see cref="Interaction.ARBlockPlacer"/>,
-    /// <see cref="Interaction.PlowTool"/>, and <see cref="UI.WorldResetService"/>.<br/>
-    /// <br/>
-    /// Wire <see cref="OnHarmonyChanged"/> ? <see cref="UI.HarmonyHUD.SetHarmony"/>
-    /// in the Inspector or from code.
+    /// Three pillars: <b>Variety</b>, <b>Decoration</b>, <b>Quantity</b>.<br/>
+    /// Driven entirely by events -- no <c>Update</c> polling.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Harmony Service")]
     public class HarmonyService : MonoBehaviour
     {
-        #region Inspector ?????????????????????????????????????
+        #region Inspector -----------------------------------------
 
-        [Tooltip("Scoring weights and thresholds. Create via Assets ? Create ? ARmonia ? Core ? Harmony Config.")]
+        [Header("Config")]
+        [Tooltip("Scoring weights and thresholds.")]
         [SerializeField] private HarmonyConfig _config;
 
-        [Tooltip("WorldContainer transform — children with VoxelBlock components are counted on each recalculation.")]
+        [Header("World")]
+        [Tooltip("WorldContainer -- children with VoxelBlock are counted.")]
         [SerializeField] private Transform _worldContainer;
 
         #endregion
 
-        #region Events ????????????????????????????????????????
+        #region Events --------------------------------------------
 
-        /// <summary>
-        /// Fired every time the harmony score changes (value in [0, 1]).<br/>
-        /// Wire this to <see cref="UI.HarmonyHUD.SetHarmony"/>.
-        /// </summary>
+        /// <summary>Fired every time the harmony score changes (0-1).</summary>
         public event Action<float> OnHarmonyChanged;
 
-        /// <summary>
-        /// Fired exactly once when the score first reaches 1.0, then
-        /// suppressed for <see cref="HarmonyConfig.perfectCooldown"/> seconds.
-        /// </summary>
+        /// <summary>Fired once when the score first reaches 1.0.</summary>
         public event Action OnPerfectHarmony;
 
         /// <summary>Fired when the world is fully reset.</summary>
@@ -60,40 +46,33 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region State ?????????????????????????????????????????
+        #region State ---------------------------------------------
 
-        // Mutable counters — updated by event callbacks, not by scanning children.
         private readonly Dictionary<BlockType, int> _blockCounts = new Dictionary<BlockType, int>();
         private int   _totalBlocks;
         private int   _totalPebbles;
-        private float _lastScore       = -1f;
-        private bool  _perfectFired    = false;   // fires only once per session
+        private float _lastScore    = -1f;
+        private bool  _perfectFired;
 
-        /// <summary>Current harmony score [0, 1]. Read-only outside this class.</summary>
+        /// <summary>Current harmony score [0, 1].</summary>
         public float CurrentScore => _lastScore < 0f ? 0f : _lastScore;
 
         #endregion
 
-        #region Unity Lifecycle ????????????????????????????????
+        #region Unity Lifecycle -----------------------------------
 
         private void Start()
         {
-            if (_config == null)
-                Debug.LogError("[HarmonyService] _config is not assigned!", this);
-            if (_worldContainer == null)
-                Debug.LogError("[HarmonyService] _worldContainer is not assigned!", this);
-
-            // Bootstrap counters from any blocks already present in the scene
-            // (e.g. placed before this service initialised).
+            ValidateReferences();
             RebuildCounters();
             Recalculate();
         }
 
         #endregion
 
-        #region Public API — called by ARBlockPlacer / PlowTool ??
+        #region Public API ----------------------------------------
 
-        /// <summary>Call after a voxel block is successfully placed.</summary>
+        /// <summary>Call after a voxel block is placed.</summary>
         public void NotifyBlockPlaced(BlockType type)
         {
             _blockCounts.TryGetValue(type, out int current);
@@ -102,7 +81,7 @@ namespace _Project.Scripts.Core
             Recalculate();
         }
 
-        /// <summary>Call after a voxel block is successfully destroyed.</summary>
+        /// <summary>Call after a voxel block is destroyed.</summary>
         public void NotifyBlockDestroyed(BlockType type)
         {
             if (_blockCounts.TryGetValue(type, out int current) && current > 0)
@@ -115,7 +94,7 @@ namespace _Project.Scripts.Core
             Recalculate();
         }
 
-        /// <summary>Call after a pebble is successfully placed.</summary>
+        /// <summary>Call after a pebble is placed.</summary>
         public void NotifyPebblePlaced()
         {
             _totalPebbles++;
@@ -129,9 +108,7 @@ namespace _Project.Scripts.Core
             Recalculate();
         }
 
-        /// <summary>
-        /// Full world reset — clears all counters and resets the score to zero.
-        /// </summary>
+        /// <summary>Full world reset -- clears counters and score.</summary>
         public void NotifyWorldReset()
         {
             _blockCounts.Clear();
@@ -143,10 +120,7 @@ namespace _Project.Scripts.Core
             Recalculate();
         }
 
-        /// <summary>
-        /// Full rescan of WorldContainer children — use after undo/redo operations
-        /// where multiple blocks may appear or disappear at once.
-        /// </summary>
+        /// <summary>Full rescan after undo / redo operations.</summary>
         public void NotifyUndoRedo()
         {
             RebuildCounters();
@@ -155,7 +129,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Scoring ???????????????????????????????????????
+        #region Internals -----------------------------------------
 
         private void Recalculate()
         {
@@ -165,93 +139,64 @@ namespace _Project.Scripts.Core
             float decoration = ScoreDecoration();
             float quantity   = ScoreQuantity();
 
-            float raw  = variety    * _config.varietyWeight
-                       + decoration * _config.decorationWeight
-                       + quantity   * _config.quantityWeight;
+            float raw = variety    * _config.varietyWeight
+                      + decoration * _config.decorationWeight
+                      + quantity   * _config.quantityWeight;
 
             float gate  = ScoreMinimumGate();
-            // Snap raw to 1 when all pillars are fully satisfied (float precision).
             float score = Mathf.Clamp01(raw > 0.999f && gate >= 1f ? 1f : raw * gate);
 
-            // Threshold: treat anything within 0.005 as unchanged to avoid jitter.
             if (Mathf.Abs(score - _lastScore) < 0.005f) return;
 
-            float previous = _lastScore;
-            _lastScore     = score;
+            _lastScore = score;
             OnHarmonyChanged?.Invoke(score);
 
             if (score >= 1f && !_perfectFired)
             {
                 _perfectFired = true;
                 OnPerfectHarmony?.Invoke();
-                Debug.Log("[HarmonyService] Perfect harmony achieved!");
             }
-
-            Debug.Log($"[HarmonyService] Score={score:P0}  " +
-                      $"(V={variety:F2} D={decoration:F2} Q={quantity:F2} Gate={gate:F2})");
         }
 
-        // ?? Pillar 1: Variety ??????????????????????????????
-        // Score = distinct types present / fullVarietyTypeCount
-        // 0 types ? 0,  4 types ? 1.0
+        // -- Pillar 1: Variety -----------------------------------
         private float ScoreVariety()
         {
             int distinct = _blockCounts.Count;
-            if (distinct == 0) return 0f;
-            return Mathf.Clamp01((float)distinct / _config.fullVarietyTypeCount);
+            return distinct == 0 ? 0f : Mathf.Clamp01((float)distinct / _config.fullVarietyTypeCount);
         }
 
-        // ?? Pillar 2: Decoration ???????????????????????????
-        // Pebbles are independent from blocks — they have their own target.
-        // We only gate on _totalBlocks > 0 so an empty garden doesn't get
-        // free pebble points before any construction has started.
+        // -- Pillar 2: Decoration --------------------------------
         private float ScoreDecoration()
         {
             if (_totalBlocks == 0) return 0f;
             return Mathf.Clamp01((float)_totalPebbles / _config.targetPebbleCount);
         }
 
-        // ?? Pillar 3: Quantity ?????????????????????????????
-        // Pebbles do NOT count — only VoxelBlock instances count here.
+        // -- Pillar 3: Quantity ----------------------------------
         private float ScoreQuantity()
         {
             return Mathf.Clamp01((float)_totalBlocks / _config.targetBlockCount);
         }
 
-        // ?? Minimums gate ??????????????????????????????????
-        // Returns a multiplier in [1-gateStrength .. 1].
-        // Each unmet minimum contributes half the gate penalty.
-        // Both met ? 1.0 (no penalty, score can reach 1.0).
-        // Neither met ? (1 - gateStrength).
+        // -- Minimums gate ---------------------------------------
         private float ScoreMinimumGate()
         {
             float penalty = 0f;
             float half    = _config.gateStrength * 0.5f;
 
-            // Sand gate — partial credit as blocks are added.
             _blockCounts.TryGetValue(BlockType.Sand, out int sandCount);
             if (sandCount < _config.minSandBlocks)
                 penalty += half * (1f - (float)sandCount / _config.minSandBlocks);
 
-            // Grass gate.
             _blockCounts.TryGetValue(BlockType.Grass, out int grassCount);
             if (grassCount < _config.minGrassBlocks)
                 penalty += half * (1f - (float)grassCount / _config.minGrassBlocks);
 
-            // Clamp to avoid floating point making gate slightly below 1
-            // when minimums are exactly met.
             float gate = 1f - penalty;
             return gate > 0.999f ? 1f : gate;
         }
 
-        #endregion
-
-        #region Helpers ???????????????????????????????????????
-
-        /// <summary>
-        /// Scans WorldContainer children to rebuild all counters from scratch.
-        /// O(n) over children — called only at Start and after undo/redo.
-        /// </summary>
+        /// <summary>Scans WorldContainer children to rebuild all counters.</summary>
         private void RebuildCounters()
         {
             _blockCounts.Clear();
@@ -271,7 +216,6 @@ namespace _Project.Scripts.Core
                     continue;
                 }
 
-                // Pebbles don't have VoxelBlock — identify by ProceduralPebble tag or component.
                 if (child.GetComponent<ProceduralPebble>() != null)
                     _totalPebbles++;
             }
@@ -279,17 +223,25 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Validation ????????????????????????????????????
+        #region Validation ----------------------------------------
 
+        private void ValidateReferences()
+        {
+            if (_config == null)
+                Debug.LogError("[HarmonyService] _config is not assigned!", this);
+            if (_worldContainer == null)
+                Debug.LogError("[HarmonyService] _worldContainer is not assigned!", this);
+        }
+
+#if UNITY_EDITOR
         private void OnValidate()
         {
-            if (_config != null)
-            {
-                float sum = _config.varietyWeight + _config.decorationWeight + _config.quantityWeight;
-                if (!Mathf.Approximately(sum, 1f))
-                    Debug.LogWarning($"[HarmonyService] Pillar weights sum to {sum:F2} — should be 1.0.", this);
-            }
+            if (_config == null) return;
+            float sum = _config.varietyWeight + _config.decorationWeight + _config.quantityWeight;
+            if (!Mathf.Approximately(sum, 1f))
+                Debug.LogWarning($"[HarmonyService] Pillar weights sum to {sum:F2} -- should be 1.0.", this);
         }
+#endif
 
         #endregion
     }

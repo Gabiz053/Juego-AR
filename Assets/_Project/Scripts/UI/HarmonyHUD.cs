@@ -1,8 +1,8 @@
-// ??????????????????????????????????????????????
-//  HarmonyHUD.cs  ·  _Project.Scripts.UI
+// ------------------------------------------------------------
+//  HarmonyHUD.cs  -  _Project.Scripts.UI
 //  Pure UI controller for the Harmony meter widget.
-//  Drives visuals only — no harmony scoring logic here.
-// ??????????????????????????????????????????????
+//  Drives visuals only -- no harmony scoring logic here.
+// ------------------------------------------------------------
 
 using System.Collections;
 using UnityEngine;
@@ -12,15 +12,18 @@ using _Project.Scripts.Core;
 
 namespace _Project.Scripts.UI
 {
+    /// <summary>
+    /// Animated harmony bar with colour gradient, status phrases and
+    /// pop/shake feedback on phase transitions.
+    /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/UI/Harmony HUD")]
     public class HarmonyHUD : MonoBehaviour
     {
-        #region Inspector ?????????????????????????????????????
+        #region Inspector -----------------------------------------
 
         [Header("Bar Fill Image")]
-        [Tooltip("The Image used as the fill. Must be a direct child of the bar background.\n" +
-                 "Anchor Min=(0,0) Anchor Max=(0,1) Pivot=(0, 0.5) — script drives anchorMax.x.")]
+        [Tooltip("Image used as the fill (anchorMax.x is driven by script).")]
         [SerializeField] private Image _fillImage;
 
         [Tooltip("Seconds the bar takes to animate to a new value.")]
@@ -35,48 +38,45 @@ namespace _Project.Scripts.UI
         [SerializeField] private Color _colourHigh = new Color(0.20f, 0.78f, 0.35f);
 
         [Header("Status Phrases")]
-        [SerializeField] private string _phraseEmpty   = "Empieza tu jardín";
-        [SerializeField] private string _phraseLow     = "Añade más variedad";
-        [SerializeField] private string _phraseMid     = "Jardín equilibrado";
-        [SerializeField] private string _phraseHigh    = "Gran armonía ?";
-        [SerializeField] private string _phrasePerfect = "¡Armonía perfecta! ??";
+        [SerializeField] private string _phraseEmpty   = "Empieza tu jardin";
+        [SerializeField] private string _phraseLow     = "Anade mas variedad";
+        [SerializeField] private string _phraseMid     = "Jardin equilibrado";
+        [SerializeField] private string _phraseHigh    = "Gran armonia";
+        [SerializeField] private string _phrasePerfect = "Armonia perfecta!";
 
         [Header("Service")]
         [SerializeField] private HarmonyService _harmonyService;
 
         [Header("State Change Animation")]
-        [Tooltip("RectTransform to pop/shake. Leave empty to use this GameObject's own.")]
+        [Tooltip("RectTransform to pop/shake (defaults to this GO).")]
         [SerializeField] private RectTransform _hudRoot;
-        [SerializeField] private float _popScale     = 1.20f;
-        [SerializeField] private float _popDuration  = 0.45f;
+        [SerializeField] private float _popScale      = 1.20f;
+        [SerializeField] private float _popDuration   = 0.45f;
         [SerializeField] private float _shakeStrength = 7f;
         [SerializeField] private float _shakeDuration = 0.28f;
 
         [Header("Rounded Bar")]
-        [Tooltip("Pixel radius for the rounded corners on the fill image.\n" +
-                 "Requires the fill Image to use a 9-sliced sprite with rounded corners,\n" +
-                 "OR set to 0 to skip (use a plain sprite instead).")]
+        [Tooltip("Pixel radius for rounded corners on the fill image (0 = skip).")]
         [SerializeField] private float _cornerRadius = 8f;
 
         #endregion
 
-        #region State ?????????????????????????????????????????
+        #region State ---------------------------------------------
 
-        private float         _displayedValue;
-        private float         _targetValue;
-        private Coroutine     _animCoroutine;
-        private Coroutine     _popCoroutine;
-        private RectTransform _fillRect;
-        private Vector3       _hudOriginalScale;
-        private Vector2       _hudOriginalAnchoredPos;
-        private int           _lastPhaseIndex = -1;
+        private float          _displayedValue;
+        private float          _targetValue;
+        private Coroutine      _animCoroutine;
+        private Coroutine      _popCoroutine;
+        private RectTransform  _fillRect;
+        private Vector3        _hudOriginalScale;
+        private Vector2        _hudOriginalAnchoredPos;
+        private int            _lastPhaseIndex = -1;
         private UIAudioService _uiAudio;
-        // When true the HUD is frozen — no animations or sounds until world reset.
-        private bool          _frozen;
+        private bool           _frozen;
 
         #endregion
 
-        #region Unity Lifecycle ????????????????????????????????
+        #region Unity Lifecycle -----------------------------------
 
         private void Awake()
         {
@@ -92,12 +92,10 @@ namespace _Project.Scripts.UI
                 _hudOriginalAnchoredPos = _hudRoot.anchoredPosition;
             }
 
-            // Auto-locate UIAudioService from the root Canvas.
             Canvas root = GetComponentInParent<Canvas>();
             if (root != null)
                 _uiAudio = root.GetComponentInChildren<UIAudioService>();
 
-            // Apply rounded corners to fill and background if a radius is set.
             if (_cornerRadius > 0f)
                 ApplyRoundedCorners();
         }
@@ -106,9 +104,9 @@ namespace _Project.Scripts.UI
         {
             if (_harmonyService != null)
             {
-                _harmonyService.OnHarmonyChanged  += SetHarmony;
-                _harmonyService.OnPerfectHarmony  += OnPerfectReached;
-                _harmonyService.OnWorldReset       += OnWorldReset;
+                _harmonyService.OnHarmonyChanged += SetHarmony;
+                _harmonyService.OnPerfectHarmony += OnPerfectReached;
+                _harmonyService.OnWorldReset     += OnWorldReset;
             }
         }
 
@@ -116,9 +114,9 @@ namespace _Project.Scripts.UI
         {
             if (_harmonyService != null)
             {
-                _harmonyService.OnHarmonyChanged  -= SetHarmony;
-                _harmonyService.OnPerfectHarmony  -= OnPerfectReached;
-                _harmonyService.OnWorldReset       -= OnWorldReset;
+                _harmonyService.OnHarmonyChanged -= SetHarmony;
+                _harmonyService.OnPerfectHarmony -= OnPerfectReached;
+                _harmonyService.OnWorldReset     -= OnWorldReset;
             }
         }
 
@@ -130,18 +128,17 @@ namespace _Project.Scripts.UI
         private IEnumerator InitAfterLayout()
         {
             yield return null;
-            float initial       = _harmonyService != null ? _harmonyService.CurrentScore : 0f;
-            _lastPhaseIndex     = GetPhaseIndex(initial);
+            float initial   = _harmonyService != null ? _harmonyService.CurrentScore : 0f;
+            _lastPhaseIndex = GetPhaseIndex(initial);
             ApplyImmediate(initial);
         }
 
         #endregion
 
-        #region Public API ????????????????????????????????????
+        #region Public API ----------------------------------------
 
         public void SetHarmony(float value01)
         {
-            // Frozen after winning — ignore all updates until world is reset.
             if (_frozen) return;
 
             _targetValue = Mathf.Clamp01(value01);
@@ -173,22 +170,21 @@ namespace _Project.Scripts.UI
             ApplyImmediate(_displayedValue);
         }
 
-        // Called once when perfect harmony is reached — freezes HUD reactions.
+        #endregion
+
+        #region Internals -----------------------------------------
+
         private void OnPerfectReached()
         {
             _frozen = true;
-
-            // Stop any running animations and leave the bar at 100 %.
             if (_animCoroutine != null) { StopCoroutine(_animCoroutine); _animCoroutine = null; }
             if (_popCoroutine  != null) { StopCoroutine(_popCoroutine);  _popCoroutine  = null; }
 
-            // Snap to full so the bar stays visually complete.
             _hudRoot.localScale       = _hudOriginalScale;
             _hudRoot.anchoredPosition = _hudOriginalAnchoredPos;
             ApplyImmediate(1f);
         }
 
-        // Called when the world is reset — unfreezes the HUD for a new game.
         private void OnWorldReset()
         {
             _frozen         = false;
@@ -198,7 +194,7 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Animation ?????????????????????????????????????
+        #region Animation -----------------------------------------
 
         private IEnumerator AnimateBar()
         {
@@ -226,18 +222,17 @@ namespace _Project.Scripts.UI
             float elapsed = 0f;
             float half    = _popDuration * 0.5f;
 
-            // ?? 1. Overshoot scale up ??????????????????????
+            // 1. Overshoot scale up
             while (elapsed < half)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t  = Mathf.SmoothStep(0f, 1f, elapsed / half);
-                // Slight overshoot via AnimationCurve-style bounce.
                 float scale = Mathf.LerpUnclamped(1f, _popScale + 0.05f, t);
                 _hudRoot.localScale = _hudOriginalScale * scale;
                 yield return null;
             }
 
-            // ?? 2. Spring back past original + settle ??????
+            // 2. Spring back + settle
             elapsed = 0f;
             float springDur = _popDuration * 0.7f;
 
@@ -245,13 +240,11 @@ namespace _Project.Scripts.UI
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t  = elapsed / springDur;
-                // Damped spring: oscillates and decays to 1.
                 float spring = 1f + (_popScale + 0.05f - 1f)
                                * Mathf.Exp(-t * 8f)
                                * Mathf.Cos(t * 18f);
                 _hudRoot.localScale = _hudOriginalScale * spring;
 
-                // Perlin shake decays alongside spring.
                 if (elapsed < _shakeDuration)
                 {
                     float decay = 1f - elapsed / _shakeDuration;
@@ -271,12 +264,11 @@ namespace _Project.Scripts.UI
             _popCoroutine = null;
         }
 
-        // Phase 3 (75-99 %): rapid side-to-side buzz — "¡Ya casi lo tienes!"
         private IEnumerator AnticipationShake()
         {
             if (_hudRoot == null) yield break;
 
-            // ?? 1. Fast scale pop ??????????????????????????
+            // 1. Fast scale pop
             float elapsed = 0f;
             float popUp   = 0.10f;
             while (elapsed < popUp)
@@ -288,9 +280,9 @@ namespace _Project.Scripts.UI
                 yield return null;
             }
 
-            // ?? 2. Rapid side-to-side pulses ???????????????
-            int   pulses    = 7;
-            float pulseDur  = 0.055f;
+            // 2. Rapid side-to-side pulses
+            int   pulses   = 7;
+            float pulseDur = 0.055f;
             float amplitude = _shakeStrength * 2.6f;
 
             for (int i = 0; i < pulses; i++)
@@ -304,7 +296,6 @@ namespace _Project.Scripts.UI
                     elapsed += Time.unscaledDeltaTime;
                     float t  = elapsed / pulseDur;
                     float ox = Mathf.Sin(t * Mathf.PI) * amplitude * decay * dir;
-                    // Scale pulses slightly with each side tap.
                     float sc = 1f + Mathf.Sin(t * Mathf.PI) * 0.05f * decay;
                     _hudRoot.anchoredPosition = _hudOriginalAnchoredPos + new Vector2(ox, 0f);
                     _hudRoot.localScale       = _hudOriginalScale * sc;
@@ -312,7 +303,7 @@ namespace _Project.Scripts.UI
                 }
             }
 
-            // ?? 3. Tiny upward bounce to finish ???????????
+            // 3. Tiny upward bounce
             elapsed = 0f;
             float bounceDur = 0.14f;
             while (elapsed < bounceDur)
@@ -331,7 +322,7 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Helpers ???????????????????????????????????????
+        #region Helpers -------------------------------------------
 
         private void ApplyImmediate(float v)
         {
@@ -374,11 +365,6 @@ namespace _Project.Scripts.UI
             return 0;
         }
 
-        /// <summary>
-        /// Generates a rounded-rectangle sprite at runtime and assigns it to
-        /// the fill image and its parent background image.
-        /// No external sprite asset required.
-        /// </summary>
         private void ApplyRoundedCorners()
         {
             if (_fillImage == null) return;
@@ -388,12 +374,10 @@ namespace _Project.Scripts.UI
 
             Sprite rounded = CreateRoundedSprite(w, h, r);
 
-            // Apply to fill.
-            _fillImage.sprite    = rounded;
-            _fillImage.type      = Image.Type.Sliced;
+            _fillImage.sprite = rounded;
+            _fillImage.type   = Image.Type.Sliced;
             _fillImage.pixelsPerUnitMultiplier = 1f;
 
-            // Apply same sprite to the background Image if it exists.
             Image bg = _fillImage.transform.parent?.GetComponent<Image>();
             if (bg != null)
             {
@@ -405,28 +389,20 @@ namespace _Project.Scripts.UI
 
         private static Sprite CreateRoundedSprite(int w, int h, int r)
         {
-            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false)
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false)
             {
                 filterMode = FilterMode.Bilinear,
                 wrapMode   = TextureWrapMode.Clamp
             };
 
-            Color[] pixels = new Color[w * h];
-
+            var pixels = new Color[w * h];
             for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    pixels[y * w + x] = IsInsideRoundedRect(x, y, w, h, r)
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
+            for (int x = 0; x < w; x++)
+                pixels[y * w + x] = IsInsideRoundedRect(x, y, w, h, r) ? Color.white : Color.clear;
 
             tex.SetPixels(pixels);
             tex.Apply();
 
-            // 9-slice border = corner radius so the sprite stretches correctly.
             return Sprite.Create(
                 tex,
                 new Rect(0, 0, w, h),
@@ -439,25 +415,13 @@ namespace _Project.Scripts.UI
 
         private static bool IsInsideRoundedRect(int x, int y, int w, int h, int r)
         {
-            // Inside the central cross (no corner check needed).
             if (x >= r && x < w - r) return true;
             if (y >= r && y < h - r) return true;
 
-            // Corner circles.
-            int cx = (x < r) ? r       : w - r - 1;
-            int cy = (y < r) ? r       : h - r - 1;
+            int cx = (x < r) ? r : w - r - 1;
+            int cy = (y < r) ? r : h - r - 1;
             int dx = x - cx, dy = y - cy;
             return dx * dx + dy * dy <= r * r;
-        }
-
-        #endregion
-
-        #region Validation ????????????????????????????????????
-
-        private void OnValidate()
-        {
-            if (_fillImage == null)
-                Debug.LogWarning("[HarmonyHUD] _fillImage is not assigned.", this);
         }
 
         #endregion

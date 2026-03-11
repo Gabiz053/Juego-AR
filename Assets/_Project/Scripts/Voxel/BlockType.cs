@@ -1,7 +1,7 @@
-// ──────────────────────────────────────────────
-//  BlockType.cs  ·  _Project.Scripts.Voxel
+// ------------------------------------------------------------
+//  BlockType.cs  -  _Project.Scripts.Voxel
 //  Defines every placeable block kind in the game.
-// ──────────────────────────────────────────────
+// ------------------------------------------------------------
 
 namespace _Project.Scripts.Voxel
 {

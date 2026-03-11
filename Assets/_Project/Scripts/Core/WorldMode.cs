@@ -1,22 +1,22 @@
-// ??????????????????????????????????????????????
-//  WorldMode.cs  ·  _Project.Scripts.Core
+// ------------------------------------------------------------
+//  WorldMode.cs  -  _Project.Scripts.Core
 //  Enumerates the three garden scale modes.
-// ??????????????????????????????????????????????
+// ------------------------------------------------------------
 
 namespace _Project.Scripts.Core
 {
     /// <summary>
     /// The three available garden scale modes.<br/>
     /// <list type="bullet">
-    /// <item><b>Bonsai</b> — miniature garden anchored to a tracked image (20 × 20 cm).</item>
-    /// <item><b>Normal</b> — tabletop scale anchored to an AR ground plane (WorldContainer × 0.1).</item>
-    /// <item><b>Real</b>  — full Minecraft scale anchored to an AR ground plane (WorldContainer × 1.0).</item>
+    /// <item><b>Bonsai</b> - miniature garden anchored to a tracked image (20x20 cm).</item>
+    /// <item><b>Normal</b> - tabletop scale anchored to an AR ground plane (scale 0.1).</item>
+    /// <item><b>Real</b>   - full Minecraft scale anchored to an AR ground plane (scale 1.0).</item>
     /// </list>
     /// </summary>
     public enum WorldMode
     {
         Bonsai = 0,
         Normal = 1,
-        Real   = 2,
+        Real   = 2
     }
 }

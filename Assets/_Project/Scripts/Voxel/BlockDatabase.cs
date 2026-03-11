@@ -1,7 +1,7 @@
-// ──────────────────────────────────────────────
-//  BlockDatabase.cs  ·  _Project.Scripts.Voxel
+// ------------------------------------------------------------
+//  BlockDatabase.cs  -  _Project.Scripts.Voxel
 //  Central registry that maps every BlockType to its prefab.
-// ──────────────────────────────────────────────
+// ------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -12,17 +12,16 @@ namespace _Project.Scripts.Voxel
     /// <summary>
     /// ScriptableObject asset that holds the complete catalogue of block
     /// prefabs keyed by <see cref="BlockType"/>.<br/>
-    /// Create one via <c>Assets → Create → ARmonia → Voxel → Block Database</c>
-    /// and reference it from any system that needs to spawn or query blocks
-    /// (e.g. ToolManager, ARBlockPlacer).
+    /// Create one via <c>Assets > Create > ARmonia > Voxel > Block Database</c>
+    /// and reference it from any system that needs to spawn or query blocks.
     /// </summary>
     [CreateAssetMenu(
-        fileName  = "BlockDatabase",
-        menuName  = "ARmonia/Voxel/Block Database",
-        order     = 0)]
+        fileName = "BlockDatabase",
+        menuName = "ARmonia/Voxel/Block Database",
+        order    = 0)]
     public class BlockDatabase : ScriptableObject
     {
-        #region Nested Types ──────────────────────────────────
+        #region Nested Types --------------------------------------
 
         /// <summary>
         /// A single entry pairing a <see cref="BlockType"/> with its prefab.
@@ -33,32 +32,34 @@ namespace _Project.Scripts.Voxel
             [Tooltip("Block type this entry defines.")]
             public BlockType type;
 
-            [Tooltip("Prefab to instantiate when placing this block type. Must contain a VoxelBlock component.")]
+            [Tooltip("Prefab to instantiate when placing this block type.")]
             public GameObject prefab;
         }
 
         #endregion
 
-        #region Inspector ─────────────────────────────────────
+        #region Inspector -----------------------------------------
 
         [Header("Block Catalogue")]
-        [Tooltip("One entry per BlockType. Order does not matter — lookup is by type.")]
+        [Tooltip("One entry per BlockType. Order does not matter -- lookup is by type.")]
         [SerializeField] private BlockEntry[] _entries = Array.Empty<BlockEntry>();
 
         #endregion
 
-        #region Runtime Lookup ────────────────────────────────
+        #region Runtime Lookup ------------------------------------
 
-        /// <summary>Lazy-built dictionary for O(1) access.</summary>
         private Dictionary<BlockType, GameObject> _lookup;
 
+        /// <summary>Total number of registered block entries.</summary>
+        public int Count => _entries.Length;
+
         /// <summary>
-        /// Returns the prefab associated with the given <paramref name="type"/>,
-        /// or <c>null</c> if no entry exists.
+        /// Returns the prefab for <paramref name="type"/>, or <c>null</c>
+        /// if no entry exists.
         /// </summary>
         public GameObject GetPrefab(BlockType type)
         {
-            BuildLookup();
+            EnsureLookup();
             return _lookup.TryGetValue(type, out GameObject prefab) ? prefab : null;
         }
 
@@ -68,22 +69,15 @@ namespace _Project.Scripts.Voxel
         /// </summary>
         public bool TryGetPrefab(BlockType type, out GameObject prefab)
         {
-            BuildLookup();
+            EnsureLookup();
             return _lookup.TryGetValue(type, out prefab);
         }
 
-        /// <summary>Total number of registered block entries.</summary>
-        public int Count => _entries.Length;
-
         #endregion
 
-        #region Internals ─────────────────────────────────────
+        #region Internals -----------------------------------------
 
-        /// <summary>
-        /// Builds the lookup dictionary once. Automatically invalidated on
-        /// domain reload via <see cref="OnEnable"/>.
-        /// </summary>
-        private void BuildLookup()
+        private void EnsureLookup()
         {
             if (_lookup != null) return;
 
@@ -92,7 +86,7 @@ namespace _Project.Scripts.Voxel
             {
                 if (entry.prefab == null)
                 {
-                    Debug.LogWarning($"[BlockDatabase] Entry for {entry.type} has no prefab assigned.", this);
+                    Debug.LogWarning($"[BlockDatabase] Entry for {entry.type} has no prefab.", this);
                     continue;
                 }
                 _lookup[entry.type] = entry.prefab;
@@ -101,32 +95,21 @@ namespace _Project.Scripts.Voxel
 
         /// <summary>
         /// Called by Unity on asset load and after every domain reload.
-        /// Forces the dictionary to rebuild next time it's queried so
-        /// hot-reloads in the Editor always reflect the latest data.
+        /// Forces the dictionary to rebuild next time it is queried.
         /// </summary>
-        private void OnEnable()
-        {
-            _lookup = null;
-        }
+        private void OnEnable() => _lookup = null;
 
-        #if UNITY_EDITOR
-        /// <summary>
-        /// Editor-only validation: warns about missing or duplicate entries.
-        /// </summary>
+#if UNITY_EDITOR
         private void OnValidate()
         {
-            HashSet<BlockType> seen = new HashSet<BlockType>();
+            var seen = new HashSet<BlockType>();
             foreach (BlockEntry entry in _entries)
             {
                 if (!seen.Add(entry.type))
-                {
-                    Debug.LogWarning(
-                        $"[BlockDatabase] Duplicate entry for {entry.type}. Only the last one will be used.",
-                        this);
-                }
+                    Debug.LogWarning($"[BlockDatabase] Duplicate entry for {entry.type}.", this);
             }
         }
-        #endif
+#endif
 
         #endregion
     }
