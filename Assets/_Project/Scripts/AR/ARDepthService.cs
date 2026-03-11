@@ -1,7 +1,7 @@
 // ------------------------------------------------------------
 //  ARDepthService.cs  -  _Project.Scripts.AR
 //  Runtime toggle for ARCore Depth API occlusion via
-//  AROcclusionManager.
+//  AROcclusionManager.  Uses Best quality for maximum fidelity.
 // ------------------------------------------------------------
 
 using System;
@@ -55,8 +55,8 @@ namespace _Project.Scripts.AR
 
             if (enable)
             {
-                _occlusionManager.requestedEnvironmentDepthMode = EnvironmentDepthMode.Fastest;
-                _occlusionManager.requestedHumanDepthMode       = HumanSegmentationDepthMode.Fastest;
+                _occlusionManager.requestedEnvironmentDepthMode = EnvironmentDepthMode.Best;
+                _occlusionManager.requestedHumanDepthMode       = HumanSegmentationDepthMode.Best;
                 _occlusionManager.enabled = true;
             }
             else
@@ -67,6 +67,7 @@ namespace _Project.Scripts.AR
             }
 
             OnDepthToggled?.Invoke(IsDepthEnabled);
+            Debug.Log($"[ARDepthService] Depth occlusion {(enable ? "ON (Best)" : "OFF")}.");
         }
 
         #endregion

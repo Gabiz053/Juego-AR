@@ -48,6 +48,11 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Configures particle system modules (emission burst, shape,
+        /// rotation-over-lifetime, size/colour fading) for a destruction puff.
+        /// Uses cube mesh via <c>Resources.GetBuiltinResource</c>.
+        /// </summary>
         private void Configure()
         {
             if (_particles == null) return;

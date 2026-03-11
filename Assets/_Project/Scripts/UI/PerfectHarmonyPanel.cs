@@ -91,6 +91,11 @@ namespace _Project.Scripts.UI
             }
         }
 
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
         #endregion
 
         #region Public API ----------------------------------------
@@ -187,6 +192,20 @@ namespace _Project.Scripts.UI
 
             if (_continueButton != null)
                 _continueButton.gameObject.SetActive(false);
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_harmonyService == null)
+                Debug.LogError("[PerfectHarmonyPanel] _harmonyService is not assigned!", this);
+            if (_continueButton == null)
+                Debug.LogWarning("[PerfectHarmonyPanel] _continueButton is not assigned!", this);
+            if (_canvasGroup == null)
+                Debug.LogError("[PerfectHarmonyPanel] CanvasGroup not found!", this);
         }
 
         #endregion

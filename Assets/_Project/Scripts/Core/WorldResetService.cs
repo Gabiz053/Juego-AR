@@ -56,12 +56,14 @@ namespace _Project.Scripts.Core
         /// </summary>
         public void ResetWorld()
         {
+            int count = BlockCount;
             DestroyAllBlocks();
             ResetAnchor();
             DeactivateGrid();
             _undoRedoService?.Clear();
             _harmonyService?.NotifyWorldReset();
             OnWorldReset?.Invoke();
+            Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");
         }
 
         #endregion
@@ -77,6 +79,11 @@ namespace _Project.Scripts.Core
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Iterates WorldContainer children in reverse, destroying only
+        /// GameObjects that carry <see cref="VoxelBlock"/> or
+        /// <see cref="ProceduralPebble"/> — leaving the grid visual intact.
+        /// </summary>
         private void DestroyAllBlocks()
         {
             if (_worldContainer == null) return;
@@ -93,12 +100,14 @@ namespace _Project.Scripts.Core
             }
         }
 
+        /// <summary>Calls <see cref="ARWorldManager.ResetAnchor"/> to unpin the world.</summary>
         private void ResetAnchor()
         {
             if (_arWorldManager != null)
                 _arWorldManager.ResetAnchor();
         }
 
+        /// <summary>Hides the construction grid via <see cref="GridManager.DeactivateGrid"/>.</summary>
         private void DeactivateGrid()
         {
             if (_gridManager != null)

@@ -48,6 +48,15 @@ namespace _Project.Scripts.Core
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
         #region Public API ----------------------------------------
 
         /// <summary>True when at least one action can be undone.</summary>
@@ -69,6 +78,7 @@ namespace _Project.Scripts.Core
             _undoStack.Push(action);
             _redoStack.Clear();
             NotifyChanged();
+            Debug.Log($"[UndoRedoService] Recorded {action.GetType().Name} -- undo: {_undoStack.Count}, redo: {_redoStack.Count}.");
         }
 
         /// <summary>Undoes the most recent action.</summary>
@@ -82,6 +92,7 @@ namespace _Project.Scripts.Core
 
             NotifyChanged();
             _harmonyService?.NotifyUndoRedo();
+            Debug.Log($"[UndoRedoService] Undo {action.GetType().Name} -- undo: {_undoStack.Count}, redo: {_redoStack.Count}.");
         }
 
         /// <summary>Re-applies the most recently undone action.</summary>
@@ -95,6 +106,7 @@ namespace _Project.Scripts.Core
 
             NotifyChanged();
             _harmonyService?.NotifyUndoRedo();
+            Debug.Log($"[UndoRedoService] Redo {action.GetType().Name} -- undo: {_undoStack.Count}, redo: {_redoStack.Count}.");
         }
 
         /// <summary>Clears both stacks (called on world reset).</summary>
@@ -103,18 +115,20 @@ namespace _Project.Scripts.Core
             _undoStack.Clear();
             _redoStack.Clear();
             NotifyChanged();
+            Debug.Log("[UndoRedoService] Stacks cleared.");
         }
 
         #endregion
 
         #region Internals -----------------------------------------
 
+        /// <summary>Fires the <see cref="OnStackChanged"/> event with current state.</summary>
         private void NotifyChanged() =>
             OnStackChanged?.Invoke(CanUndo, CanRedo);
 
         /// <summary>
-        /// Removes the oldest element from a stack.  O(n) but only runs
-        /// when the cap is hit.
+        /// Removes the oldest element from a stack.  O(n) copy but only
+        /// runs when the history cap is hit, which is rare.
         /// </summary>
         private static void TrimBottom<T>(Stack<T> stack)
         {
@@ -122,6 +136,16 @@ namespace _Project.Scripts.Core
             stack.Clear();
             for (int i = tmp.Count - 2; i >= 0; i--)
                 stack.Push(tmp[i]);
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_harmonyService == null)
+                Debug.LogWarning("[UndoRedoService] _harmonyService is not assigned -- undo/redo won't rescan harmony.", this);
         }
 
         #endregion

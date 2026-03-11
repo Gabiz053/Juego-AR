@@ -87,6 +87,10 @@ namespace _Project.Scripts.Core
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Picks a random clip from <paramref name="clips"/>, avoiding
+        /// an immediate repeat of the last-played index.
+        /// </summary>
         private AudioClip PickRandom(AudioClip[] clips)
         {
             if (clips == null || clips.Length == 0) return null;
@@ -106,6 +110,10 @@ namespace _Project.Scripts.Core
             return clips[index];
         }
 
+        /// <summary>
+        /// Plays <paramref name="clip"/> via <see cref="AudioSource.PlayOneShot"/>
+        /// with a random pitch offset for organic variation.
+        /// </summary>
         private void PlayInternal(AudioClip clip, float volumeScale)
         {
             if (_audioSource == null) return;

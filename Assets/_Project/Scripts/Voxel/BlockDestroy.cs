@@ -1,4 +1,4 @@
-// ------------------------------------------------------------
+﻿// ------------------------------------------------------------
 //  BlockDestroy.cs  -  _Project.Scripts.Voxel
 //  Proximity knockback and tool-triggered destruction with
 //  physics tumble, shrink and VFX feedback.
@@ -7,14 +7,18 @@
 using System.Collections;
 using UnityEngine;
 using _Project.Scripts.Core;
+using _Project.Scripts.Interaction;
+using Random = UnityEngine.Random;
 
 namespace _Project.Scripts.Voxel
 {
     /// <summary>
-    /// Handles block destruction with physics feedback.<br/>
-    /// Caches <c>Camera.main</c> in <c>Awake</c>.
-    /// <see cref="Interaction.ARBlockPlacer"/> calls <see cref="InjectSharedRefs"/>
-    /// once after instantiation to provide VFX and audio refs.
+    /// Handles block destruction via proximity knock or tool break.<br/>
+    /// Auto-locates scene singletons in <c>Awake</c> so prefab instances
+    /// need no post-instantiate injection.<br/>
+    /// Proximity knock only triggers when the player holds the pickaxe
+    /// (<see cref="ToolType.Tool_Destroy"/>).  Both proximity and tool-
+    /// triggered destruction are undoable via <see cref="DestroyBlockAction"/>.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Voxel/Block Destroy")]
@@ -23,7 +27,7 @@ namespace _Project.Scripts.Voxel
         #region Inspector -----------------------------------------
 
         [Header("Detection")]
-        [Tooltip("Distance (metres) at which the camera knocks the block.")]
+        [Tooltip("Distance (metres) at which the camera auto-knocks the block.")]
         [SerializeField] private float _knockRadius = 0.18f;
 
         [Header("Physics")]
@@ -36,15 +40,25 @@ namespace _Project.Scripts.Voxel
         [Tooltip("Seconds the block takes to shrink to zero.")]
         [SerializeField] private float _shrinkDuration = 0.18f;
 
+        [Header("VFX")]
+        [Tooltip("VFX prefab spawned when the block breaks.\nSet on the block/pebble prefab asset.")]
+        [SerializeField] private GameObject _breakVfxPrefab;
+
+        [Header("Audio Override")]
+        [Tooltip("Break sounds used when no VoxelBlock component is present (pebbles).\nLeave empty on voxel block prefabs — they read from VoxelBlock.BreakSounds.")]
+        [SerializeField] private AudioClip[] _breakSounds;
+
         #endregion
 
         #region State ---------------------------------------------
 
         private Transform        _camera;
+        private Transform        _worldContainer;
         private VoxelBlock       _voxelBlock;
-        private GameObject       _breakVfxPrefab;
         private GameAudioService _audioService;
-        private AudioClip[]      _breakSounds;
+        private ToolManager      _toolManager;
+        private UndoRedoService  _undoRedoService;
+        private HarmonyService   _harmonyService;
         private bool             _knocked;
         private bool             _ready;
 
@@ -54,17 +68,39 @@ namespace _Project.Scripts.Voxel
 
         private void Awake()
         {
-            _camera     = Camera.main != null ? Camera.main.transform : null;
-            _voxelBlock = GetComponent<VoxelBlock>();
+            _camera          = Camera.main != null ? Camera.main.transform : null;
+            _voxelBlock      = GetComponent<VoxelBlock>();
+            _toolManager     = FindAnyObjectByType<ToolManager>();
+            _audioService    = FindAnyObjectByType<GameAudioService>();
+            _undoRedoService = FindAnyObjectByType<UndoRedoService>();
+            _harmonyService  = FindAnyObjectByType<HarmonyService>();
         }
 
+        private void Start()
+        {
+            // Cache the parent at spawn time — KnockRoutine unparents later.
+            _worldContainer = transform.parent;
+            ValidateReferences();
+        }
+
+        /// <summary>
+        /// Proximity detection: if camera enters knock radius while
+        /// the pickaxe is active, records undo and self-destructs.
+        /// </summary>
         private void Update()
         {
             if (!_ready || _knocked || _camera == null) return;
+            if (_toolManager == null || _toolManager.CurrentTool != ToolType.Tool_Destroy) return;
 
             float sqrDist = (transform.position - _camera.position).sqrMagnitude;
-            if (sqrDist <= _knockRadius * _knockRadius)
-                StartCoroutine(KnockRoutine(null));
+            if (sqrDist > _knockRadius * _knockRadius) return;
+
+            // Mark knocked immediately — prevents double-trigger from
+            // BreakFromTool or a second Update call in the same frame.
+            _knocked = true;
+
+            RecordUndoForProximity();
+            StartCoroutine(KnockRoutine(null));
         }
 
         #endregion
@@ -74,31 +110,24 @@ namespace _Project.Scripts.Voxel
         /// <summary>True once <see cref="SetReady"/> has been called.</summary>
         public bool IsReady => _ready;
 
-        /// <summary>Marks the block ready for proximity detection.</summary>
-        public void SetReady() => _ready = true;
-
-        /// <summary>Injects shared VFX and audio refs (blocks).</summary>
-        public void InjectSharedRefs(GameObject breakVfxPrefab, GameAudioService audioService)
-        {
-            _breakVfxPrefab = breakVfxPrefab;
-            _audioService   = audioService;
-        }
-
-        /// <summary>Injects shared refs with extra break sounds (pebbles).</summary>
-        public void InjectSharedRefs(GameObject breakVfxPrefab, GameAudioService audioService,
-                                     AudioClip[] breakSounds)
-        {
-            _breakVfxPrefab = breakVfxPrefab;
-            _audioService   = audioService;
-            _breakSounds    = breakSounds;
-        }
+        /// <summary>True once the block has started its destruction sequence.</summary>
+        public bool IsKnocked => _knocked;
 
         /// <summary>
-        /// Triggers physics break immediately (Destroy tool).
+        /// Marks the block ready for proximity detection.
+        /// Called by <see cref="BlockSpawn"/> after the fly-in completes.
+        /// </summary>
+        public void SetReady() => _ready = true;
+
+        /// <summary>
+        /// Triggers physics break from the Destroy tool or PebbleSupport.
+        /// Undo recording is the caller's responsibility
+        /// (see <see cref="BlockDestroyer"/>).
         /// </summary>
         public void BreakFromTool(Vector3 hitDirection)
         {
             if (_knocked) return;
+            _knocked = true;
             StartCoroutine(KnockRoutine(hitDirection));
         }
 
@@ -106,11 +135,38 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Records a <see cref="DestroyBlockAction"/> and notifies
+        /// <see cref="HarmonyService"/> for the proximity knock path.
+        /// Called after <c>_knocked</c> is already <c>true</c>.
+        /// </summary>
+        private void RecordUndoForProximity()
+        {
+            if (_voxelBlock != null && _undoRedoService != null && _worldContainer != null)
+            {
+                GameObject prefab = _toolManager.GetBlockPrefab(_voxelBlock.Type);
+                if (prefab != null)
+                {
+                    Vector3 localPos = _worldContainer.InverseTransformPoint(transform.position);
+
+                    _undoRedoService.Record(new DestroyBlockAction(
+                        prefab, _worldContainer, localPos, Quaternion.identity));
+
+                    Debug.Log($"[BlockDestroy] Proximity destroy {_voxelBlock.Type} at local {localPos}.");
+                }
+            }
+
+            if (_voxelBlock != null)
+                _harmonyService?.NotifyBlockDestroyed(_voxelBlock.Type);
+        }
+
+        /// <summary>
+        /// Destruction sequence: audio → VFX → unparent → physics
+        /// impulse → tumble delay → shrink to zero → Destroy.
+        /// </summary>
         private IEnumerator KnockRoutine(Vector3? overrideDirection)
         {
-            _knocked = true;
-
-            // Audio
+            // -- Audio --
             if (_audioService != null)
             {
                 AudioClip[] clips = _voxelBlock != null ? _voxelBlock.BreakSounds : _breakSounds;
@@ -118,13 +174,14 @@ namespace _Project.Scripts.Voxel
                     _audioService.PlayOneShot(clips);
             }
 
-            // VFX
+            // -- VFX --
             if (_breakVfxPrefab != null)
                 Instantiate(_breakVfxPrefab, transform.position, Quaternion.identity);
 
-            // Unparent and add physics
+            // -- Unparent so physics works in world space --
             transform.SetParent(null, worldPositionStays: true);
 
+            // -- Rigidbody --
             Rigidbody rb = GetComponent<Rigidbody>();
             if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
 
@@ -136,12 +193,11 @@ namespace _Project.Scripts.Voxel
             Collider ownCollider = GetComponent<Collider>();
             if (ownCollider != null) ownCollider.enabled = true;
 
-            // Kick direction
+            // -- Kick direction --
             Vector3 kickDir;
             if (overrideDirection.HasValue)
             {
-                Vector3 outward = overrideDirection.Value.normalized;
-                kickDir = (outward + Vector3.up * 0.5f).normalized;
+                kickDir = (overrideDirection.Value.normalized + Vector3.up * 0.5f).normalized;
             }
             else
             {
@@ -160,6 +216,7 @@ namespace _Project.Scripts.Voxel
 
             enabled = false;
 
+            // -- Tumble delay --
             yield return new WaitForSeconds(_destroyDelay);
 
             if (rb != null)
@@ -169,7 +226,7 @@ namespace _Project.Scripts.Voxel
                 rb.isKinematic     = true;
             }
 
-            // Shrink to zero
+            // -- Shrink to zero --
             Vector3 startScale = transform.localScale;
             float   elapsed    = 0f;
 
@@ -183,6 +240,26 @@ namespace _Project.Scripts.Voxel
             }
 
             Destroy(gameObject);
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_camera == null)
+                Debug.LogError("[BlockDestroy] Camera.main not found!", this);
+            if (_worldContainer == null)
+                Debug.LogError("[BlockDestroy] No parent found — block must be child of WorldContainer!", this);
+            if (_toolManager == null)
+                Debug.LogWarning("[BlockDestroy] ToolManager not found!", this);
+            if (_audioService == null)
+                Debug.LogWarning("[BlockDestroy] GameAudioService not found!", this);
+            if (_undoRedoService == null)
+                Debug.LogWarning("[BlockDestroy] UndoRedoService not found!", this);
+            if (_harmonyService == null)
+                Debug.LogWarning("[BlockDestroy] HarmonyService not found!", this);
         }
 
         #endregion

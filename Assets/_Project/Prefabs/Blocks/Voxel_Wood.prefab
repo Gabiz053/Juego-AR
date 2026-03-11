@@ -94,6 +94,8 @@ MonoBehaviour:
   _knockForce: 2.5
   _destroyDelay: 1
   _shrinkDuration: 0.18
+  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
+  _breakSounds: []
 --- !u!114 &4290553680077001101
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -109,6 +111,8 @@ MonoBehaviour:
   _duration: 0.18
   _peakScale: 1.15
   _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
+  _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
+  _placeSounds: []
 --- !u!1001 &4664215111915325090
 PrefabInstance:
   m_ObjectHideFlags: 0

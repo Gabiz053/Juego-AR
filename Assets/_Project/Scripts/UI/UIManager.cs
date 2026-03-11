@@ -83,6 +83,9 @@ namespace _Project.Scripts.UI
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Moves the selector highlight to the slot matching <paramref name="newTool"/>.
+        /// </summary>
         private void HandleToolChanged(ToolType newTool)
         {
             int toolIndex = (int)newTool;
@@ -93,6 +96,7 @@ namespace _Project.Scripts.UI
             _selectorRect.sizeDelta = new Vector2(targetSlot.rect.width, targetSlot.rect.height);
         }
 
+        /// <summary>Deferred call so the layout system settles before positioning the selector.</summary>
         private void ForceInitialSelection()
         {
             if (_toolManager != null)

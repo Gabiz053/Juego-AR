@@ -57,7 +57,7 @@ namespace _Project.Scripts.Core
         public float Volume { get; private set; }
 
         /// <summary>
-        /// Sets the music volume to <paramref name="volume"/> (0–1).<br/>
+        /// Sets the music volume (0-1).<br/>
         /// Called directly by the UI Slider's <c>OnValueChanged</c> event.
         /// Setting to 0 silences the music without stopping playback.
         /// </summary>
@@ -109,6 +109,10 @@ namespace _Project.Scripts.Core
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Infinite loop that plays tracks in shuffled order with
+        /// crossfade transitions between them.
+        /// </summary>
         private IEnumerator PlaybackLoop()
         {
             while (true)
@@ -123,7 +127,8 @@ namespace _Project.Scripts.Core
 
                 _audioSource.clip = track;
                 _audioSource.Play();
-
+                Debug.Log($"[MusicService] Now playing: {track.name} ({_currentTrackIndex + 1}/{_tracks.Length}).");
+                
                 float waitTime = track.length - _crossfadeDuration;
                 if (waitTime > 0f)
                     yield return new WaitForSeconds(waitTime);
@@ -135,6 +140,7 @@ namespace _Project.Scripts.Core
             }
         }
 
+        /// <summary>Smoothly interpolates <see cref="AudioSource.volume"/> over <paramref name="duration"/> seconds.</summary>
         private IEnumerator FadeVolume(float from, float to, float duration)
         {
             if (duration <= 0f)
@@ -153,6 +159,7 @@ namespace _Project.Scripts.Core
             _audioSource.volume = to;
         }
 
+        /// <summary>Moves to the next shuffled track, re-shuffling when the list wraps.</summary>
         private void AdvanceTrack()
         {
             _currentTrackIndex++;

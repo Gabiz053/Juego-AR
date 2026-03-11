@@ -43,6 +43,10 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Generates the mesh from a jittered icosahedron, assigns it to
+        /// <see cref="MeshFilter"/> and <see cref="MeshCollider"/>.
+        /// </summary>
         private void BuildMesh()
         {
             var mf   = GetComponent<MeshFilter>();
@@ -89,6 +93,11 @@ namespace _Project.Scripts.Voxel
 
         #region Mesh Generation -----------------------------------
 
+        /// <summary>
+        /// Jitters icosahedron vertices by a random per-vertex offset,
+        /// scales to <paramref name="size"/>, clamps the lower hemisphere
+        /// to Y=0, and builds a flat-shaded mesh with box-projected UVs.
+        /// </summary>
         private static Mesh GenerateMesh(Vector3 size, float jitterFraction, int seed)
         {
             var   rng  = new System.Random(seed);
@@ -136,6 +145,10 @@ namespace _Project.Scripts.Voxel
             return mesh;
         }
 
+        /// <summary>
+        /// Projects a vertex onto a box-mapped UV using the dominant axis.
+        /// Produces clean UVs for low-poly stone surfaces.
+        /// </summary>
         private static Vector2 BoxUV(Vector3 v, Vector3 size)
         {
             float ax = Mathf.Abs(v.x), ay = Mathf.Abs(v.y), az = Mathf.Abs(v.z);

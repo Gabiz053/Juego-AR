@@ -80,6 +80,7 @@ namespace _Project.Scripts.Core
                 _directionalLight.enabled = !focusMode;
 
             OnLightingToggled?.Invoke(focusMode);
+            Debug.Log($"[LightingService] Mode: {(focusMode ? "Focus" : "Global")}.");
         }
 
         #endregion

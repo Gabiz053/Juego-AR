@@ -17,9 +17,11 @@ using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 namespace _Project.Scripts.Interaction
 {
     /// <summary>
-    /// Plow (decoration) tool -- tap any surface to scatter procedurally
+    /// Plow (decoration) tool — tap any surface to scatter procedurally
     /// generated pebble details.  Active only when
     /// <see cref="ToolManager.CurrentTool"/> == <see cref="ToolType.Tool_Plow"/>.
+    /// Placement feedback (audio + VFX) is handled by each pebble prefab's
+    /// <see cref="BlockSpawn"/> component.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/Plow Tool")]
@@ -37,13 +39,6 @@ namespace _Project.Scripts.Interaction
         [Tooltip("WorldContainer -- all decorations are parented here.")]
         [SerializeField] private Transform _worldContainer;
 
-        [Header("Services")]
-        [Tooltip("Audio service -- plays the pebble placement sound.")]
-        [SerializeField] private GameAudioService _audioService;
-
-        [Tooltip("Break VFX prefab injected into each pebble's BlockDestroy.")]
-        [SerializeField] private GameObject _breakVfxPrefab;
-
         [Header("Harmony")]
         [Tooltip("HarmonyService -- notified on every pebble placed.")]
         [SerializeField] private HarmonyService _harmonyService;
@@ -51,13 +46,6 @@ namespace _Project.Scripts.Interaction
         [Header("Pebble Prefabs")]
         [Tooltip("Pool of pebble prefabs to pick from at random.")]
         [SerializeField] private GameObject[] _pebblePrefabs;
-
-        [Header("Pebble Audio")]
-        [Tooltip("Clips played at random when a pebble is placed.")]
-        [SerializeField] private AudioClip[] _placeSounds;
-
-        [Tooltip("Clips played at random when a pebble is destroyed.")]
-        [SerializeField] private AudioClip[] _breakSounds;
 
         [Header("Placement")]
         [Tooltip("Layer mask for voxel blocks (physics raycast).")]
@@ -138,6 +126,10 @@ namespace _Project.Scripts.Interaction
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Casts a physics ray (voxel surface) then falls back to an AR
+        /// plane ray.  Returns <c>true</c> when a pebble was placed.
+        /// </summary>
         private bool TryPlacePebble(Vector2 screenPos)
         {
             if (_pebblePrefabs == null || _pebblePrefabs.Length == 0) return false;
@@ -177,6 +169,12 @@ namespace _Project.Scripts.Interaction
             return true;
         }
 
+        /// <summary>
+        /// Instantiates a random pebble prefab at <paramref name="worldPoint"/>,
+        /// applies scatter, rotation to surface normal, random scale,
+        /// and starts the spawn animation.  Audio and VFX are handled by
+        /// the pebble prefab's <see cref="BlockSpawn"/> component.
+        /// </summary>
         private void PlaceAt(Vector3 worldPoint, Vector3 surfaceNormal, bool onARPlane)
         {
             GameObject prefab = _pebblePrefabs[Random.Range(0, _pebblePrefabs.Length)];
@@ -205,7 +203,6 @@ namespace _Project.Scripts.Interaction
             support?.Configure(onARPlane, _voxelLayerMask, surfaceNormal);
 
             BlockDestroy blockDestroy = pebble.GetComponent<BlockDestroy>();
-            blockDestroy?.InjectSharedRefs(_breakVfxPrefab, _audioService, _breakSounds);
 
             BlockSpawn blockSpawn = pebble.GetComponent<BlockSpawn>();
             if (blockSpawn != null)
@@ -221,9 +218,6 @@ namespace _Project.Scripts.Interaction
                 blockDestroy?.SetReady();
                 support?.Arm();
             }
-
-            if (_audioService != null && _placeSounds != null && _placeSounds.Length > 0)
-                _audioService.PlayOneShot(_placeSounds);
 
             _harmonyService?.NotifyPebblePlaced();
         }

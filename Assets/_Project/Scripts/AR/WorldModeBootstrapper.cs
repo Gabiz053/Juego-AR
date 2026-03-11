@@ -74,6 +74,12 @@ namespace _Project.Scripts.AR
 
             ApplyWorldScale();
             ConfigureARManagers();
+            Debug.Log($"[WorldModeBootstrapper] Mode: {_activeConfig.DisplayName}, scale: {_activeConfig.WorldContainerScale}, anchor: {_activeConfig.AnchorType}.");
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
         }
 
         private void OnDestroy()
@@ -85,6 +91,7 @@ namespace _Project.Scripts.AR
 
         #region Internals -----------------------------------------
 
+        /// <summary>Applies <see cref="WorldModeSO.WorldContainerScale"/> to <c>_worldContainer</c>.</summary>
         private void ApplyWorldScale()
         {
             if (_worldContainer == null) return;
@@ -92,6 +99,7 @@ namespace _Project.Scripts.AR
             _worldContainer.localScale = new Vector3(s, s, s);
         }
 
+        /// <summary>Routes to plane or tracked-image mode based on <see cref="AnchorType"/>.</summary>
         private void ConfigureARManagers()
         {
             switch (_activeConfig.AnchorType)
@@ -108,6 +116,7 @@ namespace _Project.Scripts.AR
 
         // -- Plane mode (Normal / Real) --------------------------
 
+        /// <summary>Enables <see cref="ARPlaneManager"/> and subscribes to new-plane events.</summary>
         private void EnablePlaneMode()
         {
             if (_arPlaneManager != null)
@@ -120,6 +129,7 @@ namespace _Project.Scripts.AR
                 _arTrackedImageManager.enabled = false;
         }
 
+        /// <summary>Auto-unsubscribes once the first plane is detected.</summary>
         private void OnTrackablesChangedPlane(ARTrackablesChangedEventArgs<ARPlane> args)
         {
             if (args.added.Count > 0)
@@ -128,6 +138,7 @@ namespace _Project.Scripts.AR
 
         // -- Tracked image mode (Bonsai) -------------------------
 
+        /// <summary>Enables <see cref="ARTrackedImageManager"/> and subscribes to image events.</summary>
         private void EnableTrackedImageMode()
         {
             if (_arTrackedImageManager != null)
@@ -149,6 +160,7 @@ namespace _Project.Scripts.AR
                 _arPlaneManager.enabled = false;
         }
 
+        /// <summary>Listens for added or updated tracked images and anchors on the first valid one.</summary>
         private void OnTrackablesChangedImage(ARTrackablesChangedEventArgs<ARTrackedImage> args)
         {
             if (_anchored) return;
@@ -169,6 +181,7 @@ namespace _Project.Scripts.AR
             }
         }
 
+        /// <summary>Anchors the world to the tracked image pose and unsubscribes from further events.</summary>
         private void AnchorToImage(ARTrackedImage img)
         {
             if (_anchored || _arWorldManager == null) return;
@@ -180,6 +193,7 @@ namespace _Project.Scripts.AR
             _arTrackedImageManager.trackablesChanged.RemoveListener(OnTrackablesChangedImage);
         }
 
+        /// <summary>Searches <c>_modeConfigs</c> for the <see cref="WorldModeSO"/> matching <paramref name="mode"/>.</summary>
         private WorldModeSO FindConfig(WorldMode mode)
         {
             if (_modeConfigs == null) return null;
@@ -191,6 +205,7 @@ namespace _Project.Scripts.AR
             return null;
         }
 
+        /// <summary>Removes all event listeners from AR managers to prevent leaks.</summary>
         private void UnsubscribeFromManagers()
         {
             if (_arPlaneManager != null)
@@ -202,6 +217,20 @@ namespace _Project.Scripts.AR
         #endregion
 
         #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_modeConfigs == null || _modeConfigs.Length == 0)
+                Debug.LogError("[WorldModeBootstrapper] _modeConfigs is empty!", this);
+            if (_worldContainer == null)
+                Debug.LogError("[WorldModeBootstrapper] _worldContainer is not assigned!", this);
+            if (_arWorldManager == null)
+                Debug.LogError("[WorldModeBootstrapper] _arWorldManager is not assigned!", this);
+            if (_gridManager == null)
+                Debug.LogWarning("[WorldModeBootstrapper] _gridManager is not assigned!", this);
+            if (_mainCamera == null)
+                Debug.LogError("[WorldModeBootstrapper] Camera.main not found!", this);
+        }
 
 #if UNITY_EDITOR
         private void OnValidate()

@@ -114,6 +114,7 @@ namespace _Project.Scripts.UI
 
         #region Public API ----------------------------------------
 
+        /// <summary>Opens or closes the options dropdown.</summary>
         public void ToggleMenu()
         {
             if (_optionsPanel == null) return;
@@ -122,8 +123,10 @@ namespace _Project.Scripts.UI
             _optionsPanel.SetActive(willOpen);
             SetPanelActive(_blockerPanel, willOpen);
             _uiAudio?.PlayMenuOpen();
+            Debug.Log($"[GameOptionsMenu] Menu {(willOpen ? "opened" : "closed")}.");
         }
 
+        /// <summary>Toggles between Global and Focus lighting modes.</summary>
         public void ToggleLighting()
         {
             if (_lightingService == null) return;
@@ -131,6 +134,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayToggle();
         }
 
+        /// <summary>Toggles AR depth occlusion ON / OFF.</summary>
         public void ToggleDepth()
         {
             if (_depthService == null) return;
@@ -138,6 +142,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayToggle();
         }
 
+        /// <summary>Toggles the grid-line overlay on detected AR planes.</summary>
         public void ToggleGrid()
         {
             if (_planeGridAligner == null) return;
@@ -147,6 +152,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayToggle();
         }
 
+        /// <summary>Toggles the AR plane mesh visual ON / OFF.</summary>
         public void TogglePlaneVisual()
         {
             if (_planeGridAligner == null) return;
@@ -156,6 +162,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayToggle();
         }
 
+        /// <summary>Called by the music slider -- maps 0-100 to 0-1 volume.</summary>
         public void OnMusicVolumeChanged(float sliderValue)
         {
             if (_musicService == null) return;
@@ -165,6 +172,7 @@ namespace _Project.Scripts.UI
 
         // -- Clear-All Flow --------------------------------------
 
+        /// <summary>Shows the confirmation popup and closes the options panel.</summary>
         public void RequestClearAll()
         {
             if (_confirmPopup == null) return;
@@ -173,14 +181,17 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayClick();
         }
 
+        /// <summary>Executes the full world reset after user confirmation.</summary>
         public void ConfirmClearAll()
         {
             if (_worldResetService != null)
                 _worldResetService.ResetWorld();
             SetPanelActive(_confirmPopup, false);
             _uiAudio?.PlayConfirm();
+            Debug.Log("[GameOptionsMenu] Clear-all confirmed.");
         }
 
+        /// <summary>Dismisses the confirmation popup without clearing.</summary>
         public void CancelClearAll()
         {
             SetPanelActive(_confirmPopup, false);
@@ -189,6 +200,7 @@ namespace _Project.Scripts.UI
 
         // -- Utilities -------------------------------------------
 
+        /// <summary>Triggers a screenshot capture and plays the shutter sound.</summary>
         public void TakePhoto()
         {
             if (_screenshotService == null) return;
@@ -196,6 +208,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayPhoto();
         }
 
+        /// <summary>Quits the application (or stops Play mode in the Editor).</summary>
         public void ExitGame()
         {
             _uiAudio?.PlayClick();
@@ -209,20 +222,29 @@ namespace _Project.Scripts.UI
 
         #region Event Handlers ------------------------------------
 
+        /// <summary>Relays <see cref="WorldResetService.OnWorldReset"/> to local subscribers.</summary>
         private void HandleWorldReset()         => OnWorldReset?.Invoke();
+
+        /// <summary>Auto-closes the menu after a screenshot is saved.</summary>
         private void HandleScreenshotCaptured(string _) => ToggleMenu();
+
+        /// <summary>Syncs the depth button dim state with the service.</summary>
         private void HandleDepthToggled(bool on) => _depthButtonState?.SetState(on);
+
+        /// <summary>Syncs the lighting button dim state with the service.</summary>
         private void HandleLightingToggled(bool on) => _lightingButtonState?.SetState(on);
 
         #endregion
 
         #region Internals -----------------------------------------
 
+        /// <summary>Null-safe shortcut for <c>GameObject.SetActive</c>.</summary>
         private static void SetPanelActive(GameObject panel, bool active)
         {
             if (panel != null) panel.SetActive(active);
         }
 
+        /// <summary>Updates the music volume label text beside the slider.</summary>
         private void RefreshMusicLabel(float sliderValue)
         {
             if (_musicVolumeLabel != null)

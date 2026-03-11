@@ -92,6 +92,9 @@ namespace _Project.Scripts.Interaction
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Shows the line for <see cref="RAY_DURATION"/> seconds then hides it.
+        /// </summary>
         private IEnumerator DrawRayRoutine(Vector2 screenPosition)
         {
             _lineRenderer.enabled = true;
@@ -110,6 +113,10 @@ namespace _Project.Scripts.Interaction
             _lineRenderer.enabled = false;
         }
 
+        /// <summary>
+        /// Configures the <see cref="LineRenderer"/> width, colour and
+        /// material on first creation.  Uses URP/Unlit with fallback.
+        /// </summary>
         private void SetupLineRenderer()
         {
             if (_lineRenderer == null) return;

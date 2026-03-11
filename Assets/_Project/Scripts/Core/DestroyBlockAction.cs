@@ -3,7 +3,6 @@
 //  Undoable command for destroying a single voxel block.
 // ------------------------------------------------------------
 
-using System;
 using UnityEngine;
 
 namespace _Project.Scripts.Core
@@ -11,9 +10,9 @@ namespace _Project.Scripts.Core
     /// <summary>
     /// Records a block destruction so it can be undone (restore the block)
     /// or redone (destroy it again).<br/>
-    /// Created and pushed to <see cref="UndoRedoService"/> by
-    /// <see cref="Interaction.BlockDestroyer"/> just before
-    /// <see cref="Voxel.BlockDestroy"/> is triggered.
+    /// Created by <see cref="Interaction.BlockDestroyer"/> (tool tap) and
+    /// <see cref="Voxel.BlockDestroy"/> (proximity knock) just before the
+    /// physics-tumble sequence begins.
     /// </summary>
     public sealed class DestroyBlockAction : IUndoableAction
     {
@@ -21,34 +20,25 @@ namespace _Project.Scripts.Core
 
         private GameObject _restoredInstance;
 
-        private readonly GameObject         _prefab;
-        private readonly Transform          _parent;
-        private readonly Vector3            _localPosition;
-        private readonly Quaternion         _localRotation;
-        private readonly GameObject         _breakVfxPrefab;
-        private readonly GameAudioService   _audioService;
-        private readonly Action<GameObject> _onInstantiated;
+        private readonly GameObject _prefab;
+        private readonly Transform  _parent;
+        private readonly Vector3    _localPosition;
+        private readonly Quaternion _localRotation;
 
         #endregion
 
         #region Constructor -------------------------------------------
 
         public DestroyBlockAction(
-            GameObject         prefab,
-            Transform          parent,
-            Vector3            localPosition,
-            Quaternion         localRotation,
-            GameObject         breakVfxPrefab,
-            GameAudioService   audioService,
-            Action<GameObject> onInstantiated)
+            GameObject prefab,
+            Transform  parent,
+            Vector3    localPosition,
+            Quaternion localRotation)
         {
-            _prefab         = prefab;
-            _parent         = parent;
-            _localPosition  = localPosition;
-            _localRotation  = localRotation;
-            _breakVfxPrefab = breakVfxPrefab;
-            _audioService   = audioService;
-            _onInstantiated = onInstantiated;
+            _prefab        = prefab;
+            _parent        = parent;
+            _localPosition = localPosition;
+            _localRotation = localRotation;
         }
 
         #endregion
@@ -60,10 +50,12 @@ namespace _Project.Scripts.Core
         {
             if (_prefab == null || _parent == null) return;
 
-            _restoredInstance = UnityEngine.Object.Instantiate(_prefab, _parent);
-            _restoredInstance.transform.SetLocalPositionAndRotation(_localPosition, Quaternion.identity);
+            _restoredInstance = Object.Instantiate(_prefab, _parent);
+            _restoredInstance.transform.SetLocalPositionAndRotation(_localPosition, _localRotation);
 
-            _onInstantiated?.Invoke(_restoredInstance);
+            PlaceBlockAction.ArmForImmediate(_restoredInstance);
+
+            Debug.Log($"[DestroyBlockAction] Undo — restored {_prefab.name} at {_localPosition}.");
         }
 
         /// <summary>Destroy the restored block immediately without physics tumble.</summary>
@@ -71,8 +63,10 @@ namespace _Project.Scripts.Core
         {
             if (_restoredInstance == null) return;
 
-            UnityEngine.Object.Destroy(_restoredInstance);
+            Object.Destroy(_restoredInstance);
             _restoredInstance = null;
+
+            Debug.Log($"[DestroyBlockAction] Redo — destroyed block at {_localPosition}.");
         }
 
         #endregion

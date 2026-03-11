@@ -62,6 +62,7 @@ namespace _Project.Scripts.UI
 
         #region Internals -----------------------------------------
 
+        /// <summary>Polls screen dimensions and fires when orientation changes.</summary>
         private void EvaluateOrientation()
         {
             bool currentIsLandscape = Screen.width > Screen.height;
@@ -73,6 +74,10 @@ namespace _Project.Scripts.UI
             }
         }
 
+        /// <summary>
+        /// Hides build UI in landscape (saves tool, forces Tool_None).
+        /// Restores UI and previous tool in portrait.
+        /// </summary>
         private void OnOrientationChanged(bool landscape)
         {
             bool showBuildUI = !landscape;
@@ -89,14 +94,18 @@ namespace _Project.Scripts.UI
 
                 if (_toolManager != null)
                     _toolManager.SelectToolByIndex((int)ToolType.Tool_None);
+
+                Debug.Log($"[OrientationManager] Landscape -- saved tool: {_previousTool}, forced Tool_None.");
             }
             else
             {
                 SetActive(_selectorHighlight, true);
                 StartCoroutine(RestoreToolAfterLayout());
+                Debug.Log($"[OrientationManager] Portrait -- restoring tool: {_previousTool}.");
             }
         }
 
+        /// <summary>Waits one frame for layout to settle, then restores the saved tool.</summary>
         private IEnumerator RestoreToolAfterLayout()
         {
             yield return _waitEndOfFrame;
@@ -105,6 +114,7 @@ namespace _Project.Scripts.UI
                 _toolManager.SelectToolByIndex((int)_previousTool);
         }
 
+        /// <summary>Null-safe shortcut for <c>GameObject.SetActive</c>.</summary>
         private static void SetActive(GameObject go, bool active)
         {
             if (go != null) go.SetActive(active);

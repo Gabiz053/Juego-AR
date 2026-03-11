@@ -108,6 +108,7 @@ namespace _Project.Scripts.Core
 
         #region Internals -----------------------------------------
 
+        /// <summary>Creates the child <c>Dynamic_GridVisual</c> GameObject with MeshFilter and MeshRenderer.</summary>
         private void CreateMeshObject()
         {
             _gridVisualObject = new GameObject("Dynamic_GridVisual");
@@ -126,6 +127,12 @@ namespace _Project.Scripts.Core
             _meshFilter.mesh = _gridMesh;
         }
 
+        /// <summary>
+        /// Clears and regenerates the line mesh from scratch.
+        /// Builds vertical (Z-axis) and horizontal (X-axis) line segments
+        /// centred on <c>_lastSnappedCenter</c>, using reusable buffers
+        /// to avoid GC allocations.
+        /// </summary>
         private void RebuildMesh()
         {
             _vertices.Clear();
@@ -171,6 +178,10 @@ namespace _Project.Scripts.Core
             _gridMesh.RecalculateBounds();
         }
 
+        /// <summary>
+        /// Adds a two-vertex line segment to the mesh buffers.
+        /// Skips fully transparent segments (both endpoints faded to zero).
+        /// </summary>
         private void AddSegment(Vector3 start, Vector3 end, Vector3 center, ref int index)
         {
             Color32 colorStart = FadedColor(start, center);
@@ -187,6 +198,11 @@ namespace _Project.Scripts.Core
             _indices.Add(index++);
         }
 
+        /// <summary>
+        /// Returns the grid colour with alpha modulated by radial distance
+        /// from <paramref name="center"/>.  Points beyond <c>_gridRadius</c>
+        /// return fully transparent.
+        /// </summary>
         private Color32 FadedColor(Vector3 point, Vector3 center)
         {
             float sqrDist    = (point - center).sqrMagnitude;

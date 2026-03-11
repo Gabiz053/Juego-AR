@@ -153,12 +153,17 @@ namespace _Project.Scripts.Interaction
             IsBrushActive = !IsBrushActive;
             OnBrushToggled?.Invoke(IsBrushActive);
             _uiAudio?.PlayToggle();
+            Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");
         }
 
         #endregion
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Tracks the last build tool so the brush can re-activate it.
+        /// Auto-disables the brush when <see cref="ToolType.Tool_None"/> is selected.
+        /// </summary>
         private void HandleToolChanged(ToolType newTool)
         {
             if (_toolManager.IsBuildTool)
@@ -174,6 +179,10 @@ namespace _Project.Scripts.Interaction
             }
         }
 
+        /// <summary>
+        /// Restores the last-used build tool if the player currently
+        /// holds a non-build tool (e.g. after switching from Destroy).
+        /// </summary>
         private void EnsureBuildToolActive()
         {
             if (!_toolManager.IsBuildTool)

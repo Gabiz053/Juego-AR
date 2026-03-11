@@ -77,6 +77,10 @@ namespace _Project.Scripts.Interaction
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Routes a validated screen touch to the correct handler based
+        /// on the current <see cref="ToolManager.CurrentTool"/>.
+        /// </summary>
         private void HandleTouch(Vector2 screenPosition)
         {
             if (_toolManager == null) return;

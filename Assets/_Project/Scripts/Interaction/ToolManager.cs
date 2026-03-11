@@ -62,6 +62,7 @@ namespace _Project.Scripts.Interaction
 
             CurrentTool = (ToolType)index;
             OnToolChanged?.Invoke(CurrentTool);
+            Debug.Log($"[ToolManager] Tool changed to {CurrentTool}.");
         }
 
         /// <summary>Returns the prefab for the current build tool, or null.</summary>

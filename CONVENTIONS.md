@@ -1,4 +1,5 @@
 # Convenciones del proyecto ARmonia
+# Convenciones del proyecto ARmonia
 
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
@@ -321,6 +322,24 @@ Cada script sigue este orden de `#region`:
 | XML `<summary>` en toda clase pública | `/// <summary>Gestiona la rejilla de construcción.</summary>` |
 | Yield cacheados como campo | `private readonly WaitForSeconds _wait = new WaitForSeconds(0.5f);` |
 | No dejar `using` sin usar | Limpiar imports |
+| `Debug.Log` en decisiones clave | `Debug.Log($"[ClassName] Action -- context.");` |
+
+### Convención de Debug.Log
+
+Cada servicio y controlador incluye `Debug.Log` **estratégicos** en puntos de
+decisión importantes para facilitar el diagnóstico en consola:
+
+| Cuándo | Ejemplo |
+|--------|---------|
+| Inicialización de servicio | `Debug.Log($"[HarmonyService] Initialized -- score: {_lastScore:F2}.");` |
+| Cambio de estado relevante | `Debug.Log($"[ToolManager] Tool changed to {CurrentTool}.");` |
+| Evento de juego importante | `Debug.Log("[HarmonyService] *** PERFECT HARMONY REACHED ***");` |
+| Toggle ON/OFF | `Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");` |
+| Operación destructiva | `Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");` |
+
+**Formato obligatorio:** `[ClassName] Message -- context.`  
+**No añadir** `Debug.Log` en hot paths (`Update`, loops de coroutine) ni en
+métodos llamados cada frame.  Unity los stripea automáticamente en builds no-Development.
 
 ---
 
@@ -517,7 +536,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | **Shader de bloques** | `ARmonia/Blocks/VoxelLit` con toon lighting 3 bandas |
 | **Shader de suelo AR** | `ARmonia/AR/ARPlane` con arena zen + grid animado |
 | **MaterialPropertyBlock** | Usar en vez de material instances para propiedades per-object |
-| **Oclusión por profundidad** | `AROcclusionManager` via `ARDepthService` (default OFF) |
+| **Oclusión por profundidad** | `AROcclusionManager` via `ARDepthService` (default OFF, modo Best al activar) |
 | **Pipeline Assets** | `Mobile_RPAsset` para Android, `PC_RPAsset` para Editor |
 | **Fuente** | `minecraft_fot_esp` (con caracteres españoles) vía TextMeshPro SDF |
 
@@ -529,23 +548,16 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 |--------|-----|-------------|
 | **C# Events (`event Action<T>`)** | Notificación cross-sistema, UI reactiva | `HarmonyService.OnHarmonyChanged` → `HarmonyHUD.SetHarmony` |
 | **Llamada directa** | Acoplamiento estrecho dentro de la misma capa | `ARBlockPlacer` → `GridManager.GetSnappedPosition()` |
-| **Inspector `[SerializeField]`** | Inyección de dependencias para todos los MonoBehaviours | Toda sección `#region Inspector` |
+| **Inspector `[SerializeField]`** | Inyección de dependencias para MonoBehaviours de escena | Toda sección `#region Inspector` en scripts de escena |
 | **Command Pattern** | Undo/Redo | `IUndoableAction` → `PlaceBlockAction` / `DestroyBlockAction` |
 | **Facade Pattern** | Simplificar acceso a subsistema | `GridManager` envuelve `GridVisualizer` |
 | **ScriptableObject data** | Configuración compartida sin dependencia de escena | `BlockDatabase`, `HarmonyConfig`, `WorldModeSO` |
 | **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
-| **Auto-locate en Awake** | Componentes del mismo GO o jerarquía cercana | `PerfectHarmonyPanel` auto-localiza `CanvasGroup`, `HarmonyParticles`, `UIAudioService` |
-| **InjectSharedRefs** | Inyección post-instantiate para evitar duplicar refs en prefabs | `BlockDestroy.InjectSharedRefs(vfx, audio)` |
+| **Internal static helper** | Lógica compartida entre Commands sin estado | `PlaceBlockAction.ArmForImmediate()` — deshabilita BlockSpawn, habilita Collider + BlockDestroy.SetReady(). Usado por `Redo` (place) y `Undo` (destroy). |
+| **Auto-locate en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn` auto-localiza `GameAudioService`; `BlockDestroy` auto-localiza `ToolManager` y `GameAudioService` via `FindAnyObjectByType` |
+| **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX. Callers (`ARBlockPlacer`, `PlowTool`, `BlockDestroyer`) no tocan audio ni VFX. |
+| **VoxelBlock como fuente de audio** | Prefab data-component leído por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles (sin `VoxelBlock`). |
 | **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
-
-**Patrones prohibidos:**
-| Prohibido | Razón |
-|-----------|-------|
-| Singleton MonoBehaviour (`Instance` pattern) | Acoplamiento global, difícil de testear |
-| `SendMessage()` / `BroadcastMessage()` | Lento, sin type-safety, sin refactoring |
-| Tags para lógica | Usar `GetComponent<T>()` en vez de `CompareTag()` |
-| `static` mutable en MonoBehaviours | Solo permitido en `WorldModeContext` (static class pura) |
-| Rutar toggles de modo por `ToolManager` | `BrushTool` es un mode overlay — su botón llama directamente a `ToggleBrush()` |
 
 ---
 
@@ -576,7 +588,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 - `Find()` o `FindObjectOfType()` — usar `[SerializeField]`.
 - Allocations en hot paths (`Update`, loops de coroutine) — reutilizar buffers.
 - Hardcodear magic numbers — usar `[SerializeField]` o `const`.
-- Duplicar referencias de prefabs en múltiples scripts — usar `InjectSharedRefs()`.
+- Duplicar referencias de escena en prefabs — usar `FindAnyObjectByType<T>()` en `Awake` o `[SerializeField]` para datos de prefab.
 - Dejar `Debug.Log` en release sin condicional (Unity los stripea automáticamente en builds no-Development, pero mantener limpio).
 
 ### Mantenimiento de documentación

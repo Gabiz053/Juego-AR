@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce4e69a223950d244aee6b90ef193531, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _blockType: 2
+  _blockType: 0
   _placeSounds:
   - {fileID: 8300000, guid: bd91aa6f070eef64aba548913ba85d2d, type: 3}
   - {fileID: 8300000, guid: 0f29ae68b0d4510409ef8a53261f2d01, type: 3}
@@ -92,6 +92,8 @@ MonoBehaviour:
   _knockForce: 2.5
   _destroyDelay: 1
   _shrinkDuration: 0.18
+  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
+  _breakSounds: []
 --- !u!114 &-8562387348613211636
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -107,6 +109,8 @@ MonoBehaviour:
   _duration: 0.18
   _peakScale: 1.15
   _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
+  _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
+  _placeSounds: []
 --- !u!1001 &7488737683674896354
 PrefabInstance:
   m_ObjectHideFlags: 0

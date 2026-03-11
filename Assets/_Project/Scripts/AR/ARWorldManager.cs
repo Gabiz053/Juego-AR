@@ -63,6 +63,7 @@ namespace _Project.Scripts.AR
             _worldContainer.SetParent(_worldAnchor.transform);
 
             _gridManager?.ActivateGrid(playerCamera);
+            Debug.Log($"[ARWorldManager] World anchored at {hitPose.position}.");
         }
 
         /// <summary>
@@ -78,6 +79,8 @@ namespace _Project.Scripts.AR
 
             if (_worldContainer != null)
                 _worldContainer.SetParent(null);
+
+            Debug.Log("[ARWorldManager] Anchor reset.");
         }
 
         #endregion
@@ -98,6 +101,10 @@ namespace _Project.Scripts.AR
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Flattens the camera forward to the XZ plane and applies it as
+        /// the WorldContainer rotation so blocks face the player.
+        /// </summary>
         private void OrientTowardsCamera(Transform playerCamera)
         {
             Vector3 flatForward = playerCamera.forward;
@@ -108,6 +115,11 @@ namespace _Project.Scripts.AR
             _worldContainer.rotation = Quaternion.LookRotation(flatForward.normalized);
         }
 
+        /// <summary>
+        /// Creates an <see cref="ARAnchor"/> at the given pose.  Tries
+        /// the prefab from <see cref="ARAnchorManager"/> first; falls back
+        /// to a manually created GameObject with an ARAnchor component.
+        /// </summary>
         private void CreateAnchor(Pose pose)
         {
             if (_anchorManager.anchorPrefab != null)

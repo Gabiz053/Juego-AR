@@ -54,6 +54,10 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Configures particle system modules (emission burst, shape,
+        /// size-over-lifetime, colour-over-lifetime) for a placement pop.
+        /// </summary>
         private void Configure()
         {
             if (_particles == null) return;
@@ -100,6 +104,10 @@ namespace _Project.Scripts.Voxel
             col.color = new ParticleSystem.MinMaxGradient(grad);
         }
 
+        /// <summary>
+        /// Fires the particle burst, plays a scale pop → ease-back
+        /// animation, then schedules self-destruction.
+        /// </summary>
         private IEnumerator Play()
         {
             if (_particles != null) _particles.Play();
@@ -110,6 +118,7 @@ namespace _Project.Scripts.Voxel
             Destroy(gameObject, _lifetime);
         }
 
+        /// <summary>Smoothly scales the transform over <paramref name="dur"/> seconds.</summary>
         private IEnumerator ScaleTo(Vector3 target, float dur, Func<float, float> ease)
         {
             Vector3 start = transform.localScale;

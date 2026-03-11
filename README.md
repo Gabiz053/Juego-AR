@@ -71,8 +71,8 @@ Assets/
 │   │   └── Main_AR.unity        ← Escena principal (única escena)
 │   ├── Scripts/
 │   │   ├── AR/                  ← 4 scripts
-│   │   ├── Core/                ← 16 scripts (incluye enums, interfaces, statics, servicios)
-│   │   ├── Interaction/         ← 9 scripts
+│   │   ├── Core/                ← 17 scripts (incluye enums, interfaces, statics, servicios)
+│   │   ├── Interaction/         ← 8 scripts
 │   │   ├── UI/                  ← 11 scripts
 │   │   └── Voxel/               ← 9 scripts
 │   ├── Shaders/
@@ -316,14 +316,12 @@ TouchInputRouter.Update()      ← Ignora toques sobre UI (IsPointerOverGameObje
   │     │   └─ _pendingCells.Contains() — celda ya reservada durante animación
   │     ├─ _pendingCells.Add(snappedPos)      ← Reserva celda
   │     ├─ Instantiate(prefab, WorldContainer)
-  │     ├─ BlockDestroy.InjectSharedRefs(_breakVfxPrefab, _audioService)
   │     ├─ BlockSpawn.Play(camera, onComplete)
   │     │     ├─ Fase 1 (80%): vuelo local desde cámara, scale 0→peakScale (1.15)
   │     │     ├─ Fase 2 (20%): settle peakScale→1.0
-  │     │     ├─ Re-enable collider + BlockDestroy
+  │     │     ├─ Re-enable collider + BlockDestroy.SetReady()
+  │     │     ├─ PlayPlaceFeedback(): VFX + audio (lee de VoxelBlock.PlaceSounds)
   │     │     └─ onComplete → _pendingCells.Remove()
-  │     ├─ VFX_BlockPlace instantiated en posición
-  │     ├─ GameAudioService.PlayOneShot(voxelBlock.PlaceSounds)
   │     ├─ UndoRedoService.Record(new PlaceBlockAction(...))
   │     └─ HarmonyService.NotifyBlockPlaced(blockType)
   │
@@ -331,8 +329,8 @@ TouchInputRouter.Update()      ← Ignora toques sobre UI (IsPointerOverGameObje
         ├─ Physics.Raycast(_voxelLayerMask | _pebbleLayerMask)
         ├─ UndoRedoService.Record(new DestroyBlockAction(...))
         ├─ BlockDestroy.BreakFromTool(hitNormal)
-        │     ├─ Audio: VoxelBlock.BreakSounds o inyectados por PlowTool
-        │     ├─ VFX_BlockBreak instantiated
+        │     ├─ Audio: VoxelBlock.BreakSounds (bloques) o _breakSounds (pebbles)
+        │     ├─ VFX: _breakVfxPrefab [SerializeField] en el prefab
         │     ├─ Unparent del WorldContainer
         │     ├─ AddComponent<Rigidbody>() + AddForce(kickDir * knockForce)
         │     ├─ AddTorque(random * knockForce * 3)
@@ -347,9 +345,14 @@ TouchInputRouter.Update()      ← Ignora toques sobre UI (IsPointerOverGameObje
 ```text
 BlockDestroy.Update()    ← Solo si _ready == true (post-spawn)
   │
+  ├─ _toolManager.CurrentTool != Tool_Destroy? → return (sin efecto)
+  │
   └─ sqrDistance(camera, block) <= _knockRadius² (0.18m)?
        └─ StartCoroutine(KnockRoutine())  ← Mismo flujo que BreakFromTool
           pero dirección = away from camera + Vector3.up * 0.6
+
+Nota: la proximidad knock SOLO se activa cuando el jugador tiene
+      la herramienta de pico (Tool_Destroy) seleccionada.
 ```
 
 ### Flujo de Armonía → UI
@@ -409,7 +412,7 @@ UndoRedoService (Stack<IUndoableAction>, cap = 20 configurable)
   │
   ├─ Undo()
   │   ├─ PlaceBlockAction.Undo()   → Destroy(instance)
-  │   └─ DestroyBlockAction.Undo() → Instantiate + SetLocalPosition + arm BlockDestroy
+  │   └─ DestroyBlockAction.Undo() → Instantiate + arm
   │
   ├─ Redo()
   │   ├─ PlaceBlockAction.Redo()   → Instantiate + arm
@@ -445,10 +448,9 @@ PlowTool.Update()   (solo cuando ToolManager.CurrentTool == Tool_Plow)
         │     └─ Si onBlock → InvokeRepeating(Poll, 0.35s)
         │           └─ Raycast hacia -surfaceNormal, _checkDistance 0.20m
         │           └─ Si no hay soporte → BlockDestroy.BreakFromTool(-supportDir)
-        ├─ BlockDestroy.InjectSharedRefs(_breakVfxPrefab, _audioService, _breakSounds)
         ├─ BlockSpawn.Play(camera, onComplete)
+        │     ├─ PlayPlaceFeedback(): audio (lee de BlockSpawn._placeSounds)
         │     └─ onComplete → BlockDestroy.SetReady() + PebbleSupport.Arm()
-        ├─ GameAudioService.PlayOneShot(_placeSounds)
         └─ HarmonyService.NotifyPebblePlaced()
 
 BrushTool + Tool_Plow activos:
@@ -499,13 +501,13 @@ Botones dentro del dropdown:
   │           └─ event OnLightingToggled → DropdownButtonState actualiza color
   ├─ Btn_Depth → ToggleDepth()
   │     └─ ARDepthService.ToggleDepth()
-  │           ├─ AROcclusionManager.requestedEnvironmentDepthMode
-  │           └─ AROcclusionManager.requestedHumanDepthMode
+  │           ├─ AROcclusionManager.requestedEnvironmentDepthMode = Best
+  │           └─ AROcclusionManager.requestedHumanDepthMode = Best
   ├─ Btn_Grid → ToggleGrid()
   │     └─ ARPlaneGridAligner.SetGrid(bool) → MaterialPropertyBlock _GridEnabled
   ├─ Btn_Plane → TogglePlaneVisual()
   │     └─ ARPlaneGridAligner.SetVisual(bool) → MeshRenderer.enabled en planos
-  ├─ Sld_MusicVolume → OnMusicVolumeChanged(0–100)
+  ├── Sld_MusicVolume → OnMusicVolumeChanged(0–100)
   │     └─ MusicService.SetVolume(0–1)
   ├─ Btn_Photo → TakePhoto()
   │     └─ ScreenshotService.Capture()
@@ -617,12 +619,12 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 | Script | Líneas | Responsabilidad |
 |--------|--------|----------------|
-| `ARDepthService` | ~140 | Toggle runtime de `AROcclusionManager`. Modos: `EnvironmentDepthMode.Fastest`, `HumanSegmentationDepthMode.Fastest`. Evento `OnDepthToggled`. Default OFF. |
+| `ARDepthService` | ~100 | Toggle runtime de `AROcclusionManager`. Modos: `EnvironmentDepthMode.Best`, `HumanSegmentationDepthMode.Best` (máxima calidad). Evento `OnDepthToggled`. Default OFF. |
 | `ARPlaneGridAligner` | ~100 | Inyecta `WorldContainer.worldToLocalMatrix` en cada plano AR como `_GridMatrix` via `MaterialPropertyBlock`. Controla `_GridEnabled` y `MeshRenderer.enabled` de los planos. |
 | `ARWorldManager` | ~140 | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ≈ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
 | `WorldModeBootstrapper` | ~160 | Lee `WorldModeContext.Selected`, busca el `WorldModeSO` correspondiente en `_modeConfigs[]`, aplica `WorldContainer.localScale`, habilita `ARPlaneManager` o `ARTrackedImageManager` según `AnchorType`, suscribe a `trackablesChanged` para auto-anclar. Campo `_devOverrideMode` para testing sin title screen. |
 
-### Core (16 scripts) — `_Project.Scripts.Core`
+### Core (17 scripts) — `_Project.Scripts.Core`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -636,24 +638,24 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, `ScreenCapture.CaptureScreenshot`. Evento `OnScreenshotCaptured(fileName)`. |
 | `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
-| `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + posición local + callback. |
-| `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + arm. `Redo()` → `Destroy(restoredInstance)`. |
-| `UndoRedoService` | MonoBehaviour | `Stack<IUndoableAction>` × 2 con cap (`_maxHistory`, default 20). `Record()` limpia redo. `TrimBottom()` O(n) solo al cap. Evento `OnStackChanged(canUndo, canRedo)`. Tras cada undo/redo → `HarmonyService.NotifyUndoRedo()`. |
+| `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: deshabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
+| `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + `PlaceBlockAction.ArmForImmediate()`. `Redo()` → `Destroy(restoredInstance)`. Creado por `BlockDestroyer` (tap) y `BlockDestroy` (proximity knock). |
+| `UndoRedoService` | MonoBehaviour | `Stack<IUndoableAction>` × 2 con cap (`_maxHistory`, default 20). `Record()` limpia redo. `TrimBottom()` O(n) solo al cap. Evento `OnStackChanged(canUndo, canRedo). Tras cada undo/redo → `HarmonyService.NotifyUndoRedo()`. |
 | `WorldMode` | Enum | `Bonsai = 0`, `Normal = 1`, `Real = 2`. |
 | `WorldModeContext` | Static class | `static WorldMode Selected = Normal`. Cross-escena sin MonoBehaviour. |
 | `WorldModeSO` | ScriptableObject | `Mode`, `DisplayName`, `WorldContainerScale`, `AnchorType` (enum: `ARPlane`/`TrackedImage`), `ImageLibrary`, `ImagePhysicalWidth`, `MaxBlocks`. |
 
-### Interaction (9 scripts) — `_Project.Scripts.Interaction`
+### Interaction (8 scripts) — `_Project.Scripts.Interaction`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `ToolType` | Enum | 10 valores: `Build_Sand(0)` a `Build_Grass(5)`, `Tool_None(6)`, `Tool_Destroy(7)`, `Tool_Brush(8)`, `Tool_Plow(9)`. |
 | `ToolManager` | MonoBehaviour | `CurrentTool` (default `Build_Sand`), `IsBuildTool` (rango 0–5), `SelectToolByIndex(int)`, `GetCurrentBlockPrefab()`, `GetBlockPrefab(BlockType)`. Evento `OnToolChanged`. |
-| `TouchInputRouter` | MonoBehaviour | Punto de entrada de input táctil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo, despacha a `ARBlockPlacer` o `BlockDestroyer` según herramienta. |
-| `ARBlockPlacer` | MonoBehaviour | Solo colocación de bloques. `TryPlaceBlock()`, `ProcessAndPlace()`. `_pendingCells` HashSet contra double-tap. `ARRaycastManager` asignado via Inspector. Refs: ToolManager, GridManager, ARWorldManager, WorldContainer, GameAudioService, UndoRedoService, HarmonyService. |
-| `BlockDestroyer` | MonoBehaviour | Solo destrucción de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). Registra `DestroyBlockAction` en `UndoRedoService`. Notifica `HarmonyService`. |
+| `TouchInputRouter` | MonoBehaviour | Punto de entrada de input táctil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo,Despacha a `ARBlockPlacer` o `BlockDestroyer` según herramienta. |
+| `ARBlockPlacer` | MonoBehaviour | Solo colocación de bloques. `TryPlaceBlock()` resuelve root block via `GetComponentInParent<VoxelBlock>` para stacking correcto. `ProcessAndPlace()`: snap, validación, `Instantiate`. `_pendingCells` HashSet contra double-tap. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Registra `PlaceBlockAction`. Refs: ToolManager, GridManager, ARWorldManager, WorldContainer, UndoRedoService, HarmonyService. |
+| `BlockDestroyer` | MonoBehaviour | Solo destrucción de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). `DestroyHit` resuelve root via `GetComponentInParent<VoxelBlock>`, skip si `IsKnocked` (evita double-record con proximity), registra `DestroyBlockAction` con `InverseTransformPoint`. Sin audio ni VFX — el prefab los gestiona via `BlockDestroy`. Notifica `HarmonyService`. |
 | `BrushTool` | MonoBehaviour | Toggle `IsBrushActive`. `Btn_Brush.OnClick` llama directamente a `ToggleBrush()` (no pasa por ToolManager — es un mode overlay). En Update si activo: consume `Touch.activeTouches`, llama `ARBlockPlacer`/`BlockDestroyer`/`PlowTool` cada `_strokeCooldown` (0.08s). Evento `OnBrushToggled(bool)`. |
-| `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`, `HarmonyService.NotifyPebblePlaced()`. `PlacePebbleAtScreen()` para uso desde BrushTool. |
+| `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Notifica `HarmonyService.NotifyPebblePlaced()`. `PlacePebbleAtScreen()` para uso desde BrushTool. |
 | `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
 
 ### UI (11 scripts) — `_Project.Scripts.UI`
@@ -668,7 +670,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color` con `_dimFactor` (0.45) cuando brush está OFF/ON. Mismo patrón que `UndoRedoHUD`. |
 | `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`. Slider de música (0–100). |
 | `OrientationManager` | MonoBehaviour | Detecta portrait/landscape en `Update()` (`Screen.width > Screen.height`). Oculta hotbar, tool panel, selector en landscape. Fuerza `Tool_None`. Restaura `_previousTool` en portrait con `WaitForEndOfFrame`. |
-| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases de armonia. Pitch variation ±0.05. Anti-repeticion por pool. |
+| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases dearmonía. Pitch variation ±0.05. Anti-repeticion por pool. |
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down y scale-up automatico en cada boton. |
 | `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF en el dropdown de opciones. `_dimFactor` configurable. `SetState(bool)`. Usado por `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`. |
 
@@ -678,9 +680,9 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 |--------|------|----------------|
 | `BlockType` | Enum | `Sand(0)`, `Glass(1)`, `Stone(2)`, `Wood(3)`, `Torch(4)`, `Grass(5)`. |
 | `BlockDatabase` | ScriptableObject | Array de `BlockEntry` (type + prefab). Lazy `Dictionary<BlockType,GameObject>` para O(1). `GetPrefab()`, `TryGetPrefab()`, `Count`. |
-| `VoxelBlock` | MonoBehaviour | `_blockType`, `_placeSounds[]`, `_breakSounds[]`. Properties de solo lectura. |
-| `BlockSpawn` | MonoBehaviour | Coroutine en espacio local. Fase 1 (80%): vuelo ease-out cubico, scale de 0 a 1.15. Fase 2 (20%): settle de 1.15 a 1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. `_cameraLocalOffset` = (0, -0.12, 0.15). |
-| `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`). `BreakFromTool(hitNormal)`: unparent, `Rigidbody` + impulso + torque, VFX, audio, tumble (`_destroyDelay` 0.12s), shrink (`_shrinkDuration` 0.18s), `Destroy`. `InjectSharedRefs()` para VFX y audio sin duplicar en prefabs. |
+| `VoxelBlock` | MonoBehaviour | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. Fuente única de verdad para audio en bloques voxel. Properties de solo lectura. |
+| `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Fase 1 (80%): vuelo ease-out cubico, scale 0→1.15. Fase 2 (20%): settle 1.15→1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Al terminar: `PlayPlaceFeedback()` (VFX `_placeVfxPrefab` + audio). Lee audio de `VoxelBlock.PlaceSounds` si existe, fallback a `_placeSounds` para pebbles. Auto-localiza `GameAudioService` via `FindAnyObjectByType`. |
+| `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`, **solo con Tool_Destroy activo**). `IsKnocked` impide double-trigger. Proximity knock: marca `_knocked=true` → `RecordUndoForProximity()` (registra `DestroyBlockAction` con `InverseTransformPoint`, notifica Harmony) → `KnockRoutine`. `BreakFromTool(hitNormal)`: marca `_knocked=true` → `KnockRoutine` (undo lo registra el caller `BlockDestroyer`). `KnockRoutine`: audio + VFX `_breakVfxPrefab` + unparent + `Rigidbody` impulso/torque + tumble (`_destroyDelay` 0.12s) + shrink (`_shrinkDuration` 0.18s) + `Destroy`. Lee audio de `VoxelBlock.BreakSounds` si existe, fallback a `_breakSounds` para pebbles. Auto-localiza `ToolManager`, `GameAudioService`, `UndoRedoService`, `HarmonyService` via `FindAnyObjectByType`. Cachea `_worldContainer = transform.parent` en `Start`. |
 | `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered en `Awake`. Flat shading (verts duplicados por triangulo). Base plana (Y menor que 0 se pone a Y=0). Box-projection UV. Seed 0 = random. |
 | `PebbleSupport` | MonoBehaviour | Poll periodico (`InvokeRepeating`, `_checkInterval` 0.35s). Raycast hacia `-_supportDir` (`_checkDistance` 0.20m, solo `_voxelMask`). Si no hay apoyo, llama a `BlockDestroy.BreakFromTool()`. Si `_onARPlane`, nunca auto-break. |
 | `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst (10 a 16 particulas) + scale pop (1.18x en 0.06s, luego 1.0 en 0.14s). Auto-destroy a 0.8s. Configura todo proceduralmente en `Start()`. |
@@ -696,7 +698,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 - **Construccion voxel:** tap para colocar, stacking por caras, snap a grid, reserva de celda contra double-tap.
 - **6 tipos de bloque:** Sand, Glass, Stone, Wood, Torch, Grass con prefabs, sonidos y VFX diferenciados.
 - **Herramienta Destruir:** raycast fisico, impulso con Rigidbody, tumble, shrink, VFX. Funciona sobre bloques y piedritas.
-- **Pincel Rapido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s, compatible con todos los modos.
+- **Pincel Rapido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s,compatible con todos los modos.
 - **Decorador de Piedritas:** piedras procedurales icosaedro, rotacion/escala/scatter aleatorio, alineacion a normal, soporte con auto-destruccion.
 - **Grid visual:** mesh procedural de lineas con fade radial, zero-GC, regenera solo al cambiar celda.
 - **Sistema de Armonia:** 3 pilares + gate de minimos, 100% event-driven, zero polling.
@@ -708,7 +710,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 - **Screenshot:** captura sin UI visible, timestamp en nombre de archivo.
 - **Orientacion:** oculta hotbar en landscape, restaura en portrait.
 - **Modos de escala:** Bonsai/Normal/Real con bootstrapper.
-- **Proximidad knock:** auto-destruccion si la camara entra en 0.18m del bloque.
+- **Proximidad knock:** auto-destruccion si la camara entra en 0.18m del bloque **solo con la herramienta de pico (Tool_Destroy) activa**.
 - **2 shaders HLSL personalizados:** arena zen con grid animado y voxel toon-lit con AO.
 - **Animacion de botones:** squeeze automatico en cada `Btn_*`.
 - **Botones de estado:** dim visual para toggles ON/OFF.

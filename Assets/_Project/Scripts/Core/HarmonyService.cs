@@ -66,6 +66,7 @@ namespace _Project.Scripts.Core
             ValidateReferences();
             RebuildCounters();
             Recalculate();
+            Debug.Log($"[HarmonyService] Initialized -- score: {_lastScore:F2}, blocks: {_totalBlocks}, pebbles: {_totalPebbles}.");
         }
 
         #endregion
@@ -118,6 +119,7 @@ namespace _Project.Scripts.Core
             _perfectFired = false;
             OnWorldReset?.Invoke();
             Recalculate();
+            Debug.Log("[HarmonyService] World reset -- all counters cleared.");
         }
 
         /// <summary>Full rescan after undo / redo operations.</summary>
@@ -125,12 +127,17 @@ namespace _Project.Scripts.Core
         {
             RebuildCounters();
             Recalculate();
+            Debug.Log($"[HarmonyService] Undo/Redo rescan -- blocks: {_totalBlocks}, pebbles: {_totalPebbles}, score: {_lastScore:F2}.");
         }
 
         #endregion
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Combines the three pillar scores, applies the minimums gate,
+        /// fires <see cref="OnHarmonyChanged"/> and checks for perfect harmony.
+        /// </summary>
         private void Recalculate()
         {
             if (_config == null) return;
@@ -150,35 +157,40 @@ namespace _Project.Scripts.Core
 
             _lastScore = score;
             OnHarmonyChanged?.Invoke(score);
+            Debug.Log($"[HarmonyService] Score: {score:F2} (var={variety:F2} dec={decoration:F2} qty={quantity:F2} gate={gate:F2}).");
 
             if (score >= 1f && !_perfectFired)
             {
                 _perfectFired = true;
                 OnPerfectHarmony?.Invoke();
+                Debug.Log("[HarmonyService] *** PERFECT HARMONY REACHED ***");
             }
         }
 
-        // -- Pillar 1: Variety -----------------------------------
+        /// <summary>Ratio of distinct block types used to the target count.</summary>
         private float ScoreVariety()
         {
             int distinct = _blockCounts.Count;
             return distinct == 0 ? 0f : Mathf.Clamp01((float)distinct / _config.fullVarietyTypeCount);
         }
 
-        // -- Pillar 2: Decoration --------------------------------
+        /// <summary>Ratio of pebbles placed to <see cref="HarmonyConfig.targetPebbleCount"/>.</summary>
         private float ScoreDecoration()
         {
             if (_totalBlocks == 0) return 0f;
             return Mathf.Clamp01((float)_totalPebbles / _config.targetPebbleCount);
         }
 
-        // -- Pillar 3: Quantity ----------------------------------
+        /// <summary>Ratio of total blocks to <see cref="HarmonyConfig.targetBlockCount"/>.</summary>
         private float ScoreQuantity()
         {
             return Mathf.Clamp01((float)_totalBlocks / _config.targetBlockCount);
         }
 
-        // -- Minimums gate ---------------------------------------
+        /// <summary>
+        /// Returns a 0-1 multiplier that penalises the score when the
+        /// mandatory minimums (Sand/Grass) are not yet met.
+        /// </summary>
         private float ScoreMinimumGate()
         {
             float penalty = 0f;

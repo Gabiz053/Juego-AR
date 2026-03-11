@@ -1,18 +1,23 @@
 // ------------------------------------------------------------
 //  BlockSpawn.cs  -  _Project.Scripts.Voxel
-//  Fly-in + scale-up animation played once when a block is
-//  placed.  Works in local space of the WorldContainer.
+//  Fly-in animation + placement feedback (audio + VFX).
+//  Reads place sounds from VoxelBlock when present; falls back
+//  to its own _placeSounds field for pebbles.
 // ------------------------------------------------------------
 
 using System;
 using System.Collections;
 using UnityEngine;
+using _Project.Scripts.Core;
 
 namespace _Project.Scripts.Voxel
 {
     /// <summary>
     /// One-shot spawn animation: fly from camera to grid position with
-    /// an overshoot settle.  Attach to each block prefab.
+    /// an overshoot settle.  Also plays placement audio and VFX so all
+    /// feedback lives on the prefab — callers don't need to know about it.<br/>
+    /// Reads place sounds from <see cref="VoxelBlock.PlaceSounds"/> when
+    /// present; falls back to <see cref="_placeSounds"/> for pebbles.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Voxel/Block Spawn")]
@@ -32,6 +37,36 @@ namespace _Project.Scripts.Voxel
         [Tooltip("Offset in camera-local space for the animation start point.")]
         [SerializeField] private Vector3 _cameraLocalOffset = new Vector3(0f, -0.12f, 0.15f);
 
+        [Header("Place Feedback")]
+        [Tooltip("VFX prefab spawned at placement position.\nLeave empty if this prefab has no place VFX.")]
+        [SerializeField] private GameObject _placeVfxPrefab;
+
+        [Header("Audio Override")]
+        [Tooltip("Place sounds used when no VoxelBlock component is present (pebbles).\nLeave empty on voxel block prefabs — they read from VoxelBlock.PlaceSounds.")]
+        [SerializeField] private AudioClip[] _placeSounds;
+
+        #endregion
+
+        #region State ---------------------------------------------
+
+        private VoxelBlock       _voxelBlock;
+        private GameAudioService _audioService;
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _voxelBlock   = GetComponent<VoxelBlock>();
+            _audioService = FindAnyObjectByType<GameAudioService>();
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
         #endregion
 
         #region Public API ----------------------------------------
@@ -39,6 +74,7 @@ namespace _Project.Scripts.Voxel
         /// <summary>
         /// Kicks off the spawn animation.  <paramref name="onComplete"/> is
         /// invoked when the block has settled (releases the pending cell).
+        /// Place audio and VFX are triggered at the end of the animation.
         /// </summary>
         public void Play(Transform cameraTransform, Action onComplete = null)
         {
@@ -49,6 +85,10 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Two-phase animation: fly-in with scale overshoot, then settle.
+        /// Plays place audio and VFX once the block reaches its final position.
+        /// </summary>
         private IEnumerator SpawnCoroutine(Transform cameraTransform, Action onComplete)
         {
             BlockDestroy blockDestroy = GetComponent<BlockDestroy>();
@@ -107,8 +147,45 @@ namespace _Project.Scripts.Voxel
                 blockDestroy.SetReady();
             }
 
+            PlayPlaceFeedback();
+
             onComplete?.Invoke();
             enabled = false;
+        }
+
+        /// <summary>
+        /// Fires place VFX and plays a random place sound.
+        /// Reads from <see cref="VoxelBlock.PlaceSounds"/> when present;
+        /// falls back to <see cref="_placeSounds"/> for pebbles.
+        /// </summary>
+        private void PlayPlaceFeedback()
+        {
+            if (_placeVfxPrefab != null)
+            {
+                Vector3 worldPos = transform.parent != null
+                    ? transform.parent.TransformPoint(transform.localPosition)
+                    : transform.position;
+                Instantiate(_placeVfxPrefab, worldPos, Quaternion.identity);
+            }
+
+            if (_audioService != null)
+            {
+                AudioClip[] clips = _voxelBlock != null ? _voxelBlock.PlaceSounds : _placeSounds;
+                if (clips != null && clips.Length > 0)
+                    _audioService.PlayOneShot(clips);
+            }
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_audioService == null)
+                Debug.LogWarning("[BlockSpawn] GameAudioService not found in scene!", this);
+            if (GetComponent<Collider>() == null)
+                Debug.LogWarning("[BlockSpawn] No Collider found -- spawn animation will skip collider toggle.", this);
         }
 
         #endregion

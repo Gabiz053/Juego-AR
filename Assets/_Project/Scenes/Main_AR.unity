@@ -15227,20 +15227,11 @@ MonoBehaviour:
   _toolManager: {fileID: 1586780609}
   _arRaycastManager: {fileID: 1238779073}
   _worldContainer: {fileID: 1472623155}
-  _audioService: {fileID: 297069136}
-  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
   _harmonyService: {fileID: 1300950987}
   _pebblePrefabs:
   - {fileID: 2346634912404660289, guid: ad8b8e820daa6af48a32bd394a01ef22, type: 3}
   - {fileID: 2346634912404660289, guid: aacdb3e7459c3c84d9cd1e7f2c756c2d, type: 3}
   - {fileID: 2346634912404660289, guid: 47ff4ef9d0456a44dacd88f36fcb9cba, type: 3}
-  _placeSounds:
-  - {fileID: 8300000, guid: d0c2945c80358f24d9e9ad102964dd20, type: 3}
-  - {fileID: 8300000, guid: b5eaf0dba445ba941afe886ceb126241, type: 3}
-  - {fileID: 8300000, guid: d5f79893325ee0c4598d70925ec60493, type: 3}
-  _breakSounds:
-  - {fileID: 8300000, guid: 59542c3e405d7794084bda8e674dc0c7, type: 3}
-  - {fileID: 8300000, guid: d0efc4fa96861d34789fa1c855eb9d7b, type: 3}
   _voxelLayerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -15252,7 +15243,7 @@ MonoBehaviour:
   _scaleMin: 0.8
   _scaleMax: 1.2
   _scatterRadius: 0.015
-  _brushCooldown: 0.05
+  _brushCooldown: 0.04
 --- !u!114 &1772064486
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15270,7 +15261,7 @@ MonoBehaviour:
   _toolManager: {fileID: 1586780609}
   _plowTool: {fileID: 1772064485}
   _uiAudio: {fileID: 2043065971}
-  _strokeCooldown: 0.05
+  _strokeCooldown: 0.01
 --- !u!114 &1772064487
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15285,7 +15276,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _toolManager: {fileID: 1586780609}
   _worldContainer: {fileID: 1472623155}
-  _audioService: {fileID: 297069136}
   _voxelLayerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -15293,7 +15283,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   _maxDestroyDistance: 4
-  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
   _undoRedoService: {fileID: 1300950986}
   _harmonyService: {fileID: 1300950987}
 --- !u!114 &1772064488
@@ -15313,15 +15302,12 @@ MonoBehaviour:
   _arWorldManager: {fileID: 1238779080}
   _worldContainer: {fileID: 1472623155}
   _arRaycastManager: {fileID: 1238779073}
-  _audioService: {fileID: 297069136}
   _voxelLayerMask:
     serializedVersion: 2
     m_Bits: 64
   _maxBuildDistance: 3
   _minPlaceDistance: 0.4
   _overlapTolerance: 0.1
-  _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
-  _breakVfxPrefab: {fileID: 8968638984064251948, guid: bfe7f65a0e4e67b47bd2d6dda1f7265d, type: 3}
   _undoRedoService: {fileID: 1300950986}
   _harmonyService: {fileID: 1300950987}
 --- !u!114 &1772064489

@@ -12,12 +12,20 @@ namespace _Project.Scripts.AR
     /// <summary>
     /// Pushes the <c>WorldContainer</c> world-to-local matrix into each
     /// active AR plane's <see cref="MeshRenderer"/> via a
-    /// <see cref="MaterialPropertyBlock"/> every frame.
+    /// <see cref="MaterialPropertyBlock"/> every frame.  Also exposes
+    /// runtime toggles for grid-line visibility and plane-mesh visibility.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/AR/AR Plane Grid Aligner")]
     public class ARPlaneGridAligner : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        private static readonly int GRID_MATRIX_ID  = Shader.PropertyToID("_GridMatrix");
+        private static readonly int GRID_ENABLED_ID = Shader.PropertyToID("_GridEnabled");
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Dependencies")]
@@ -31,9 +39,6 @@ namespace _Project.Scripts.AR
 
         #region State ---------------------------------------------
 
-        private static readonly int GRID_MATRIX_ID  = Shader.PropertyToID("_GridMatrix");
-        private static readonly int GRID_ENABLED_ID = Shader.PropertyToID("_GridEnabled");
-
         private MaterialPropertyBlock _mpb;
 
         /// <summary>Whether the plane mesh renderers are currently visible.</summary>
@@ -41,6 +46,31 @@ namespace _Project.Scripts.AR
 
         /// <summary>Whether the grid lines are drawn on top of the sand.</summary>
         public bool IsGridEnabled { get; private set; } = true;
+
+        #endregion
+
+        #region Public API ----------------------------------------
+
+        /// <summary>Shows or hides the plane mesh visuals.</summary>
+        public void SetVisual(bool visible)
+        {
+            IsVisualEnabled = visible;
+            if (_planeManager == null) return;
+
+            foreach (ARPlane plane in _planeManager.trackables)
+            {
+                MeshRenderer mr = plane.GetComponent<MeshRenderer>();
+                if (mr != null) mr.enabled = visible;
+            }
+            Debug.Log($"[ARPlaneGridAligner] Plane visual {(visible ? "ON" : "OFF")}.");
+        }
+
+        /// <summary>Shows or hides only the grid lines drawn on the sand.</summary>
+        public void SetGrid(bool visible)
+        {
+            IsGridEnabled = visible;
+            Debug.Log($"[ARPlaneGridAligner] Grid lines {(visible ? "ON" : "OFF")}.");
+        }
 
         #endregion
 
@@ -56,6 +86,11 @@ namespace _Project.Scripts.AR
             ValidateReferences();
         }
 
+        /// <summary>
+        /// Injects <c>_GridMatrix</c> and <c>_GridEnabled</c> into every
+        /// tracked plane's material each frame via <see cref="MaterialPropertyBlock"/>.
+        /// Runs in LateUpdate so WorldContainer transforms are final.
+        /// </summary>
         private void LateUpdate()
         {
             if (_planeManager == null) return;
@@ -76,29 +111,6 @@ namespace _Project.Scripts.AR
 
                 mr.enabled = IsVisualEnabled;
             }
-        }
-
-        #endregion
-
-        #region Public API ----------------------------------------
-
-        /// <summary>Shows or hides the plane mesh visuals.</summary>
-        public void SetVisual(bool visible)
-        {
-            IsVisualEnabled = visible;
-            if (_planeManager == null) return;
-
-            foreach (ARPlane plane in _planeManager.trackables)
-            {
-                MeshRenderer mr = plane.GetComponent<MeshRenderer>();
-                if (mr != null) mr.enabled = visible;
-            }
-        }
-
-        /// <summary>Shows or hides only the grid lines drawn on the sand.</summary>
-        public void SetGrid(bool visible)
-        {
-            IsGridEnabled = visible;
         }
 
         #endregion

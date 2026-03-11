@@ -13,6 +13,8 @@ namespace _Project.Scripts.Interaction
     /// Destroys voxel blocks and pebbles hit by a physics raycast.
     /// Records each destruction in <see cref="UndoRedoService"/> and
     /// notifies <see cref="HarmonyService"/>.
+    /// Break feedback (audio + VFX) is handled by each prefab's
+    /// <see cref="BlockDestroy"/> component.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/Block Destroyer")]
@@ -27,10 +29,6 @@ namespace _Project.Scripts.Interaction
         [Tooltip("WorldContainer transform that parents all placed blocks.")]
         [SerializeField] private Transform _worldContainer;
 
-        [Header("Services")]
-        [Tooltip("Centralised audio service for block SFX.")]
-        [SerializeField] private GameAudioService _audioService;
-
         [Header("Voxel Settings")]
         [Tooltip("Layer mask for voxel block physics raycasts.")]
         [SerializeField] private LayerMask _voxelLayerMask;
@@ -40,10 +38,6 @@ namespace _Project.Scripts.Interaction
 
         [Tooltip("Maximum destroy raycast distance (metres).")]
         [SerializeField] private float _maxDestroyDistance = 7f;
-
-        [Header("Game Feel")]
-        [Tooltip("VFX prefab spawned on destruction.")]
-        [SerializeField] private GameObject _breakVfxPrefab;
 
         [Header("Undo / Redo")]
         [Tooltip("UndoRedoService -- records every destroy action.")]
@@ -104,49 +98,47 @@ namespace _Project.Scripts.Interaction
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Processes a confirmed raycast hit.  Resolves the root block,
+        /// skips blocks already mid-destruction, records undo, triggers
+        /// the physics-tumble sequence, and notifies Harmony.
+        /// </summary>
         private void DestroyHit(RaycastHit hit)
         {
-            GameObject target    = hit.transform.gameObject;
-            VoxelBlock blockData = target.GetComponent<VoxelBlock>();
+            // Resolve root block — child colliders point to the parent VoxelBlock.
+            VoxelBlock blockData = hit.transform.GetComponentInParent<VoxelBlock>();
+            GameObject target    = blockData != null
+                ? blockData.gameObject
+                : hit.transform.gameObject;
 
-            // Record undo action for voxel blocks
+            // Skip blocks that are already being destroyed (proximity knock
+            // may have triggered in the same frame via BlockDestroy.Update).
+            BlockDestroy blockDestroy = target.GetComponent<BlockDestroy>();
+            if (blockDestroy != null && blockDestroy.IsKnocked)
+                return;
+
+            // Record undo BEFORE triggering KnockRoutine (which unparents).
             if (blockData != null && _undoRedoService != null)
             {
                 GameObject prefab = _toolManager.GetBlockPrefab(blockData.Type);
                 if (prefab != null)
                 {
-                    Vector3 localPos = target.transform.localPosition;
-
-                    void ArmBlock(GameObject instance)
-                    {
-                        BlockDestroy bd = instance.GetComponent<BlockDestroy>();
-                        if (bd != null)
-                        {
-                            bd.InjectSharedRefs(_breakVfxPrefab, _audioService);
-                            bd.SetReady();
-                        }
-                    }
+                    Vector3 localPos = _worldContainer.InverseTransformPoint(target.transform.position);
 
                     _undoRedoService.Record(new DestroyBlockAction(
-                        prefab, _worldContainer, localPos, Quaternion.identity,
-                        _breakVfxPrefab, _audioService, ArmBlock));
+                        prefab, _worldContainer, localPos, Quaternion.identity));
+
+                    Debug.Log($"[BlockDestroyer] Destroy {blockData.Type} at local {localPos}.");
                 }
             }
 
-            // Trigger destruction
-            BlockDestroy blockDestroy = target.GetComponent<BlockDestroy>();
+            // Trigger destruction (physics tumble + audio + VFX).
             if (blockDestroy != null)
             {
                 blockDestroy.BreakFromTool(hit.normal);
             }
             else
             {
-                if (blockData != null && _audioService != null)
-                    _audioService.PlayOneShot(blockData.BreakSounds);
-
-                if (_breakVfxPrefab != null)
-                    Instantiate(_breakVfxPrefab, hit.transform.position, Quaternion.identity);
-
                 Destroy(target);
             }
 
@@ -166,8 +158,6 @@ namespace _Project.Scripts.Interaction
                 Debug.LogError("[BlockDestroyer] _worldContainer is not assigned!", this);
             if (_mainCamera == null)
                 Debug.LogError("[BlockDestroyer] Camera.main not found!", this);
-            if (_audioService == null)
-                Debug.LogWarning("[BlockDestroyer] _audioService is not assigned!", this);
         }
 
         #endregion

@@ -324,6 +324,7 @@ namespace _Project.Scripts.UI
 
         #region Helpers -------------------------------------------
 
+        /// <summary>Sets fill anchors, colour and phrase text without animation.</summary>
         private void ApplyImmediate(float v)
         {
             if (_fillRect != null)
@@ -341,12 +342,14 @@ namespace _Project.Scripts.UI
                 _statusLabel.text = GetPhrase(v);
         }
 
+        /// <summary>Lerps between low ? mid ? high colours based on score <paramref name="t"/>.</summary>
         private Color SampleGradient(float t)
         {
             if (t <= 0.5f) return Color.Lerp(_colourLow, _colourMid, t * 2f);
             return Color.Lerp(_colourMid, _colourHigh, (t - 0.5f) * 2f);
         }
 
+        /// <summary>Returns the display phrase string for the given score bracket.</summary>
         private string GetPhrase(float t)
         {
             if (t >= 1.00f) return _phrasePerfect;
@@ -356,6 +359,7 @@ namespace _Project.Scripts.UI
             return _phraseEmpty;
         }
 
+        /// <summary>Maps score to a 0-4 phase index for audio triggers.</summary>
         private int GetPhaseIndex(float t)
         {
             if (t >= 1.00f) return 4;
@@ -365,6 +369,10 @@ namespace _Project.Scripts.UI
             return 0;
         }
 
+        /// <summary>
+        /// Generates a rounded-rectangle sprite procedurally and applies
+        /// it to the fill image and its background (if present).
+        /// </summary>
         private void ApplyRoundedCorners()
         {
             if (_fillImage == null) return;

@@ -61,6 +61,11 @@ namespace _Project.Scripts.UI
             ConfigureParticleSystem();
         }
 
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
         #endregion
 
         #region Public API ----------------------------------------
@@ -232,6 +237,18 @@ namespace _Project.Scripts.UI
             }
             if (mat != null)
                 renderer.material = mat;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_ps == null)
+                Debug.LogError("[HarmonyParticles] ParticleSystem not found!", this);
+            if (_mainCamera == null)
+                Debug.LogError("[HarmonyParticles] Camera.main not found!", this);
         }
 
         #endregion

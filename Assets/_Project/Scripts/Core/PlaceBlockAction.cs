@@ -3,16 +3,16 @@
 //  Undoable command for placing a single voxel block.
 // ------------------------------------------------------------
 
-using System;
 using UnityEngine;
+using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Core
 {
     /// <summary>
     /// Records a block placement so it can be undone (destroy the block)
     /// or redone (re-instantiate it at the same position).<br/>
-    /// Created and pushed to <see cref="UndoRedoService"/> by
-    /// <see cref="Interaction.ARBlockPlacer"/> after every successful placement.
+    /// Created by <see cref="Interaction.ARBlockPlacer"/> after every
+    /// successful placement and pushed to <see cref="UndoRedoService"/>.
     /// </summary>
     public sealed class PlaceBlockAction : IUndoableAction
     {
@@ -20,36 +20,27 @@ namespace _Project.Scripts.Core
 
         private GameObject _instance;
 
-        private readonly GameObject         _prefab;
-        private readonly Transform          _parent;
-        private readonly Vector3            _localPosition;
-        private readonly Quaternion         _localRotation;
-        private readonly GameObject         _breakVfxPrefab;
-        private readonly GameAudioService   _audioService;
-        private readonly Action<GameObject> _onInstantiated;
+        private readonly GameObject _prefab;
+        private readonly Transform  _parent;
+        private readonly Vector3    _localPosition;
+        private readonly Quaternion _localRotation;
 
         #endregion
 
         #region Constructor -------------------------------------------
 
         public PlaceBlockAction(
-            GameObject         instance,
-            GameObject         prefab,
-            Transform          parent,
-            Vector3            localPosition,
-            Quaternion         localRotation,
-            GameObject         breakVfxPrefab,
-            GameAudioService   audioService,
-            Action<GameObject> onInstantiated)
+            GameObject instance,
+            GameObject prefab,
+            Transform  parent,
+            Vector3    localPosition,
+            Quaternion localRotation)
         {
-            _instance       = instance;
-            _prefab         = prefab;
-            _parent         = parent;
-            _localPosition  = localPosition;
-            _localRotation  = localRotation;
-            _breakVfxPrefab = breakVfxPrefab;
-            _audioService   = audioService;
-            _onInstantiated = onInstantiated;
+            _instance      = instance;
+            _prefab        = prefab;
+            _parent        = parent;
+            _localPosition = localPosition;
+            _localRotation = localRotation;
         }
 
         #endregion
@@ -61,8 +52,10 @@ namespace _Project.Scripts.Core
         {
             if (_instance == null) return;
 
-            UnityEngine.Object.Destroy(_instance);
+            Object.Destroy(_instance);
             _instance = null;
+
+            Debug.Log($"[PlaceBlockAction] Undo — destroyed block at {_localPosition}.");
         }
 
         /// <summary>Re-instantiate the block at its snapped grid position.</summary>
@@ -70,10 +63,38 @@ namespace _Project.Scripts.Core
         {
             if (_prefab == null || _parent == null) return;
 
-            _instance = UnityEngine.Object.Instantiate(_prefab, _parent);
-            _instance.transform.SetLocalPositionAndRotation(_localPosition, Quaternion.identity);
+            _instance = Object.Instantiate(_prefab, _parent);
+            _instance.transform.SetLocalPositionAndRotation(_localPosition, _localRotation);
 
-            _onInstantiated?.Invoke(_instance);
+            ArmForImmediate(_instance);
+
+            Debug.Log($"[PlaceBlockAction] Redo — restored {_prefab.name} at {_localPosition}.");
+        }
+
+        #endregion
+
+        #region Shared ------------------------------------------------
+
+        /// <summary>
+        /// Prepares a freshly-instantiated block for immediate use:
+        /// disables fly-in animation, enables collider, arms proximity
+        /// detection.  Called by both <see cref="Redo"/> and
+        /// <see cref="DestroyBlockAction.Undo"/>.
+        /// </summary>
+        internal static void ArmForImmediate(GameObject instance)
+        {
+            BlockSpawn bs = instance.GetComponent<BlockSpawn>();
+            if (bs != null) bs.enabled = false;
+
+            Collider col = instance.GetComponent<Collider>();
+            if (col != null) col.enabled = true;
+
+            BlockDestroy bd = instance.GetComponent<BlockDestroy>();
+            if (bd != null)
+            {
+                bd.enabled = true;
+                bd.SetReady();
+            }
         }
 
         #endregion

@@ -138,6 +138,10 @@ namespace _Project.Scripts.UI
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Picks a random clip from <paramref name="clips"/> (avoiding the
+        /// last-played index), applies pitch variation, and plays it.
+        /// </summary>
         private void Play(AudioClip[] clips, ref int lastIndex)
         {
             if (clips == null || clips.Length == 0 || _audioSource == null) return;

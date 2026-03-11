@@ -37,7 +37,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region State ---------------------------------------------
+        #region State --------------------------------------------
 
         private bool _isCapturing;
         private readonly WaitForEndOfFrame _waitEndOfFrame = new WaitForEndOfFrame();
@@ -72,6 +72,7 @@ namespace _Project.Scripts.Core
         {
             _isCapturing = true;
 
+            // Hide UI canvas so the screenshot only shows the AR scene.
             if (_canvasToHide != null) _canvasToHide.enabled = false;
 
             yield return _waitEndOfFrame;
@@ -79,7 +80,9 @@ namespace _Project.Scripts.Core
             string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string fileName  = $"{_filePrefix}_{timeStamp}.png";
             ScreenCapture.CaptureScreenshot(fileName);
+            Debug.Log($"[ScreenshotService] Screenshot saved: {fileName}.");
 
+            // Restore UI canvas after capture completes.
             if (_canvasToHide != null) _canvasToHide.enabled = true;
 
             _isCapturing = false;

@@ -72,6 +72,11 @@ namespace _Project.Scripts.Voxel
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Casts a ray in <c>_supportDir</c> to check for supporting
+        /// geometry.  If nothing is hit, triggers <see cref="BlockDestroy.BreakFromTool"/>
+        /// and disables further polling.
+        /// </summary>
         private void Poll()
         {
             const float ORIGIN_LIFT = 0.05f;

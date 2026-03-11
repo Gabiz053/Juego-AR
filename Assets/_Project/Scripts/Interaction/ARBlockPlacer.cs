@@ -17,6 +17,9 @@ namespace _Project.Scripts.Interaction
     /// <summary>
     /// Places voxel blocks on AR surfaces and on top of existing blocks.
     /// Uses AR plane raycasts (ground) and physics raycasts (stacking).
+    /// Placement feedback (audio + VFX) is handled by each prefab's
+    /// <see cref="BlockSpawn"/> component — this script only handles
+    /// positioning, validation and game-logic notifications.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/AR Block Placer")]
@@ -40,10 +43,6 @@ namespace _Project.Scripts.Interaction
         [Tooltip("ARRaycastManager from the XR Origin.")]
         [SerializeField] private ARRaycastManager _arRaycastManager;
 
-        [Header("Services")]
-        [Tooltip("Centralised audio service for block SFX.")]
-        [SerializeField] private GameAudioService _audioService;
-
         [Header("Voxel Settings")]
         [Tooltip("Layer mask for existing voxel blocks (physics raycasts).")]
         [SerializeField] private LayerMask _voxelLayerMask;
@@ -56,13 +55,6 @@ namespace _Project.Scripts.Interaction
 
         [Tooltip("Shrinkage applied to overlap check to avoid false positives at edges.")]
         [SerializeField] private float _overlapTolerance = 0.05f;
-
-        [Header("Game Feel")]
-        [Tooltip("VFX prefab spawned at placement position.")]
-        [SerializeField] private GameObject _placeVfxPrefab;
-
-        [Tooltip("VFX prefab injected into each block for break effects.")]
-        [SerializeField] private GameObject _breakVfxPrefab;
 
         [Header("Undo / Redo")]
         [Tooltip("UndoRedoService -- records every placement.")]
@@ -111,8 +103,13 @@ namespace _Project.Scripts.Interaction
             // 1. Stacking on existing block
             if (Physics.Raycast(ray, out RaycastHit physHit, _maxBuildDistance, _voxelLayerMask))
             {
+                // Resolve root block in case a child collider was hit.
+                Transform hitRoot = physHit.transform;
+                VoxelBlock vb     = physHit.transform.GetComponentInParent<VoxelBlock>();
+                if (vb != null) hitRoot = vb.transform;
+
                 Vector3 localNormal = _worldContainer.InverseTransformDirection(physHit.normal);
-                Vector3 localHitPos = _worldContainer.InverseTransformPoint(physHit.transform.position);
+                Vector3 localHitPos = _worldContainer.InverseTransformPoint(hitRoot.position);
                 Vector3 rawLocalPos = localHitPos + localNormal * _gridManager.GridSize;
 
                 ProcessAndPlace(rawLocalPos);
@@ -140,7 +137,9 @@ namespace _Project.Scripts.Interaction
         }
 
         /// <summary>
-        /// Snaps position, validates, instantiates the block, plays VFX and audio.
+        /// Snaps position, validates, instantiates the block and starts
+        /// its spawn animation.  Audio and VFX are handled by the prefab's
+        /// <see cref="BlockSpawn"/> component.
         /// </summary>
         public void ProcessAndPlace(Vector3 rawLocalPosition)
         {
@@ -161,18 +160,6 @@ namespace _Project.Scripts.Interaction
             newBlock.transform.SetLocalPositionAndRotation(snappedLocal, Quaternion.identity);
 
             BlockDestroy blockDestroy = newBlock.GetComponent<BlockDestroy>();
-            if (blockDestroy != null)
-                blockDestroy.InjectSharedRefs(_breakVfxPrefab, _audioService);
-
-            void ArmBlock(GameObject instance)
-            {
-                BlockDestroy bd = instance.GetComponent<BlockDestroy>();
-                if (bd != null)
-                {
-                    bd.InjectSharedRefs(_breakVfxPrefab, _audioService);
-                    bd.SetReady();
-                }
-            }
 
             BlockSpawn blockSpawn = newBlock.GetComponent<BlockSpawn>();
             if (blockSpawn != null)
@@ -187,24 +174,23 @@ namespace _Project.Scripts.Interaction
 
             _undoRedoService?.Record(new PlaceBlockAction(
                 newBlock, prefab, _worldContainer,
-                snappedLocal, Quaternion.identity,
-                _breakVfxPrefab, _audioService, ArmBlock));
+                snappedLocal, Quaternion.identity));
 
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
             if (blockData != null)
                 _harmonyService?.NotifyBlockPlaced(blockData.Type);
 
-            if (_placeVfxPrefab != null)
-                Instantiate(_placeVfxPrefab, worldPos, Quaternion.identity);
-
-            if (blockData != null && _audioService != null)
-                _audioService.PlayOneShot(blockData.PlaceSounds);
+            Debug.Log($"[ARBlockPlacer] Placed {prefab.name} at local {snappedLocal}.");
         }
 
         #endregion
 
         #region Internals -----------------------------------------
 
+        /// <summary>
+        /// Returns <c>true</c> when the camera position falls inside
+        /// the axis-aligned bounds of the voxel at <paramref name="worldPos"/>.
+        /// </summary>
         private bool IsCameraInsideVoxel(Vector3 worldPos, float worldScale)
         {
             float scaledSize = _gridManager.GridSize * worldScale;
@@ -212,6 +198,11 @@ namespace _Project.Scripts.Interaction
                        .Contains(_mainCamera.transform.position);
         }
 
+        /// <summary>
+        /// Returns <c>true</c> when no existing collider overlaps the
+        /// target cell.  Uses <see cref="Physics.CheckBox"/> with a
+        /// tolerance shrink to avoid false positives at face-adjacent edges.
+        /// </summary>
         private bool IsSpaceEmpty(Vector3 worldPos, float worldScale)
         {
             float halfSize = _gridManager.GridSize * worldScale / 2f - _overlapTolerance;
