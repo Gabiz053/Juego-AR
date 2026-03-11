@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 49 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
+> **Última auditoría:** 50 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -176,6 +176,14 @@ UI System                                  [Empty — agrupa objetos UI]
 │   │   ├── HUD_Particles                  [HarmonyParticles, ParticleSystem]
 │   │   └── Btn_Continue       → Txt_Continue
 │   │
+│   ├── HUD_ScreenshotFlash                [Image (blanco), CanvasGroup — flash de captura, desactivado por defecto]
+│   │
+│   ├── Popup_ScreenshotToast              [ScreenshotToastPanel, CanvasGroup — desactivado por defecto]
+│   │   └── Panel_ToastCard               [Image — card centrada]
+│   │       ├── Img_Preview                [RawImage — thumbnail de la captura]
+│   │       ├── Txt_ToastMessage           [TMP_Text — "📷 Foto guardada"]
+│   │       └── Btn_Accept     → Txt_Accept
+│   │
 │   ├── Plane_Controls                     [contenedor de controles extra]
 │   │
 │   └── Popup_ConfirmClearAll              [RectTransform]
@@ -222,6 +230,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `HarmonyParticles` | HUD_Particles | `ParticleSystem` |
 | `WorldResetService` | Svc_WorldReset | — |
 | `ScreenshotService` | Svc_Screenshot | — |
+| `ScreenshotToastPanel` | Popup_ScreenshotToast | `CanvasGroup` |
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
 | `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane` | — |
 

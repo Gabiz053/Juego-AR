@@ -5,6 +5,7 @@
 // ------------------------------------------------------------
 
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -200,12 +201,11 @@ namespace _Project.Scripts.UI
 
         // -- Utilities -------------------------------------------
 
-        /// <summary>Triggers a screenshot capture and plays the shutter sound.</summary>
+        /// <summary>Triggers a screenshot capture.</summary>
         public void TakePhoto()
         {
             if (_screenshotService == null) return;
             _screenshotService.Capture();
-            _uiAudio?.PlayPhoto();
         }
 
         /// <summary>Quits the application (or stops Play mode in the Editor).</summary>
@@ -225,8 +225,12 @@ namespace _Project.Scripts.UI
         /// <summary>Relays <see cref="WorldResetService.OnWorldReset"/> to local subscribers.</summary>
         private void HandleWorldReset()         => OnWorldReset?.Invoke();
 
-        /// <summary>Auto-closes the menu after a screenshot is saved.</summary>
-        private void HandleScreenshotCaptured(string _) => ToggleMenu();
+        /// <summary>
+        /// Closes the menu after a short delay so the
+        /// <see cref="ButtonPressAnimation"/> squeeze can finish before
+        /// the dropdown is deactivated.
+        /// </summary>
+        private void HandleScreenshotCaptured(string _) => StartCoroutine(CloseMenuDelayed());
 
         /// <summary>Syncs the depth button dim state with the service.</summary>
         private void HandleDepthToggled(bool on) => _depthButtonState?.SetState(on);
@@ -237,6 +241,16 @@ namespace _Project.Scripts.UI
         #endregion
 
         #region Internals -----------------------------------------
+
+        /// <summary>
+        /// Waits one frame so button animations settle, then closes the
+        /// options dropdown.
+        /// </summary>
+        private IEnumerator CloseMenuDelayed()
+        {
+            yield return null;
+            ToggleMenu();
+        }
 
         /// <summary>Null-safe shortcut for <c>GameObject.SetActive</c>.</summary>
         private static void SetPanelActive(GameObject panel, bool active)

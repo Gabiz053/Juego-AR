@@ -16,7 +16,8 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 - **Pipeline:** Universal Render Pipeline (URP), OpenGLES3.
 - **AR:** AR Foundation 6.0.6 + ARCore XR Plugin 6.0.6.
 - **Input:** Enhanced Touch (Input System 1.17.0).
-- **Paquete extra:** MediaPipe Unity Plugin 0.16.3 (local package, preparado para
+- **Paquetes extra:** NativeGallery (guardado de screenshots en galería),
+  MediaPipe Unity Plugin 0.16.3 (local package, preparado para
   Hand/Face Tracking de la futura pantalla de inicio).
 - **Bundle ID:** `com.Gabiz.ARmonia`
 - **Versión:** 0.2.0
@@ -33,7 +34,7 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
 8. [Pantalla de inicio (planificada)](#pantalla-de-inicio-planificada)
-9. [Lista completa de scripts (49)](#lista-completa-de-scripts-49)
+9. [Lista completa de scripts (50)](#lista-completa-de-scripts-50)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -73,7 +74,7 @@ Assets/
 │   │   ├── AR/                  ← 4 scripts
 │   │   ├── Core/                ← 17 scripts (incluye enums, interfaces, statics, servicios)
 │   │   ├── Interaction/         ← 8 scripts
-│   │   ├── UI/                  ← 11 scripts
+│   │   ├── UI/                  ← 12 scripts
 │   │   └── Voxel/               ← 9 scripts
 │   ├── Shaders/
 │   │   ├── ARPlane.shader       ← Shader HLSL arena zen con grid animado
@@ -513,9 +514,17 @@ Botones dentro del dropdown:
   │     └─ ScreenshotService.Capture()
   │           ├─ Canvas.enabled = false
   │           ├─ WaitForEndOfFrame
-  │           ├─ ScreenCapture.CaptureScreenshot("ARmonia_yyyyMMdd_HHmmss.png")
+  │           ├─ Texture2D.ReadPixels → Apply
   │           ├─ Canvas.enabled = true
-  │           └─ event OnScreenshotCaptured → ToggleMenu() (cierra menú)
+  │           ├─ UIAudioService.PlayPhoto() (shutter sound)
+  │           ├─ Flash overlay (GameObject ON → alpha 1→0 → OFF)
+  │           ├─ NativeGallery.SaveImageToGallery() (Android/iOS)
+  │           │   └─ Editor fallback: File.WriteAllBytes(persistentDataPath)
+  │           ├─ ScreenshotToastPanel.Show(texture)
+  │           │   ├─ GameObject ON → RawImage = thumbnail
+  │           │   ├─ CanvasGroup fade in (0.3s SmoothStep)
+  │           │   └─ Btn_Accept → fade out → ReleaseTexture → GameObject OFF
+  │           └─ event OnScreenshotCaptured → CloseMenuDelayed (1 frame) → ToggleMenu()
   ├─ Btn_ClearAll → RequestClearAll() (ver flujo de reset)
   └─ Btn_Exit → Application.Quit()
 ```
@@ -613,7 +622,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 ---
 
-## Lista completa de scripts (49)
+## Lista completa de scripts (50)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -635,7 +644,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `GameAudioService` | MonoBehaviour | One-shot SFX con pitch variation (±0.15). Anti-repetición en arrays. `AudioSource` asignado via Inspector. |
 | `MusicService` | MonoBehaviour | Shuffle Fisher-Yates, crossfade entre tracks (2s), volume slider. `AudioSource` dedicado (asignado en Inspector, separado de `GameAudioService`). Evento `OnVolumeChanged`. |
 | `LightingService` | MonoBehaviour | Toggle entre modo Global (Directional Light ON, Spot OFF) y Focus (Directional OFF, Spot ON). Evento `OnLightingToggled(bool)`. Configurable `_disableGlobalOnFocus`. |
-| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, `ScreenCapture.CaptureScreenshot`. Evento `OnScreenshotCaptured(fileName)`. |
+| `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, lee píxeles con `Texture2D.ReadPixels`, guarda a galería via `NativeGallery.SaveImageToGallery()` (Android/iOS) con fallback a `Application.persistentDataPath` en Editor. Flash visual (`_flashOverlayObject` GameObject activado → CanvasGroup alpha 1→0 → desactivado). Audio via `UIAudioService.PlayPhoto()`. Toast de confirmación via `ScreenshotToastPanel.Show(texture)` con thumbnail. Evento `OnScreenshotCaptured(path)`. |
 | `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
 | `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: deshabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
@@ -658,7 +667,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Notifica `HarmonyService.NotifyPebblePlaced()`. `PlacePebbleAtScreen()` para uso desde BrushTool. |
 | `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
 
-### UI (11 scripts) — `_Project.Scripts.UI`
+### UI (12 scripts) — `_Project.Scripts.UI`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -666,9 +675,10 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. |
 | `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Configura ParticleSystem proceduralmente en `Awake`. Burst 120 particulas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocoton, lavanda, blanco. Se posiciona frente a `Camera.main`. |
 | `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. |
+| `ScreenshotToastPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Toast de confirmación tras captura. `Show(Texture2D)` activa el GameObject, asigna thumbnail al `RawImage`, fade in SmoothStep (0.3s). `Btn_Accept` auto-wired en `EnsureInitialized()` → fade out (0.2s) → `ReleaseTexture()` → `SetActive(false)`. Inicia desactivado. |
 | `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton` con iconos. Suscrito a `UndoRedoService.OnStackChanged`. Alpha enabled/disabled (1.0/0.35). `OnUndoPressed()`/`OnRedoPressed()`. |
 | `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color` con `_dimFactor` (0.45) cuando brush está OFF/ON. Mismo patrón que `UndoRedoHUD`. |
-| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`. Slider de música (0–100). |
+| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`. Slider de música (0–100). Cierre de menú post-screenshot con `CloseMenuDelayed()` (1 frame) para que `ButtonPressAnimation` complete. |
 | `OrientationManager` | MonoBehaviour | Detecta portrait/landscape en `Update()` (`Screen.width > Screen.height`). Oculta hotbar, tool panel, selector en landscape. Fuerza `Tool_None`. Restaura `_previousTool` en portrait con `WaitForEndOfFrame`. |
 | `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases dearmonía. Pitch variation ±0.05. Anti-repeticion por pool. |
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down y scale-up automatico en cada boton. |
@@ -694,30 +704,30 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 
 ### Funcionalidades completas
 
-- **AR Foundation:** deteccion de planos, ancla espacial, oclusion por profundidad (toggle), alineacion de grid al shader del plano.
-- **Construccion voxel:** tap para colocar, stacking por caras, snap a grid, reserva de celda contra double-tap.
+- **AR Foundation:** detección de planos, ancla espacial, oclusión por profundidad (toggle), alineación de grid al shader del plano.
+- **Construcción voxel:** tap para colocar, stacking por caras, snap a grid, reserva de celda contra double-tap.
 - **6 tipos de bloque:** Sand, Glass, Stone, Wood, Torch, Grass con prefabs, sonidos y VFX diferenciados.
-- **Herramienta Destruir:** raycast fisico, impulso con Rigidbody, tumble, shrink, VFX. Funciona sobre bloques y piedritas.
-- **Pincel Rapido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s,compatible con todos los modos.
-- **Decorador de Piedritas:** piedras procedurales icosaedro, rotacion/escala/scatter aleatorio, alineacion a normal, soporte con auto-destruccion.
-- **Grid visual:** mesh procedural de lineas con fade radial, zero-GC, regenera solo al cambiar celda.
-- **Sistema de Armonia:** 3 pilares + gate de minimos, 100% event-driven, zero polling.
+- **Herramienta Destruir:** raycast físico, impulso con Rigidbody, tumble, shrink, VFX. Funciona sobre bloques y piedritas.
+- **Pincel Rápido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s,compatible con todos los modos.
+- **Decorador de Piedritas:** piedras procedurales icosaedro, rotación/escala/scatter aleatorio, alineación a normal, soporte con auto-destrucción.
+- **Grid visual:** mesh procedural de líneas con fade radial, zero-GC, regenera solo al cambiar celda.
+- **Sistema de Armonía:** 3 pilares + gate de mínimos, 100% event-driven, zero polling.
 - **HarmonyHUD:** barra animada, gradiente tricolor, frases por fase, pop/shake, esquinas redondeadas procedurales.
-- **Panel Armonia Perfecta:** fade, particulas procedurales multicolor, boton Continuar.
-- **Undo/Redo:** patron Command, stack con cap de 20, HUD con botones atenuados.
-- **Menu opciones:** 7 toggles/acciones (iluminacion, profundidad, grid, plano visual, musica, foto, reset).
+- **Panel Armonia Perfecta:** fade, partículas procedurales multicolor, botón Continuar.
+- **Undo/Redo:** patrón Command, stack con cap de 20, HUD con botones atenuados.
+- **Menú opciones:** 7 toggles/acciones (iluminación, profundidad, grid, plano visual, música, foto, reset).
 - **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonia), `MusicService` (shuffle, crossfade, slider).
-- **Screenshot:** captura sin UI visible, timestamp en nombre de archivo.
-- **Orientacion:** oculta hotbar en landscape, restaura en portrait.
+- **Screenshot:** captura sin UI visible, guardado en galería via NativeGallery (Android/iOS), flash visual blanco, sonido de cámara, toast de confirmación con thumbnail y botón Aceptar, timestamp en nombre de archivo.
+- **Orientación:** oculta hotbar en landscape, restaura en portrait.
 - **Modos de escala:** Bonsai/Normal/Real con bootstrapper.
-- **Proximidad knock:** auto-destruccion si la camara entra en 0.18m del bloque **solo con la herramienta de pico (Tool_Destroy) activa**.
+- **Proximidad knock:** auto-destrucción si la cámara entra en 0.18m del bloque **solo con la herramienta de pico (Tool_Destroy) activa**.
 - **2 shaders HLSL personalizados:** arena zen con grid animado y voxel toon-lit con AO.
-- **Animacion de botones:** squeeze automatico en cada `Btn_*`.
+- **Animación de botones:** squeeze automático en cada `Btn_*`.
 - **Botones de estado:** dim visual para toggles ON/OFF.
 
 ### Funcionalidades a medias
 
-- **Modo Bonsai:** Codigo del bootstrapper completo, pero no hay `XRReferenceImageLibrary` configurada. Falta testing real.
+- **Modo Bonsai:** Código del bootstrapper completo, pero no hay `XRReferenceImageLibrary` configurada. Falta testing real.
 - **Pebble Undo/Redo:** Bloques voxel tienen undo/redo completo. Las piedritas del `PlowTool` **no** se registran en `UndoRedoService`.
 
 ### Funcionalidades no implementadas
@@ -725,12 +735,12 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | Feature | Detalle |
 |---------|---------|
 | Escena de inicio | Camara frontal, Face Tracking (mascara Creeper), Hand Tracking (cursor antorcha), Dwell Time 2s, seleccion de modo. MediaPipe instalado pero sin scripts. |
-| Guardado/Carga | No hay serializacion. Al cerrar la app se pierde el jardin. |
-| Tutorial / Onboarding | No hay guia para jugadores nuevos. |
-| Logros / Progresion | No hay sistema mas alla de la barra de armonia. |
-| Luz dinamica de antorchas | El prefab Torch tiene un `Light` component de URP pero no esta configurado como punto de luz emitiendo. |
+| Guardado/Carga | No hay serialización. Al cerrar la app se pierde el jardín. |
+| Tutorial / Onboarding | No hay guía para jugadores nuevos. |
+| Logros / Progresión | No hay sistema más allá de la barra de armonía. |
+| Luz dinámica de antorchas | El prefab Torch tiene un `Light` component de URP pero no está configurado como punto de luz emitiendo. |
 | Agua / Bloques animados | No hay shaders animados ni bloque de agua. |
-| Sonido ambiente adaptativo | No hay sonidos de naturaleza que cambien con el jardin. |
+| Sonido ambiente adaptativo | No hay sonidos de naturaleza que cambien con el jardín. |
 | Multijugador / Compartir | No hay networking ni exportacion del jardin. |
 
 ---
@@ -749,7 +759,8 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `com.unity.timeline` | 1.8.10 | Timeline (no utilizado activamente). |
 | `com.unity.visualscripting` | 1.9.7 | Visual Scripting (no utilizado activamente). |
 | `com.unity.ai.navigation` | 2.0.9 | AI Navigation (no utilizado activamente). |
-| `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand/Face Tracking de la pantalla de inicio futura. |
+| `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo (Android / iOS). |
+| `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand/Face Tracking de la futura pantalla de inicio. |
 
 ---
 
@@ -768,4 +779,5 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 5. Build target: **Android** (ARCore). Probar en Samsung S24 Ultra o dispositivo
    compatible con ARCore.
 6. Bundle ID: `com.Gabiz.ARmonia`.
+
 
