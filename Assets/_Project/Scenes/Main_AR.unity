@@ -8029,9 +8029,9 @@ MonoBehaviour:
   <trackablesChanged>k__BackingField:
     m_PersistentCalls:
       m_Calls: []
-  m_SerializedLibrary: {fileID: 0}
+  m_SerializedLibrary: {fileID: 11400000, guid: 5341c436db38c914784f256a7adadcb0, type: 2}
   m_MaxNumberOfMovingImages: 1
-  m_TrackedImagePrefab: {fileID: 0}
+  m_TrackedImagePrefab: {fileID: 7182884874994584249, guid: 815257e6c32ab754999c5ccee62d5891, type: 3}
 --- !u!114 &1238779091
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8048,12 +8048,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5b263681d42aa2b4fb18804554f3b11f, type: 2}
   - {fileID: 11400000, guid: 37e0f87b503955a46b59e1df46e80ce8, type: 2}
   - {fileID: 11400000, guid: dd9963d9face32340a5845d8fcd01403, type: 2}
-  _devOverrideMode: 1
+  _devOverrideMode: 0
   _worldContainer: {fileID: 1472623155}
   _arWorldManager: {fileID: 1238779080}
   _gridManager: {fileID: 1472623154}
   _arPlaneManager: {fileID: 1238779074}
   _arTrackedImageManager: {fileID: 1238779090}
+  _arSession: {fileID: 1968639090}
 --- !u!1 &1241133910
 GameObject:
   m_ObjectHideFlags: 0

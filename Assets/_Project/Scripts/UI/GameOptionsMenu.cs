@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
@@ -22,6 +23,13 @@ namespace _Project.Scripts.UI
     [AddComponentMenu("ARmonia/UI/Game Options Menu")]
     public class GameOptionsMenu : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Scene name loaded when returning to the title screen.</summary>
+        private const string TITLE_SCENE = "Title_Screen";
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("UI Panels")]
@@ -226,14 +234,12 @@ namespace _Project.Scripts.UI
             _screenshotService.Capture();
         }
 
-        /// <summary>Quits the application (or stops Play mode in the Editor).</summary>
+        /// <summary>Returns to the title screen scene.</summary>
         public void ExitGame()
         {
             _uiAudio?.PlayClick();
-            Application.Quit();
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#endif
+            Debug.Log($"[GameOptionsMenu] Returning to title screen -- loading {TITLE_SCENE}.");
+            SceneManager.LoadScene(TITLE_SCENE);
         }
 
         #endregion

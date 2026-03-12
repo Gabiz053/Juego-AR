@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 51 scripts · 1 escena · 16 prefabs · 5 ScriptableObjects ·
+> **Última auditoría:** 54 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -64,11 +64,13 @@ _Project/
 │   ├── UI/                  ← (reservada para prefabs de UI)
 │   └── VFX/                 ← Efectos de partículas
 ├── Scenes/
-│   └── Main_AR.unity
+│   ├── Title_Screen.unity    ← Pantalla de inicio (selección de modo, face tracking)
+│   └── Main_AR.unity         ← Escena principal de juego
 ├── Scripts/
 │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
 │   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo
 │   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
+│   ├── Title/               ← Pantalla de inicio: face tracking, selección de modo
 │   ├── UI/                  ← HUD, menú, orientación, servicios UI
 │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 ├── Shaders/                 ← Shaders HLSL personalizados (URP)
@@ -237,6 +239,52 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
 | `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration` | — |
 
+### `Title_Screen.unity` — jerarquía completa
+
+La escena de inicio utiliza la cámara frontal con Face Tracking para el filtro
+de Creeper y presenta tres botones para seleccionar el modo de juego.
+
+```text
+AR System                                  [Empty — agrupa objetos AR]
+├── XR Origin (Front Camera)               [XROrigin, XRInputModalityManager,
+│   │                                       ARFaceManager (maxFaces 1), CreeperFaceFilter,
+│   │                                       ARPlaneManager (disabled), ARRaycastManager (disabled)]
+│   └── Camera Offset
+│       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
+│                                           ARCameraManager (User facing), ARCameraBackground,
+│                                           UniversalAdditionalCameraData]
+├── XR Interaction Manager                 [XRInteractionManager]
+├── AR Session                             [ARSession, ARInputManager]
+└── Directional Light                      [Light (Directional), UniversalAdditionalLightData]
+
+UI System                                  [Empty — agrupa objetos UI]
+├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
+│   │                                       GraphicRaycaster, TitleSceneManager]
+│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco]
+│   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
+│   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
+│   ├── Btn_Normal                         [Button → SelectMode(1), Image]
+│   │   └── Txt_Normal                     [TMP_Text — "Normal", font: Minecraft SDF, size 60, gris oscuro]
+│   └── Btn_Real                           [Button → SelectMode(2), Image]
+│       └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+└── EventSystem                            [InputSystemUIInputModule, EventSystem]
+```
+
+### Mapa Script → GameObject (Title_Screen)
+
+| Script | GameObject host | RequireComponent |
+|--------|----------------|------------------|
+| `TitleSceneManager` | TitleCanvas | — |
+| `CreeperFaceFilter` | XR Origin (Front Camera) | — |
+
+### Wiring de botones — Title_Screen
+
+| Botón | OnClick destino | Parámetro |
+|-------|----------------|-----------|
+| `Btn_Bonsai` | `TitleSceneManager.SelectMode(int)` | `0` |
+| `Btn_Normal` | `TitleSceneManager.SelectMode(int)` | `1` |
+| `Btn_Real` | `TitleSceneManager.SelectMode(int)` | `2` |
+
 ### Reglas de nombrado de GameObjects
 
 | Prefijo | Uso | Ejemplos |
@@ -290,6 +338,7 @@ El `Btn_Brush` es una **excepción** al patrón estándar de botones:
 | `Scripts/AR/` | `_Project.Scripts.AR` |
 | `Scripts/Core/` | `_Project.Scripts.Core` |
 | `Scripts/Interaction/` | `_Project.Scripts.Interaction` |
+| `Scripts/Title/` | `_Project.Scripts.Title` |
 | `Scripts/UI/` | `_Project.Scripts.UI` |
 | `Scripts/Voxel/` | `_Project.Scripts.Voxel` |
 
@@ -483,10 +532,32 @@ Empieza **desactivado** — el usuario lo activa desde `Btn_Vibration` en el dro
 | Regla | Ejemplo |
 |-------|---------|
 | PascalCase con contexto | `Main_AR.unity` |
+| Pantalla de título | `Title_Screen.unity` |
 | Pantalla de menú | `Menu_Main.unity` |
-| Pantalla de título | `Title_FaceTrack.unity` |
 | Pantalla de carga | `Loading.unity` |
 | Escena de test | `Test_GridManager.unity` |
+
+### Escenas actuales
+
+| Escena | Build Index | Descripción |
+|--------|-------------|-------------|
+| `Title_Screen.unity` | 0 | Pantalla de inicio: cámara frontal, Face Tracking + Creeper, selección de modo (Bonsai/Normal/Real). |
+| `Main_AR.unity` | 1 | Escena principal de juego: cámara trasera, AR planes/images, construcción voxel. |
+
+### Flujo entre escenas
+
+```text
+Title_Screen                               Main_AR
+┌─────────────────────┐    LoadScene    ┌──────────────────────┐
+│ TitleSceneManager   │ ─────────────→ │ WorldModeBootstrapper │
+│ SelectMode(int)     │                │ Awake: lee contexto,  │
+│ → WorldModeContext  │                │   aplica escala       │
+└─────────────────────┘                │ Start: corrutina      │
+                           LoadScene   │   espera ARSession →  │
+                         ←──────────── │   configura managers  │
+                         GameOptions   └──────────────────────┘
+                         Menu.ExitGame()
+```
 
 ---
 
@@ -528,9 +599,10 @@ Empieza **desactivado** — el usuario lo activa desde `Btn_Vibration` en el dro
 |-------|-------|--------------------|
 | `BlockDatabase.asset` | `BlockDatabase` | `_entries[]` (BlockType → prefab) |
 | `HarmonyConfig.asset` | `HarmonyConfig` | Pesos, umbrales, gate mínimos |
-| `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | Scale 0.02, TrackedImage |
+| `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | Scale 0.02, TrackedImage, ImageLibrary → `ReferenceImageLibrary.asset` |
 | `WorldModeConfig_Normal.asset` | `WorldModeSO` | Scale 0.10, ARPlane |
 | `WorldModeConfig_Real.asset` | `WorldModeSO` | Scale 1.00, ARPlane |
+| `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | 2 imágenes: `one` (0.13×0.13m), `qr_prueba` (0.10×0.10m), ambas con SpecifySize ON |
 
 ---
 
@@ -582,10 +654,12 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | **ScriptableObject data** | Configuración compartida sin dependencia de escena | `BlockDatabase`, `HarmonyConfig`, `WorldModeSO` |
 | **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
 | **Internal static helper** | Lógica compartida entre Commands sin estado | `PlaceBlockAction.ArmForImmediate()` — deshabilita BlockSpawn, habilita Collider + BlockDestroy.SetReady(). Usado por `Redo` (place) y `Undo` (destroy). |
-| **Auto-locate en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn` auto-localiza `GameAudioService`; `BlockDestroy` auto-localiza `ToolManager` y `GameAudioService` via `FindAnyObjectByType` |
-| **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX. Callers (`ARBlockPlacer`, `PlowTool`, `BlockDestroyer`) no tocan audio ni VFX. |
+| **Auto-locate en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn` auto-localiza `GameAudioService`, `HapticService` via `FindAnyObjectByType` |
+| **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX. Callers no tocan audio ni VFX. |
 | **VoxelBlock como fuente de audio** | Prefab data-component leído por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles (sin `VoxelBlock`). |
 | **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
+| **OnClick con int param** | Selección indexada desde botones UI | `Btn_Bonsai.OnClick → TitleSceneManager.SelectMode(0)` |
+| **Scene transition** | Carga de escena con dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneManager.LoadScene("Main_AR")`. `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions al transicionar desde la cámara frontal. `GameOptionsMenu.ExitGame()` carga `Title_Screen`. |
 
 ---
 
@@ -634,3 +708,4 @@ que sigan reflejando el estado real del proyecto:
   afectada por el cambio.
 
 **La documentación desactualizada se considera un bug igual que el código roto.**
+

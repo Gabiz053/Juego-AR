@@ -24,9 +24,12 @@ namespace _Project.Scripts.Core
     {
         /// <summary>
         /// The mode the player chose on the title screen.<br/>
-        /// Defaults to <see cref="WorldMode.Normal"/> so the game is
-        /// always playable without a title screen.
+        /// Defaults to <see cref="WorldMode.None"/> on cold start so
+        /// <see cref="AR.WorldModeBootstrapper"/> can detect that no title
+        /// screen selection was made and apply its <c>_devOverrideMode</c>.<br/>
+        /// <see cref="Title.TitleSceneManager.SelectMode"/> sets this to a
+        /// real mode before loading <c>Main_AR</c>.
         /// </summary>
-        public static WorldMode Selected { get; set; } = WorldMode.Normal;
+        public static WorldMode Selected { get; set; } = WorldMode.None;
     }
 }

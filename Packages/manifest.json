@@ -15,6 +15,7 @@
     "com.unity.timeline": "1.8.10",
     "com.unity.ugui": "2.0.0",
     "com.unity.visualscripting": "1.9.7",
+    "com.unity.xr-content.xr-sim-environments": "file:../ContentPackages\\com.unity.xr-content.xr-sim-environments-2.0.1.tgz",
     "com.unity.xr.arcore": "6.0.6",
     "com.unity.xr.arfoundation": "6.0.6",
     "com.unity.xr.interaction.toolkit": "3.0.10",

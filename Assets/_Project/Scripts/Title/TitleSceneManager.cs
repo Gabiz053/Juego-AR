@@ -5,14 +5,16 @@
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using _Project.Scripts.Core;
 
 namespace _Project.Scripts.Title
 {
     /// <summary>
-    /// Entry-point controller for the <c>Title_FaceTrack</c> scene.<br/>
-    /// Handles scene transitions to the main AR game.  Future
-    /// responsibilities: dwell-time buttons, world-mode selection,
-    /// hand-tracking cursor.
+    /// Entry-point controller for the <c>Title_Screen</c> scene.<br/>
+    /// Presents three mode buttons (Bonsai, Normal, Real).  Each button
+    /// calls <see cref="SelectMode"/> which writes the chosen
+    /// <see cref="WorldMode"/> into <see cref="WorldModeContext"/> and
+    /// loads the game scene.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Title/Title Scene Manager")]
@@ -47,12 +49,18 @@ namespace _Project.Scripts.Title
         #region Public API ----------------------------------------
 
         /// <summary>
-        /// Loads the main AR game scene.  Called by the Play button
-        /// (or future dwell-time trigger).
+        /// Selects a <see cref="WorldMode"/> by its integer value and loads
+        /// the game scene.<br/>
+        /// Designed for <c>Button.OnClick</c> wiring in the Inspector:<br/>
+        /// • Btn_Bonsai ? <c>SelectMode(0)</c><br/>
+        /// • Btn_Normal ? <c>SelectMode(1)</c><br/>
+        /// • Btn_Real   ? <c>SelectMode(2)</c>
         /// </summary>
-        public void StartGame()
+        public void SelectMode(int modeIndex)
         {
-            Debug.Log("[TitleSceneManager] Loading game scene...");
+            WorldMode mode = (WorldMode)modeIndex;
+            WorldModeContext.Selected = mode;
+            Debug.Log($"[TitleSceneManager] Mode selected: {mode} -- loading {GAME_SCENE}.");
             SceneManager.LoadScene(GAME_SCENE);
         }
 

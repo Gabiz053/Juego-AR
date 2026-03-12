@@ -33,8 +33,8 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 5. [Mapa de comunicación entre sistemas](#mapa-de-comunicación-entre-sistemas)
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
-8. [Pantalla de inicio (planificada)](#pantalla-de-inicio-planificada)
-9. [Lista completa de scripts (51)](#lista-completa-de-scripts-51)
+8. [Pantalla de inicio](#pantalla-de-inicio)
+9. [Lista completa de scripts (54)](#lista-completa-de-scripts-54)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -69,13 +69,15 @@ Assets/
 │   │   ├── UI/                  ← (vacía, .gitkeep)
 │   │   └── VFX/                 ← VFX_BlockPlace.prefab, VFX_BlockBreak.prefab
 │   ├── Scenes/
-│   │   └── Main_AR.unity        ← Escena principal (única escena)
+│   │   ├── Title_Screen.unity   ← Pantalla de inicio (selección de modo, face tracking)
+│   │   └── Main_AR.unity        ← Escena principal de juego
 │   ├── Scripts/
-│   │   ├── AR/                  ← 4 scripts
-│   │   ├── Core/                ← 18 scripts (incluye enums, interfaces, statics, servicios)
-│   │   ├── Interaction/         ← 8 scripts
-│   │   ├── UI/                  ← 12 scripts
-│   │   └── Voxel/               ← 9 scripts
+│   │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
+│   │   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo
+│   │   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
+│   │   ├── Title/               ← Pantalla de inicio: face tracking, selección de modo
+│   │   ├── UI/                  ← HUD, menú, orientación, servicios UI
+│   │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 │   ├── Shaders/
 │   │   ├── ARPlane.shader       ← Shader HLSL arena zen con grid animado
 │   │   └── VoxelLit.shader      ← Shader HLSL toon-lit para bloques voxel
@@ -112,7 +114,7 @@ Assets/
 | `WorldModeConfig_Normal.asset` | `WorldModeSO` | `Assets/` | Escala 0.10, ancla por AR plane. Modo por defecto. |
 | `WorldModeConfig_Real.asset` | `WorldModeSO` | `Assets/` | Escala 1.00, ancla por AR plane. Escala Minecraft real. |
 
-### Prefabs (16 archivos, 7+5+2+2)
+### Prefabs (17 archivos, 7+5+2+2+1)
 
 **Bloques activos (7):**
 
@@ -137,7 +139,7 @@ Assets/
 
 **AR (2):** `AR_Default_Plane.prefab`, `AR_RayInteractor.prefab`.
 
-### Materiales (8 archivos)
+**Title (1):**
 
 | Material | Shader | Uso |
 |----------|--------|-----|
@@ -250,12 +252,19 @@ inicio de la escena por `WorldModeBootstrapper`:
 | **Real** | 1.00 (1m/bloque) | `ARPlaneManager` (suelo detectado) | Escala Minecraft real, caminas entre bloques | 0 (ilimitado) |
 
 `WorldModeContext` es un `static class` que transporta la selección de modo entre
-escenas sin `DontDestroyOnLoad`. Mientras no exista la pantalla de inicio,
-`WorldModeBootstrapper._devOverrideMode` lo fuerza desde el Inspector.
+escenas sin `DontDestroyOnLoad`. La pantalla de inicio (`TitleSceneManager`)
+escribe `WorldModeContext.Selected` al pulsar un botón de modo, y
+`WorldModeBootstrapper` lo lee en `Awake()` al cargar `Main_AR`.
+Si no se pasa por la pantalla de inicio (e.g. abrir `Main_AR` directamente),
+`WorldModeBootstrapper._devOverrideMode` actúa como fallback.
 
 El bootstrapper activa `ARPlaneManager` o `ARTrackedImageManager` según el modo
-seleccionado, desactivando el otro. Para Bonsái necesita una
-`XRReferenceImageLibrary` configurada en el `WorldModeSO`.
+seleccionado, desactivando el otro. La activación se realiza de forma diferida
+(corrutina en `Start()` que espera a que `ARSession.state` alcance
+`SessionInitializing`) para evitar una race condition al transicionar desde
+`Title_Screen` (cámara frontal / face tracking) donde ARCore aplicaría la
+configuración nativa antes de que la image library estuviera lista.
+Para Bonsái necesita una `XRReferenceImageLibrary` configurada en el `WorldModeSO`.
 
 ---
 
@@ -607,27 +616,77 @@ Shader HLSL para URP que ilumina los bloques voxel con estética Minecraft.
 
 ---
 
-## Pantalla de inicio (planificada — aún no implementada)
+## Pantalla de inicio
 
-Según el GDD:
+### Escena `Title_Screen.unity`
 
-1. **Cámara frontal** con Face Tracking → máscara de cara de Creeper sobre la cara
-   del jugador.
-2. **Hand Tracking** (MediaPipe, ya instalado como paquete local) → el dedo índice
-   controla un cursor con forma de antorcha.
-3. La antorcha se posa sobre botones y tras un **Dwell Time de 2 segundos** se
-   activa la opción (sin tocar la pantalla).
-4. Botones: selección de modo (Bonsái / Normal / Real) y "Jugar".
-5. Al pulsar "Jugar", escribe `WorldModeContext.Selected = modo` y carga `Main_AR`.
+La pantalla de inicio utiliza la **cámara frontal** con **AR Face Tracking** para
+superponer una cabeza de Creeper sobre la cara del jugador.  Tres botones permiten
+elegir el modo de escala del mundo antes de entrar al juego.
 
-**Estado actual:** MediaPipe Unity Plugin 0.16.3 está instalado como paquete local
-en `Packages/com.github.homuler.mediapipe/`, pero no existe ninguna escena de
-inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
-`Main_AR.unity`.
+**Flujo:**
+```text
+Title_Screen (cámara frontal)
+  │
+  ├── AR Face Tracking (ARFaceManager)
+  │     └── CreeperFaceFilter → instancia prefab de cabeza Creeper
+  │           como hijo del ARFace (sigue posición y rotación)
+  │
+  └── TitleSceneManager
+        ├── Btn_Bonsai.OnClick → SelectMode(0) → WorldModeContext.Selected = Bonsai
+        ├── Btn_Normal.OnClick → SelectMode(1) → WorldModeContext.Selected = Normal
+        └── Btn_Real.OnClick   → SelectMode(2) → WorldModeContext.Selected = Real
+              └── SceneManager.LoadScene("Main_AR")
+```
+
+**Retorno:** Desde `Main_AR`, el botón `Btn_Exit` del menú de opciones llama a
+`GameOptionsMenu.ExitGame()` que carga `Title_Screen` (ya no cierra la aplicación).
+
+### Jerarquía de escena `Title_Screen.unity`
+
+```text
+AR System                                  [Empty — agrupa objetos AR]
+├── XR Origin (Front Camera)               [XROrigin, XRInputModalityManager,
+│   │                                       ARFaceManager (maxFaces 1), CreeperFaceFilter,
+│   │                                       ARPlaneManager (disabled), ARRaycastManager (disabled)]
+│   └── Camera Offset
+│       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
+│                                           ARCameraManager (User facing), ARCameraBackground,
+│                                           UniversalAdditionalCameraData]
+├── XR Interaction Manager                 [XRInteractionManager]
+├── AR Session                             [ARSession, ARInputManager]
+└── Directional Light                      [Light (Directional), UniversalAdditionalLightData]
+
+UI System                                  [Empty — agrupa objetos UI]
+├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
+│   │                                       GraphicRaycaster, TitleSceneManager]
+│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco]
+│   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
+│   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
+│   ├── Btn_Normal                         [Button → SelectMode(1), Image]
+│   │   └── Txt_Normal                     [TMP_Text — "Normal", font: Minecraft SDF, size 60, gris oscuro]
+│   └── Btn_Real                           [Button → SelectMode(2), Image]
+│       └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+└── EventSystem                            [InputSystemUIInputModule, EventSystem]
+```
+
+### Scripts de la pantalla de inicio
+
+| Script | Namespace | Responsabilidad |
+|--------|-----------|----------------|
+| `TitleSceneManager` | `_Project.Scripts.Title` | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Wiring: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. |
+| `CreeperFaceFilter` | `_Project.Scripts.Title` | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables. Inspector defaults: offset `(0,0,0)`, rotation `(0,0,0)`, scale `(0.2, 0.2, 0.2)`. `_faceManager` asignado explícitamente. |
+
+### Mapa Script → GameObject (Title_Screen)
+
+| Script | GameObject host |
+|--------|----------------|
+| `TitleSceneManager` | TitleCanvas |
+| `CreeperFaceFilter` | XR Origin (Front Camera) |
 
 ---
 
-## Lista completa de scripts (51)
+## Lista completa de scripts (54)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -636,7 +695,7 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `ARDepthService` | ~100 | Toggle runtime de `AROcclusionManager`. Modos: `EnvironmentDepthMode.Best`, `HumanSegmentationDepthMode.Best` (máxima calidad). Evento `OnDepthToggled`. Default OFF. |
 | `ARPlaneGridAligner` | ~100 | Inyecta `WorldContainer.worldToLocalMatrix` en cada plano AR como `_GridMatrix` via `MaterialPropertyBlock`. Controla `_GridEnabled` y `MeshRenderer.enabled` de los planos. |
 | `ARWorldManager` | ~140 | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ≈ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
-| `WorldModeBootstrapper` | ~160 | Lee `WorldModeContext.Selected`, busca el `WorldModeSO` correspondiente en `_modeConfigs[]`, aplica `WorldContainer.localScale`, habilita `ARPlaneManager` o `ARTrackedImageManager` según `AnchorType`, suscribe a `trackablesChanged` para auto-anclar. Campo `_devOverrideMode` para testing sin title screen. |
+| `WorldModeBootstrapper` | ~310 | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activación de AR managers (`ARPlaneManager` o `ARTrackedImageManager`) se difiere a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (con timeout de 5s) para evitar race condition al transicionar desde `Title_Screen` (front camera → rear camera). Debug detallado para Bonsai: logs de library assignment, image ADDED/UPDATED/REMOVED con nombre, tracking state y posición. Log indica `source: title screen` o `source: dev override`. |
 
 ### Core (18 scripts) — `_Project.Scripts.Core`
 
@@ -653,8 +712,13 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, lee píxeles con `Texture2D.ReadPixels`, guarda a galería via `NativeGallery.SaveImageToGallery()` (Android/iOS) con fallback a `Application.persistentDataPath` en Editor. Flash visual (`_flashOverlayObject` GameObject activado → CanvasGroup alpha 1→0 → desactivado). Audio via `UIAudioService.PlayPhoto()`. Haptic via `HapticService.VibrateLight()`. Toast de confirmación via `ScreenshotToastPanel.Show(texture)` con thumbnail. Evento `OnScreenshotCaptured(path)`. |
 | `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
-| `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: deshabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
+| `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: desabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
 | `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + `PlaceBlockAction.ArmForImmediate()`. `Redo()` → `Destroy(restoredInstance)`. Creado por `BlockDestroyer` (tap) y `BlockDestroy` (proximity knock). |
+| `WorldMode` | Enum | `None(-1)` (sentinel, no seleccionado), `Bonsai(0)`, `Normal(1)`, `Real(2)`. |
+| `WorldModeSO` | ScriptableObject | `Mode`, `DisplayName`, `WorldContainerScale`, `AnchorType`, `ImageLibrary` (XRReferenceImageLibrary para Bonsai), `ImagePhysicalWidth`, `MaxBlocks`. |
+| `WorldModeContext` | Static class | `Selected` (WorldMode, default `None`). Canal cross-escena sin DontDestroyOnLoad. Title screen escribe, bootstrapper lee. Si `None` al arrancar Main_AR, bootstrapper usa `_devOverrideMode`. |
+| `AnchorType` | Enum | `ARPlane(0)`, `TrackedImage(1)`. |
+| `UndoRedoService` | MonoBehaviour | Stack<IUndoableAction> con cap 20. `Record()`, `Undo()`, `Redo()`, `Clear()`. Evento `OnStackChanged(canUndo, canRedo)`. |
 
 ### Interaction (8 scripts) — `_Project.Scripts.Interaction`
 
@@ -662,43 +726,50 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 |--------|------|----------------|
 | `ToolType` | Enum | 10 valores: `Build_Sand(0)` a `Build_Grass(5)`, `Tool_None(6)`, `Tool_Destroy(7)`, `Tool_Brush(8)`, `Tool_Plow(9)`. |
 | `ToolManager` | MonoBehaviour | `CurrentTool` (default `Build_Sand`), `IsBuildTool` (rango 0–5), `SelectToolByIndex(int)`, `GetCurrentBlockPrefab()`, `GetBlockPrefab(BlockType)`. Evento `OnToolChanged`. |
-| `TouchInputRouter` | MonoBehaviour | Punto de entrada de input táctil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo,Despacha a `ARBlockPlacer` o `BlockDestroyer` según herramienta. |
-| `ARBlockPlacer` | MonoBehaviour | Solo colocación de bloques. `TryPlaceBlock()` resuelve root block via `GetComponentInParent<VoxelBlock>` para stacking correcto. `ProcessAndPlace()`: snap, validación, `Instantiate`. `_pendingCells` HashSet contra double-tap. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Registra `PlaceBlockAction`. Refs: ToolManager, GridManager, ARWorldManager, WorldContainer, UndoRedoService, HarmonyService. |
-| `BlockDestroyer` | MonoBehaviour | Solo destrucción de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). `DestroyHit` resuelve root via `GetComponentInParent<VoxelBlock>`, skip si `IsKnocked` (evita double-record con proximity), registra `DestroyBlockAction` con `InverseTransformPoint`. Sin audio ni VFX — el prefab los gestiona via `BlockDestroy`. Notifica `HarmonyService`. |
+| `TouchInputRouter` | MonoBehaviour | Punto de entrada de input táctil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo, despacha a `ARBlockPlacer` o `BlockDestroyer` según herramienta. |
+| `ARBlockPlacer` | MonoBehaviour | Solo colocación de bloques. `TryPlaceBlock()` resuelve root block via `GetComponentInParent<VoxelBlock>` para stacking correcto. `ProcessAndPlace()`: snap, validación, `Instantiate`. `_pendingCells` HashSet contra double-tap. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Registra `PlaceBlockAction`. |
+| `BlockDestroyer` | MonoBehaviour | Solo destrucción de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). Registra `DestroyBlockAction`. Sin audio ni VFX — el prefab los gestiona via `BlockDestroy`. Notifica `HarmonyService`. |
 | `BrushTool` | MonoBehaviour | Toggle `IsBrushActive`. `Btn_Brush.OnClick` llama directamente a `ToggleBrush()` (no pasa por ToolManager — es un mode overlay). En Update si activo: consume `Touch.activeTouches`, llama `ARBlockPlacer`/`BlockDestroyer`/`PlowTool` cada `_strokeCooldown` (0.08s). Evento `OnBrushToggled(bool)`. |
-| `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Sin audio ni VFX — el prefab los gestiona via `BlockSpawn`. Notifica `HarmonyService.NotifyPebblePlaced()`. `PlacePebbleAtScreen()` para uso desde BrushTool. |
+| `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Notifica `HarmonyService.NotifyPebblePlaced()`. |
 | `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
+
+### Title (2 scripts) — `_Project.Scripts.Title`
+
+| Script | Tipo | Responsabilidad |
+|--------|------|----------------|
+| `TitleSceneManager` | MonoBehaviour | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Diseñado para `Button.OnClick`: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. Fuerza `Screen.orientation = Portrait`. |
+| `CreeperFaceFilter` | MonoBehaviour | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables desde Inspector. Prefab scale default `(0.2, 0.2, 0.2)`. Cleanup automático en `OnDestroy`. |
 
 ### UI (12 scripts) — `_Project.Scripts.UI`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
-| `UIManager` | MonoBehaviour | Selector highlight (`_selectorRect`) que sigue al slot activo. `_slotRects[]` indexado por valor int de `ToolType`. `OnSlotClicked(int)` delega a `ToolManager.SelectToolByIndex()`. Delay de 0.1s para que los Layout Groups se asienten antes de posicionar. |
-| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake, esquinas redondeadas procedurales. Flag `_frozen` para post-perfect. Vibración háptica escalada por fase via `PlayPhaseHaptic()`: fase 0-1 → light, fase 2 → medium, fase 3 → heavy. |
-| `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Configura ParticleSystem proceduralmente en `Awake`. Burst 120 particulas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocoton, lavanda, blanco. Se posiciona frente a `Camera.main`. |
-| `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Auto-localiza `HarmonyParticles`, `UIAudioService`, `HapticService`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. `VibrateHeavy()` en celebración. El GO debe estar **activo** (usa CanvasGroup alpha=0, no SetActive). |
-| `ScreenshotToastPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Toast de confirmación tras captura. `Show(Texture2D)` activa el GameObject, asigna thumbnail al `RawImage`, fade in SmoothStep (0.3s). `Btn_Accept` auto-wired en `EnsureInitialized()` → fade out (0.2s) → `ReleaseTexture()` → `SetActive(false)`. Inicia desactivado. |
-| `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton` con iconos. Suscrito a `UndoRedoService.OnStackChanged`. Alpha enabled/disabled (1.0/0.35). `OnUndoPressed()`/`OnRedoPressed()`. |
-| `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color` con `_dimFactor` (0.45) cuando brush está OFF/ON. Mismo patrón que `UndoRedoHUD`. |
-| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. Panels: `_optionsPanel`, `_blockerPanel`, `_confirmPopup`. Delega a `LightingService`, `ARDepthService`, `ARPlaneGridAligner`, `MusicService`, `WorldResetService`, `ScreenshotService`, `HapticService`. `ToggleVibration()` con `DropdownButtonState` (default OFF). Slider de música (0–100). Cierre de menú post-screenshot con `CloseMenuDelayed()` (1 frame) para que `ButtonPressAnimation` complete. |
-| `OrientationManager` | MonoBehaviour | Detecta portrait/landscape en `Update()` (`Screen.width > Screen.height`). Oculta hotbar, tool panel, selector en landscape. Fuerza `Tool_None`. Restaura `_previousTool` en portrait con `WaitForEndOfFrame`. |
-| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips: click, toggle, menuOpen, confirm, cancel, slotSelect, photo. 4 clips individuales para fases de armonía. Pitch variation ±0.05. Anti-repeticion por pool. Vibración háptica integrada en todos los `Play*()` (excepto `PlayPhoto`). |
-| `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down y scale-up automatico en cada boton. |
-| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF en el dropdown de opciones. `_dimFactor` configurable. `SetState(bool)`. Usado por `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration`. |
+| `UIManager` | MonoBehaviour | Selector highlight (`_selectorRect`) que sigue al slot activo. `_slotRects[]` indexado por valor int de `ToolType`. `OnSlotClicked(int)` delega a `ToolManager.SelectToolByIndex()`. |
+| `HarmonyHUD` | MonoBehaviour | Barra fill animada (`_fillRect.anchorMax.x`), gradiente tricolor, 5 frases por fase, pop/shake. Flag `_frozen` para post-perfect. Vibración háptica escalada por fase. |
+| `HarmonyParticles` | MonoBehaviour | `[RequireComponent(ParticleSystem)]`. Burst 120 partículas por 3 repeticiones. Ambient 5/s continuas. Colores: dorado, melocotón, lavanda, blanco. |
+| `PerfectHarmonyPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Fade in/out con SmoothStep. Suscrito a `HarmonyService.OnPerfectHarmony` y `OnWorldReset`. |
+| `ScreenshotToastPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Toast de confirmación tras captura. `Show(Texture2D)` → fade in → `Btn_Accept` → fade out. |
+| `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton`. Alpha enabled/disabled (1.0/0.35). |
+| `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color`. |
+| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. `ExitGame()` carga `Title_Screen` (retorno a la pantalla de inicio). 8 toggles/acciones. Slider de música. |
+| `OrientationManager` | MonoBehaviour | Detecta portrait/landscape. Oculta hotbar/toolpanel en landscape. Fuerza `Tool_None`. Restaura tool en portrait. |
+| `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips + 4 clips individuales para fases de armonía. Pitch variation ±0.05. Vibración háptica integrada. |
+| `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down/up automático. |
+| `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF. `SetState(bool)`. |
 
 ### Voxel (9 scripts) — `_Project.Scripts.Voxel`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `BlockType` | Enum | `Sand(0)`, `Glass(1)`, `Stone(2)`, `Wood(3)`, `Torch(4)`, `Grass(5)`. |
-| `BlockDatabase` | ScriptableObject | Array de `BlockEntry` (type + prefab). Lazy `Dictionary<BlockType,GameObject>` para O(1). `GetPrefab()`, `TryGetPrefab()`, `Count`. |
-| `VoxelBlock` | MonoBehaviour | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. Fuente única de verdad para audio en bloques voxel. Properties de solo lectura. |
-| `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Fase 1 (80%): vuelo ease-out cubico, scale 0→1.15. Fase 2 (20%): settle 1.15→1.0. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Haptic `VibrateLight()` al inicio de la animación (respuesta táctil inmediata). Al terminar: `PlayPlaceFeedback()` (VFX `_placeVfxPrefab` + audio). Lee audio de `VoxelBlock.PlaceSounds` si existe, fallback a `_placeSounds` para pebbles. Auto-localiza `GameAudioService`, `HapticService` via `FindAnyObjectByType`. |
-| `BlockDestroy` | MonoBehaviour | Proximidad knock (`_knockRadius` 0.18m, solo post-`SetReady()`, **solo con Tool_Destroy activo**). `IsKnocked` impide double-trigger. Proximity knock: marca `_knocked=true` → `RecordUndoForProximity()` (registra `DestroyBlockAction` con `InverseTransformPoint`, notifica Harmony) → `KnockRoutine`. `BreakFromTool(hitNormal)`: marca `_knocked=true` → `KnockRoutine` (undo lo registra el caller `BlockDestroyer`). `KnockRoutine`: haptic `VibrateMedium()` + audio + VFX `_breakVfxPrefab` + unparent + `Rigidbody` impulso/torque + tumble (`_destroyDelay` 0.12s) + shrink (`_shrinkDuration` 0.18s) + `Destroy`. Lee audio de `VoxelBlock.BreakSounds` si existe, fallback a `_breakSounds` para pebbles. Auto-localiza `ToolManager`, `GameAudioService`, `HapticService`, `UndoRedoService`, `HarmonyService` via `FindAnyObjectByType`. Cachea `_worldContainer = transform.parent` en `Start`. |
-| `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered en `Awake`. Flat shading (verts duplicados por triangulo). Base plana (Y menor que 0 se pone a Y=0). Box-projection UV. Seed 0 = random. |
-| `PebbleSupport` | MonoBehaviour | Poll periodico (`InvokeRepeating`, `_checkInterval` 0.35s). Raycast hacia `-_supportDir` (`_checkDistance` 0.20m, solo `_voxelMask`). Si no hay apoyo, llama a `BlockDestroy.BreakFromTool()`. Si `_onARPlane`, nunca auto-break. |
-| `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst (10 a 16 particulas) + scale pop (1.18x en 0.06s, luego 1.0 en 0.14s). Auto-destroy a 0.8s. Configura todo proceduralmente en `Start()`. |
-| `VFXBlockDestroy` | MonoBehaviour | ParticleSystem burst de cubitos (`Cube.fbx`) con gravedad 2.0, tumble rotacional, fade alpha. Auto-destroy a 1.0s. Configura todo proceduralmente en `Start()`.
+| `BlockDatabase` | ScriptableObject | Array de `BlockEntry` (type + prefab). Lazy `Dictionary<BlockType,GameObject>` para O(1). |
+| `VoxelBlock` | MonoBehaviour | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. |
+| `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Auto-localiza `GameAudioService`, `HapticService`. |
+| `BlockDestroy` | MonoBehaviour | Proximidad knock + `BreakFromTool`. `KnockRoutine`: impulso/torque + shrink + `Destroy`. Auto-localiza servicios. |
+| `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered. |
+| `PebbleSupport` | MonoBehaviour | Poll periódico. Raycast hacia `-_supportDir`. Si no hay apoyo → `BlockDestroy.BreakFromTool()`. |
+| `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst + scale pop. Auto-destroy a 0.8s. |
+| `VFXBlockDestroy` | MonoBehaviour | ParticleSystem burst de cubitos con gravedad. Auto-destroy a 1.0s. |
 
 ---
 
@@ -709,44 +780,47 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 - **AR Foundation:** detección de planos, ancla espacial, oclusión por profundidad (toggle), alineación de grid al shader del plano.
 - **Construcción voxel:** tap para colocar, stacking por caras, snap a grid, reserva de celda contra double-tap.
 - **6 tipos de bloque:** Sand, Glass, Stone, Wood, Torch, Grass con prefabs, sonidos y VFX diferenciados.
-- **Herramienta Destruir:** raycast físico, impulso con Rigidbody, tumble, shrink, VFX. Funciona sobre bloques y piedritas.
-- **Pincel Rápido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s,compatible con todos los modos.
-- **Decorador de Piedritas:** piedras procedurales icosaedro, rotación/escala/scatter aleatorio, alineación a normal, soporte con auto-destrucción.
-- **Grid visual:** mesh procedural de líneas con fade radial, zero-GC, regenera solo al cambiar celda.
-- **Sistema de Armonía:** 3 pilares + gate de mínimos, 100% event-driven, zero polling.
-- **HarmonyHUD:** barra animada, gradiente tricolor, frases por fase, pop/shake, esquinas redondeadas procedurales.
-- **Panel Armonia Perfecta:** fade, partículas procedurales multicolor, botón Continuar.
+- **Herramienta Destruir:** raycast físico, impulso con Rigidbody, tumble, shrink, VFX.
+- **Pincel Rápido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s.
+- **Decorador de Piedritas:** piedras procedurales icosaedro, rotación/escala/scatter aleatorio, soporte con auto-destrucción.
+- **Grid visual:** mesh procedural de líneas con fade radial, zero-GC.
+- **Sistema de Armonía:** 3 pilares + gate de mínimos, 100% event-driven.
+- **HarmonyHUD:** barra animada, gradiente tricolor, frases por fase, pop/shake.
+- **Panel Armonía Perfecta:** fade, partículas procedurales multicolor, botón Continuar.
 - **Undo/Redo:** patrón Command, stack con cap de 20, HUD con botones atenuados.
 - **Menú opciones:** 8 toggles/acciones (iluminación, profundidad, grid, plano visual, vibración, música, foto, reset).
-- **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonia + haptic integrado), `MusicService` (shuffle, crossfade, slider).
-- **Vibración háptica:** `HapticService` via plugin Vibration (Benoit Freslon). 3 presets (light/medium/heavy). Toggle ON/OFF en menú (default OFF). Integrado en colocación, destrucción, UI, fases de armonía, armonía perfecta y captura de foto.
-- **Screenshot:** captura sin UI visible, guardado en galería via NativeGallery (Android/iOS), flash visual blanco, sonido de cámara, toast de confirmación con thumbnail y botón Aceptar, timestamp en nombre de archivo.
+- **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonía + haptic integrado), `MusicService` (shuffle, crossfade, slider).
+- **Vibración háptica:** `HapticService` via plugin Vibration. 3 presets. Toggle ON/OFF (default OFF).
+- **Screenshot:** captura sin UI visible, guardado en galería, flash visual, toast de confirmación.
+- **Pantalla de inicio:** Cámara frontal, AR Face Tracking con prefab `Object_Creeper` sobre la cara, 3 botones de modo (Bonsai/Normal/Real). Retorno desde Main_AR via `Btn_Exit → GameOptionsMenu.ExitGame()`.
+- **Selección de modo:** `TitleSceneManager.SelectMode(int)` → `WorldModeContext.Selected` → `WorldModeBootstrapper` lee en `Awake()`, difiere activación de AR managers a corrutina en `Start()`. Dev override con sentinel `WorldMode.None`.
 
 ### Funcionalidades a medias
 
-- **Modo Bonsai:** Código del bootstrapper completo, pero no hay `XRReferenceImageLibrary` configurada. Falta testing real.
+- **Modo Bonsai:** `XRReferenceImageLibrary` configurada con imágenes `one` (0.13m) y `qr_prueba` (0.10m). Activación diferida de `ARTrackedImageManager` via corrutina para evitar race condition al transicionar desde `Title_Screen`. Funcional en dispositivo.
 - **Pebble Undo/Redo:** Bloques voxel tienen undo/redo completo. Las piedritas del `PlowTool` **no** se registran en `UndoRedoService`.
+- **Alineación del filtro Creeper:** Valores de offset/rotación/escala pendientes de ajuste fino en dispositivo real.
 
 ### Funcionalidades no implementadas
 
 | Feature | Detalle |
 |---------|---------|
-| Escena de inicio | Camara frontal, Face Tracking (mascara Creeper), Hand Tracking (cursor antorcha), Dwell Time 2s, seleccion de modo. MediaPipe instalado pero sin scripts. |
+| Hand Tracking | MediaPipe instalado como paquete local, pero sin scripts de cursor antorcha ni Dwell Time. |
 | Guardado/Carga | No hay serialización. Al cerrar la app se pierde el jardín. |
 | Tutorial / Onboarding | No hay guía para jugadores nuevos. |
 | Logros / Progresión | No hay sistema más allá de la barra de armonía. |
-| Luz dinámica de antorchas | El prefab Torch tiene un `Light` component de URP pero no está configurado como punto de luz emitiendo. |
+| Luz dinámica de antorchas | El prefab Torch tiene un `Light` component de URP pero no emite. |
 | Agua / Bloques animados | No hay shaders animados ni bloque de agua. |
 | Sonido ambiente adaptativo | No hay sonidos de naturaleza que cambien con el jardín. |
-| Multijugador / Compartir | No hay networking ni exportacion del jardin. |
+| Multijugador / Compartir | No hay networking ni exportación del jardín. |
 
 ---
 
 ## Dependencias de paquetes
 
-| Paquete | Version | Uso |
+| Paquete | Versión | Uso |
 |---------|---------|-----|
-| `com.unity.xr.arfoundation` | 6.0.6 | AR Foundation: sesion, planos, anclas, raycast, oclusion, imagenes. |
+| `com.unity.xr.arfoundation` | 6.0.6 | AR Foundation: sesión, planos, anclas, raycast, oclusión, imágenes, caras. |
 | `com.unity.xr.arcore` | 6.0.6 | ARCore XR Plugin para Android. |
 | `com.unity.xr.interaction.toolkit` | 3.0.10 | XR Interaction Toolkit (XR Origin, Ray Interactor). |
 | `com.unity.inputsystem` | 1.17.0 | Enhanced Touch API (input táctil). |
@@ -756,15 +830,15 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
 | `com.unity.timeline` | 1.8.10 | Timeline (no utilizado activamente). |
 | `com.unity.visualscripting` | 1.9.7 | Visual Scripting (no utilizado activamente). |
 | `com.unity.ai.navigation` | 2.0.9 | AI Navigation (no utilizado activamente). |
-| `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo (Android / iOS). |
-| `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hápticas nativas (Android / iOS). Pop, Peek, Nope presets. |
-| `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand/Face Tracking de la futura pantalla de inicio. |
+| `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo. |
+| `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hápticas nativas. Pop, Peek, Nope presets. |
+| `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand Tracking futuro. |
 
 ---
 
-## Como abrir el proyecto
+## Cómo abrir el proyecto
 
-1. **Unity 6** (2022.3 LTS o superior) con modulos: Android Build Support, AR
+1. **Unity 6** (2022.3 LTS o superior) con módulos: Android Build Support, AR
    Foundation, URP.
 2. Clonar el repositorio:
 
@@ -772,11 +846,12 @@ inicio, ni script de Face Tracking, ni Hand Tracking, ni Dwell Time. Solo existe
    git clone https://github.com/Gabiz053/Juego-AR.git
    ```
 
-3. Abrir con Unity Hub y seleccionar la carpeta raiz `Juego-AR/`.
-4. Escena principal: `Assets/_Project/Scenes/Main_AR.unity`.
-5. Build target: **Android** (ARCore). Probar en Samsung S24 Ultra o dispositivo
+3. Abrir con Unity Hub y seleccionar la carpeta raíz `Juego-AR/`.
+4. **Escena de inicio:** `Assets/_Project/Scenes/Title_Screen.unity` (scene 0).
+5. **Escena de juego:** `Assets/_Project/Scenes/Main_AR.unity` (scene 1).
+6. Build target: **Android** (ARCore). Probar en Samsung S24 Ultra o dispositivo
    compatible con ARCore.
-6. Bundle ID: `com.Gabiz.ARmonia`.
+7. Bundle ID: `com.Gabiz.ARmonia`.
 
 
 

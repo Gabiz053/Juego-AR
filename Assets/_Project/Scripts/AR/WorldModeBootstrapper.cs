@@ -1,9 +1,12 @@
 // ------------------------------------------------------------
+// ------------------------------------------------------------
 //  WorldModeBootstrapper.cs  -  _Project.Scripts.AR
 //  Reads WorldModeContext at startup and configures the voxel
 //  world (scale, grid, anchor strategy) accordingly.
 // ------------------------------------------------------------
 
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
@@ -15,7 +18,11 @@ namespace _Project.Scripts.AR
     /// Entry point for the game scene.  Reads
     /// <see cref="WorldModeContext.Selected"/>, finds the matching
     /// <see cref="WorldModeSO"/> and applies its configuration
-    /// (scale, anchor manager, etc.).
+    /// (scale, anchor manager, etc.).<br/>
+    /// AR manager configuration is deferred to <see cref="Start"/> via a
+    /// coroutine so the <see cref="ARSession"/> has time to resume after a
+    /// scene transition (e.g. from <c>Title_Screen</c> with front-camera
+    /// face tracking).
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/AR/World Mode Bootstrapper")]
@@ -28,7 +35,9 @@ namespace _Project.Scripts.AR
         [SerializeField] private WorldModeSO[] _modeConfigs;
 
         [Header("Dev Override")]
-        [Tooltip("Inspector override while the title screen is not yet implemented.")]
+        [Tooltip("Mode to use when launching Main_AR directly (bypassing the title screen).\n"
+               + "Set to the mode you want to test.\n"
+               + "Has NO effect when coming from the title screen -- WorldModeContext.Selected is used instead.")]
         [SerializeField] private WorldMode _devOverrideMode = WorldMode.Normal;
 
         [Header("World References")]
@@ -62,24 +71,37 @@ namespace _Project.Scripts.AR
 
         private void Awake()
         {
-            WorldModeContext.Selected = _devOverrideMode;
             _mainCamera = Camera.main;
 
-            _activeConfig = FindConfig(WorldModeContext.Selected);
+            // WorldModeContext.Selected is None when Main_AR is opened directly
+            // (bypassing the title screen, e.g. in Editor or dev testing).
+            // In that case the dev override takes priority.
+            bool fromTitleScreen = WorldModeContext.Selected != WorldMode.None;
+            WorldMode targetMode = fromTitleScreen ? WorldModeContext.Selected : _devOverrideMode;
+
+            _activeConfig = FindConfig(targetMode);
+
             if (_activeConfig == null)
             {
-                Debug.LogError($"[WorldModeBootstrapper] No WorldModeSO for mode '{WorldModeContext.Selected}'.", this);
+                Debug.LogError($"[WorldModeBootstrapper] No WorldModeSO found for mode '{targetMode}'. Check _modeConfigs.", this);
                 return;
             }
 
+            // Write back so other systems can always read WorldModeContext.Selected.
+            WorldModeContext.Selected = _activeConfig.Mode;
+
             ApplyWorldScale();
-            ConfigureARManagers();
-            Debug.Log($"[WorldModeBootstrapper] Mode: {_activeConfig.DisplayName}, scale: {_activeConfig.WorldContainerScale}, anchor: {_activeConfig.AnchorType}.");
+
+            string source = fromTitleScreen ? "title screen" : "dev override";
+            Debug.Log($"[WorldModeBootstrapper] Mode: {_activeConfig.DisplayName} (source: {source}), scale: {_activeConfig.WorldContainerScale}, anchor: {_activeConfig.AnchorType}.");
         }
 
         private void Start()
         {
             ValidateReferences();
+
+            if (_activeConfig != null)
+                StartCoroutine(ConfigureARManagersDeferred());
         }
 
         private void OnDestroy()
@@ -97,6 +119,33 @@ namespace _Project.Scripts.AR
             if (_worldContainer == null) return;
             float s = _activeConfig.WorldContainerScale;
             _worldContainer.localScale = new Vector3(s, s, s);
+        }
+
+        /// <summary>
+        /// Waits for the <see cref="ARSession"/> to reach a tracking-ready state
+        /// before configuring managers.  This avoids a race condition when
+        /// transitioning from the title scene (front camera / face-tracking)
+        /// where the native session would apply its config before the image
+        /// library is set on the subsystem.
+        /// </summary>
+        private IEnumerator ConfigureARManagersDeferred()
+        {
+            // Give the ARSession one frame to resume / start its subsystem.
+            yield return null;
+
+            // Wait until the session is actually tracking (or at least initialising).
+            float timeout = 5f;
+            float elapsed = 0f;
+            while (ARSession.state < ARSessionState.SessionInitializing && elapsed < timeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (ARSession.state < ARSessionState.SessionInitializing)
+                Debug.LogWarning("[WorldModeBootstrapper] ARSession did not reach SessionInitializing within timeout -- configuring managers anyway.");
+
+            ConfigureARManagers();
         }
 
         /// <summary>Routes to plane or tracked-image mode based on <see cref="AnchorType"/>.</summary>
@@ -123,6 +172,7 @@ namespace _Project.Scripts.AR
             {
                 _arPlaneManager.enabled = true;
                 _arPlaneManager.trackablesChanged.AddListener(OnTrackablesChangedPlane);
+                Debug.Log("[WorldModeBootstrapper] ARPlaneManager enabled -- waiting for plane detection.");
             }
 
             if (_arTrackedImageManager != null)
@@ -144,16 +194,22 @@ namespace _Project.Scripts.AR
             if (_arTrackedImageManager != null)
             {
                 if (_activeConfig.ImageLibrary != null)
+                {
                     _arTrackedImageManager.referenceLibrary = _activeConfig.ImageLibrary;
+                    Debug.Log($"[WorldModeBootstrapper] ImageLibrary assigned -- {_activeConfig.ImageLibrary.count} reference image(s), physical width: {_activeConfig.ImagePhysicalWidth}m.");
+                }
                 else
-                    Debug.LogWarning("[WorldModeBootstrapper] Bonsai mode but ImageLibrary is null!", this);
+                {
+                    Debug.LogError("[WorldModeBootstrapper] Bonsai mode but ImageLibrary is null! Assign it in WorldModeConfig_Bonsai.", this);
+                }
 
                 _arTrackedImageManager.enabled = true;
                 _arTrackedImageManager.trackablesChanged.AddListener(OnTrackablesChangedImage);
+                Debug.Log("[WorldModeBootstrapper] ARTrackedImageManager enabled -- waiting for image detection.");
             }
             else
             {
-                Debug.LogError("[WorldModeBootstrapper] _arTrackedImageManager required for Bonsai!", this);
+                Debug.LogError("[WorldModeBootstrapper] _arTrackedImageManager is not assigned! Required for Bonsai mode.", this);
             }
 
             if (_arPlaneManager != null)
@@ -167,17 +223,27 @@ namespace _Project.Scripts.AR
 
             foreach (ARTrackedImage img in args.added)
             {
-                AnchorToImage(img);
-                return;
+                Debug.Log($"[WorldModeBootstrapper] Image ADDED -- name: '{img.referenceImage.name}', state: {img.trackingState}, pos: {img.transform.position}, size: {img.size}.");
+                if (img.trackingState == TrackingState.Tracking || img.trackingState == TrackingState.Limited)
+                {
+                    AnchorToImage(img);
+                    return;
+                }
             }
 
             foreach (ARTrackedImage img in args.updated)
             {
+                Debug.Log($"[WorldModeBootstrapper] Image UPDATED -- name: '{img.referenceImage.name}', state: {img.trackingState}, pos: {img.transform.position}.");
                 if (img.trackingState == TrackingState.Tracking)
                 {
                     AnchorToImage(img);
                     return;
                 }
+            }
+
+            foreach (KeyValuePair<TrackableId, ARTrackedImage> kvp in args.removed)
+            {
+                Debug.Log($"[WorldModeBootstrapper] Image REMOVED -- id: {kvp.Key}.");
             }
         }
 
@@ -191,6 +257,7 @@ namespace _Project.Scripts.AR
             _anchored = true;
 
             _arTrackedImageManager.trackablesChanged.RemoveListener(OnTrackablesChangedImage);
+            Debug.Log($"[WorldModeBootstrapper] World anchored to image '{img.referenceImage.name}' -- pose: {imagePose.position}, rotation: {imagePose.rotation.eulerAngles}.");
         }
 
         /// <summary>Searches <c>_modeConfigs</c> for the <see cref="WorldModeSO"/> matching <paramref name="mode"/>.</summary>
@@ -237,6 +304,8 @@ namespace _Project.Scripts.AR
         {
             if (_modeConfigs == null || _modeConfigs.Length == 0)
                 Debug.LogWarning("[WorldModeBootstrapper] _modeConfigs is empty!", this);
+            if (_devOverrideMode == WorldMode.None)
+                Debug.LogWarning("[WorldModeBootstrapper] _devOverrideMode is set to None -- this will cause an error if Main_AR is launched directly.", this);
         }
 #endif
 

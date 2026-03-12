@@ -16,6 +16,6 @@ MonoBehaviour:
   DisplayName: Real
   WorldContainerScale: 1
   AnchorType: 0
-  ImageLibrary: {fileID: 0}
+  ImageLibrary: {fileID: 11400000, guid: 5341c436db38c914784f256a7adadcb0, type: 2}
   ImagePhysicalWidth: 0.2
   MaxBlocks: 0
