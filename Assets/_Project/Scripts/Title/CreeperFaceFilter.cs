@@ -36,7 +36,7 @@ namespace _Project.Scripts.Title
         [SerializeField] private Vector3 _prefabScale = Vector3.one;
 
         [Header("Dependencies")]
-        [Tooltip("ARFaceManager — auto-detected on this or parent GameObject if empty.")]
+        [Tooltip("ARFaceManager ï¿½ auto-detected on this or parent GameObject if empty.")]
         [SerializeField] private ARFaceManager _faceManager;
 
         #endregion

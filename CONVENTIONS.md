@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 54 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
+> **Última auditoría:** 57 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -242,12 +242,15 @@ UI System                                  [Empty — agrupa objetos UI]
 ### `Title_Screen.unity` — jerarquía completa
 
 La escena de inicio utiliza la cámara frontal con Face Tracking para el filtro
-de Creeper y presenta tres botones para seleccionar el modo de juego.
+de Creeper y Hand Tracking (MediaPipe) para seleccionar el modo de juego con
+el dedo índice mediante dwell time. Presenta tres botones para seleccionar el
+modo de juego.
 
 ```text
 AR System                                  [Empty — agrupa objetos AR]
 ├── XR Origin (Front Camera)               [XROrigin, XRInputModalityManager,
 │   │                                       ARFaceManager (maxFaces 1), CreeperFaceFilter,
+│   │                                       HandTrackingService,
 │   │                                       ARPlaneManager (disabled), ARRaycastManager (disabled)]
 │   └── Camera Offset
 │       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
@@ -259,14 +262,17 @@ AR System                                  [Empty — agrupa objetos AR]
 
 UI System                                  [Empty — agrupa objetos UI]
 ├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
-│   │                                       GraphicRaycaster, TitleSceneManager]
+│   │                                       GraphicRaycaster, TitleSceneManager, DwellSelector]
 │   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco]
 │   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
 │   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
 │   ├── Btn_Normal                         [Button → SelectMode(1), Image]
 │   │   └── Txt_Normal                     [TMP_Text — "Normal", font: Minecraft SDF, size 60, gris oscuro]
-│   └── Btn_Real                           [Button → SelectMode(2), Image]
-│       └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+│   ├── Btn_Real                           [Button → SelectMode(2), Image]
+│   │   └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+│   └── HandCursor                         [RectTransform, CanvasGroup, HandCursorUI]
+│       ├── Img_CursorDot                  [Image — 40×40 white circle, raycastTarget OFF]
+│       └── Img_DwellProgress              [Image — 60×60 radial fill ring, Fill Method Radial360]
 └── EventSystem                            [InputSystemUIInputModule, EventSystem]
 ```
 
@@ -276,6 +282,9 @@ UI System                                  [Empty — agrupa objetos UI]
 |--------|----------------|------------------|
 | `TitleSceneManager` | TitleCanvas | — |
 | `CreeperFaceFilter` | XR Origin (Front Camera) | — |
+| `HandTrackingService` | XR Origin (Front Camera) | — |
+| `HandCursorUI` | HandCursor | — |
+| `DwellSelector` | TitleCanvas | — |
 
 ### Wiring de botones — Title_Screen
 

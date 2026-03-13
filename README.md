@@ -632,6 +632,10 @@ Title_Screen (cámara frontal)
   │     └── CreeperFaceFilter → instancia prefab de cabeza Creeper
   │           como hijo del ARFace (sigue posición y rotación)
   │
+  ├── Hand Tracking (MediaPipe HandLandmarker, CPU delegate)
+  │     └── HandTrackingService → extrae punta del dedo índice (landmark #8)
+  │           → HandCursorUI (cursor visual) + DwellSelector (1.5s hover → selección)
+  │
   └── TitleSceneManager
         ├── Btn_Bonsai.OnClick → SelectMode(0) → WorldModeContext.Selected = Bonsai
         ├── Btn_Normal.OnClick → SelectMode(1) → WorldModeContext.Selected = Normal
@@ -648,6 +652,7 @@ Title_Screen (cámara frontal)
 AR System                                  [Empty — agrupa objetos AR]
 ├── XR Origin (Front Camera)               [XROrigin, XRInputModalityManager,
 │   │                                       ARFaceManager (maxFaces 1), CreeperFaceFilter,
+│   │                                       HandTrackingService,
 │   │                                       ARPlaneManager (disabled), ARRaycastManager (disabled)]
 │   └── Camera Offset
 │       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
@@ -676,6 +681,9 @@ UI System                                  [Empty — agrupa objetos UI]
 |--------|-----------|----------------|
 | `TitleSceneManager` | `_Project.Scripts.Title` | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Wiring: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. |
 | `CreeperFaceFilter` | `_Project.Scripts.Title` | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables. Inspector defaults: offset `(0,0,0)`, rotation `(0,0,0)`, scale `(0.2, 0.2, 0.2)`. `_faceManager` asignado explícitamente. |
+| `HandTrackingService` | `_Project.Scripts.Title` | Inicializa MediaPipe HandLandmarker (CPU delegate, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice), convierte a coordenadas de pantalla con smoothing. Dispara `OnFingertipScreenPosition`, `OnHandDetected`, `OnHandLost`. |
+| `HandCursorUI` | `_Project.Scripts.Title` | Cursor UI que sigue la posición del dedo índice. Fade in/out con `CanvasGroup`. Indicador radial de dwell progress vía `SetDwellProgress(float)`. |
+| `DwellSelector` | `_Project.Scripts.Title` | Detecta solapamiento del cursor con los `RectTransform` de los botones. Acumula dwell timer (1.5s). Llama `TitleSceneManager.SelectMode(int)` al completar. |
 
 ### Mapa Script → GameObject (Title_Screen)
 
@@ -683,10 +691,13 @@ UI System                                  [Empty — agrupa objetos UI]
 |--------|----------------|
 | `TitleSceneManager` | TitleCanvas |
 | `CreeperFaceFilter` | XR Origin (Front Camera) |
+| `HandTrackingService` | XR Origin (Front Camera) |
+| `HandCursorUI` | HandCursor |
+| `DwellSelector` | TitleCanvas |
 
 ---
 
-## Lista completa de scripts (54)
+## Lista completa de scripts (57)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -733,12 +744,15 @@ UI System                                  [Empty — agrupa objetos UI]
 | `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Notifica `HarmonyService.NotifyPebblePlaced()`. |
 | `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
 
-### Title (2 scripts) — `_Project.Scripts.Title`
+### Title (5 scripts) — `_Project.Scripts.Title`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
 | `TitleSceneManager` | MonoBehaviour | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Diseñado para `Button.OnClick`: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. Fuerza `Screen.orientation = Portrait`. |
 | `CreeperFaceFilter` | MonoBehaviour | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables desde Inspector. Prefab scale default `(0.2, 0.2, 0.2)`. Cleanup automático en `OnDestroy`. |
+| `HandTrackingService` | MonoBehaviour | Inicializa MediaPipe HandLandmarker (CPU delegate, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice), convierte a coordenadas de pantalla con smoothing. Skip alternate frames (~15 Hz). |
+| `HandCursorUI` | MonoBehaviour | Cursor UI que sigue la punta del índice. `RectTransformUtility.ScreenPointToLocalPointInRectangle` para conversión a canvas. Fade in/out vía `CanvasGroup`. Indicador radial de dwell progress. |
+| `DwellSelector` | MonoBehaviour | Detecta solapamiento del cursor con `RectTransform` de botones vía `RectTransformUtility.RectangleContainsScreenPoint`. Dwell timer 1.5s. Dispara `TitleSceneManager.SelectMode(int)`. |
 
 ### UI (12 scripts) — `_Project.Scripts.UI`
 
@@ -805,7 +819,7 @@ UI System                                  [Empty — agrupa objetos UI]
 
 | Feature | Detalle |
 |---------|---------|
-| Hand Tracking | MediaPipe instalado como paquete local, pero sin scripts de cursor antorcha ni Dwell Time. |
+| Hand Tracking | Cursor de dedo índice con dwell time (1.5 s) para seleccionar modo en la pantalla de inicio. MediaPipe HandLandmarker (CPU delegate) procesando frames de la cámara frontal. Scripts: `HandTrackingService`, `HandCursorUI`, `DwellSelector`. |
 | Guardado/Carga | No hay serialización. Al cerrar la app se pierde el jardín. |
 | Tutorial / Onboarding | No hay guía para jugadores nuevos. |
 | Logros / Progresión | No hay sistema más allá de la barra de armonía. |
@@ -832,7 +846,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `com.unity.ai.navigation` | 2.0.9 | AI Navigation (no utilizado activamente). |
 | `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo. |
 | `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hápticas nativas. Pop, Peek, Nope presets. |
-| `com.github.homuler.mediapipe` | 0.16.3 (local) | MediaPipe Unity Plugin. Preparado para Hand Tracking futuro. |
+| `com.github.homuler.mediapipe` | 0.16.3 (embedded) | MediaPipe Unity Plugin. Hand Landmark Detection para selección de modo en Title_Screen (CPU delegate, IMAGE mode). |
 
 ---
 

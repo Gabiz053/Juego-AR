@@ -4,7 +4,6 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using _Project.Scripts.Core;
 
 namespace _Project.Scripts.Title
@@ -52,16 +51,16 @@ namespace _Project.Scripts.Title
         /// Selects a <see cref="WorldMode"/> by its integer value and loads
         /// the game scene.<br/>
         /// Designed for <c>Button.OnClick</c> wiring in the Inspector:<br/>
-        /// • Btn_Bonsai ? <c>SelectMode(0)</c><br/>
-        /// • Btn_Normal ? <c>SelectMode(1)</c><br/>
-        /// • Btn_Real   ? <c>SelectMode(2)</c>
+        /// ï¿½ Btn_Bonsai ? <c>SelectMode(0)</c><br/>
+        /// ï¿½ Btn_Normal ? <c>SelectMode(1)</c><br/>
+        /// ï¿½ Btn_Real   ? <c>SelectMode(2)</c>
         /// </summary>
         public void SelectMode(int modeIndex)
         {
             WorldMode mode = (WorldMode)modeIndex;
             WorldModeContext.Selected = mode;
-            Debug.Log($"[TitleSceneManager] Mode selected: {mode} -- loading {GAME_SCENE}.");
-            SceneManager.LoadScene(GAME_SCENE);
+            Debug.Log($"[TitleSceneManager] Mode selected: {mode} -- transitioning to {GAME_SCENE}.");
+            SceneTransitionService.TransitionTo(GAME_SCENE);
         }
 
         #endregion

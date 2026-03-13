@@ -8,7 +8,6 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
@@ -116,7 +115,7 @@ namespace _Project.Scripts.UI
                 _planeVisualButtonState?.SetState(_planeGridAligner.IsVisualEnabled);
             }
 
-            // Vibration starts OFF — button dimmed.
+            // Vibration starts OFF ï¿½ button dimmed.
             if (_hapticService != null)
                 _vibrationButtonState?.SetState(_hapticService.IsEnabled);
 
@@ -234,12 +233,12 @@ namespace _Project.Scripts.UI
             _screenshotService.Capture();
         }
 
-        /// <summary>Returns to the title screen scene.</summary>
+        /// <summary>Returns to the title screen scene with a fade transition.</summary>
         public void ExitGame()
         {
             _uiAudio?.PlayClick();
-            Debug.Log($"[GameOptionsMenu] Returning to title screen -- loading {TITLE_SCENE}.");
-            SceneManager.LoadScene(TITLE_SCENE);
+            Debug.Log($"[GameOptionsMenu] Returning to title screen -- transitioning to {TITLE_SCENE}.");
+            SceneTransitionService.TransitionTo(TITLE_SCENE);
         }
 
         #endregion

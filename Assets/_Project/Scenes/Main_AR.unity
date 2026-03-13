@@ -8054,7 +8054,6 @@ MonoBehaviour:
   _gridManager: {fileID: 1472623154}
   _arPlaneManager: {fileID: 1238779074}
   _arTrackedImageManager: {fileID: 1238779090}
-  _arSession: {fileID: 1968639090}
 --- !u!1 &1241133910
 GameObject:
   m_ObjectHideFlags: 0
@@ -16281,8 +16280,8 @@ MonoBehaviour:
     m_Bits: 256
   _maxPlaceDistance: 4
   _minPlaceDistance: 0.3
-  _scaleMin: 0.8
-  _scaleMax: 1.2
+  _scaleMin: 0.7
+  _scaleMax: 1.3
   _scatterRadius: 0.015
   _brushCooldown: 0.04
 --- !u!114 &1772064486
@@ -16347,7 +16346,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   _maxBuildDistance: 3
-  _minPlaceDistance: 0.4
+  _minPlaceDistance: 0.2
   _overlapTolerance: 0.1
   _undoRedoService: {fileID: 1300950986}
   _harmonyService: {fileID: 1300950987}
