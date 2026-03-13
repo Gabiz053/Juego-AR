@@ -4,6 +4,7 @@
 //  over a button for a configurable duration, it triggers the
 //  corresponding TitleSceneManager.SelectMode() call.
 //  Highlights hovered buttons with a scale-up effect.
+//  Plays hover and click sound effects via its own AudioSource.
 // ------------------------------------------------------------
 
 using System;
@@ -21,8 +22,10 @@ namespace _Project.Scripts.Title
     /// 2. <b>Dwell time</b> — staying over a button long enough also triggers
     ///    selection as a fallback.<br/>
     /// Drives the radial progress fill on <see cref="HandCursorUI"/> and
-    /// highlights the hovered button with a smooth scale-up and tint effect.
+    /// highlights the hovered button with a smooth scale-up and tint effect.<br/>
+    /// Plays hover and click SFX through its own <see cref="AudioSource"/>.
     /// </summary>
+    [RequireComponent(typeof(AudioSource))]
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Title/Dwell Selector")]
     public class DwellSelector : MonoBehaviour
@@ -40,6 +43,9 @@ namespace _Project.Scripts.Title
 
         /// <summary>Tint colour applied to hovered button images (white highlight).</summary>
         private static readonly Color HOVER_TINT = Color.white;
+
+        /// <summary>Maximum random pitch offset applied to hover/click SFX.</summary>
+        private const float PITCH_VARIATION = 0.05f;
 
         #endregion
 
@@ -63,6 +69,13 @@ namespace _Project.Scripts.Title
         [Tooltip("Seconds the cursor must remain over a button to trigger selection.")]
         [SerializeField] [Range(0.5f, 3f)] private float _dwellDuration = DEFAULT_DWELL_DURATION;
 
+        [Header("Audio")]
+        [Tooltip("Clips played at random when the cursor enters a button (hover).")]
+        [SerializeField] private AudioClip[] _hoverSounds;
+
+        [Tooltip("Clips played at random when a button is selected (pinch or dwell).")]
+        [SerializeField] private AudioClip[] _selectSounds;
+
         #endregion
 
         #region Events --------------------------------------------
@@ -84,6 +97,9 @@ namespace _Project.Scripts.Title
         private Image[] _buttonImages;
         private Color[] _buttonOriginalColors;
         private float[] _buttonCurrentScales;
+        private AudioSource _audioSource;
+        private int _lastHoverSoundIndex = -1;
+        private int _lastSelectSoundIndex = -1;
 
         #endregion
 
@@ -124,6 +140,7 @@ namespace _Project.Scripts.Title
         private void Start()
         {
             ValidateReferences();
+            InitializeAudioSource();
             CacheButtonReferences();
             ResetDwell();
         }
@@ -136,6 +153,16 @@ namespace _Project.Scripts.Title
         #endregion
 
         #region Internals -----------------------------------------
+
+        /// <summary>
+        /// Configures the required <see cref="AudioSource"/> for 2D one-shot playback.
+        /// </summary>
+        private void InitializeAudioSource()
+        {
+            _audioSource = GetComponent<AudioSource>();
+            _audioSource.playOnAwake  = false;
+            _audioSource.spatialBlend = 0f;
+        }
 
         /// <summary>
         /// Caches Image components and original colours from button RectTransforms
@@ -207,6 +234,13 @@ namespace _Project.Scripts.Title
                 _lastUpdateTime = Time.time;
                 _cursorUI?.SetDwellProgress(0f);
                 _cursorUI?.SetHovering(_hoveredIndex >= 0);
+
+                // Play hover sound when entering a new button
+                if (_hoveredIndex >= 0)
+                {
+                    PlaySfx(_hoverSounds, ref _lastHoverSoundIndex);
+                    Debug.Log($"[DwellSelector] Hover entered button {_hoveredIndex} -- playing hover SFX.");
+                }
             }
 
             if (_hoveredIndex >= 0)
@@ -254,6 +288,7 @@ namespace _Project.Scripts.Title
         private void TriggerSelection(int modeIndex)
         {
             _selectionMade = true;
+            PlaySfx(_selectSounds, ref _lastSelectSoundIndex);
             Debug.Log($"[DwellSelector] Selection triggered on button {modeIndex}.");
             OnDwellCompleted?.Invoke(modeIndex);
 
@@ -292,6 +327,34 @@ namespace _Project.Scripts.Title
             _lastUpdateTime = Time.time;
             _cursorUI?.SetDwellProgress(0f);
             _cursorUI?.SetHovering(false);
+        }
+
+        /// <summary>
+        /// Picks a random clip from <paramref name="clips"/> (avoiding the
+        /// last-played index), applies pitch variation, and plays it as a one-shot.
+        /// </summary>
+        private void PlaySfx(AudioClip[] clips, ref int lastIndex)
+        {
+            if (clips == null || clips.Length == 0 || _audioSource == null) return;
+
+            int index;
+            if (clips.Length == 1)
+                index = 0;
+            else
+            {
+                do { index = UnityEngine.Random.Range(0, clips.Length); }
+                while (index == lastIndex);
+            }
+
+            AudioClip clip = clips[index];
+            if (clip == null) return;
+
+            lastIndex = index;
+
+            float prevPitch    = _audioSource.pitch;
+            _audioSource.pitch = UnityEngine.Random.Range(1f - PITCH_VARIATION, 1f + PITCH_VARIATION);
+            _audioSource.PlayOneShot(clip);
+            _audioSource.pitch = prevPitch;
         }
 
         #endregion

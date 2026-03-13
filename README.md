@@ -34,7 +34,7 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
 8. [Pantalla de inicio](#pantalla-de-inicio)
-9. [Lista completa de scripts (59)](#lista-completa-de-scripts-59)
+9. [Lista completa de scripts (60)](#lista-completa-de-scripts-60)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -716,7 +716,7 @@ UI System                                  [Empty — agrupa objetos UI]
 
 ---
 
-## Lista completa de scripts (59)
+## Lista completa de scripts (60)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -792,7 +792,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down/up automático. |
 | `DropdownButtonState` | MonoBehaviour | Dim/restore de `Image.color` para toggles ON/OFF. `SetState(bool)`. |
 
-### Voxel (9 scripts) — `_Project.Scripts.Voxel`
+### Voxel (10 scripts) — `_Project.Scripts.Voxel`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -801,6 +801,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `VoxelBlock` | MonoBehaviour | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. |
 | `BlockSpawn` | MonoBehaviour | Animación fly-in + feedback de colocación. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Auto-localiza `GameAudioService`, `HapticService`. |
 | `BlockDestroy` | MonoBehaviour | Proximidad knock + `BreakFromTool`. `KnockRoutine`: impulso/torque + shrink + `Destroy`. Auto-localiza servicios. |
+| `SandGravity` | MonoBehaviour | Gravedad para arena: poll periodico post-spawn (patron `PebbleSupport`); si no hay soporte (bloque/plano AR), cae al grid valido mas cercano. Sigue comprobando tras aterrizar para reaccionar a bloques destruidos. Solo en `Voxel_Sand`. |
 | `ProceduralPebble` | MonoBehaviour | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered. |
 | `PebbleSupport` | MonoBehaviour | Poll periódico. Raycast hacia `-_supportDir`. Si no hay apoyo → `BlockDestroy.BreakFromTool()`. |
 | `VFXBlockPlace` | MonoBehaviour | ParticleSystem burst + scale pop. Auto-destroy a 0.8s. |
@@ -815,6 +816,7 @@ UI System                                  [Empty — agrupa objetos UI]
 - **AR Foundation:** detección de planos, ancla espacial, oclusión por profundidad (toggle), alineación de grid al shader del plano.
 - **Construcción voxel:** tap para colocar, stacking por caras, snap a grid, reserva de celda contra double-tap.
 - **6 tipos de bloque:** Sand, Glass, Stone, Wood, Torch, Grass con prefabs, sonidos y VFX diferenciados.
+- **Gravedad de arena:** los bloques Sand caen si no tienen soporte debajo (bloque o plano AR); 0.5s de delay post-spawn, animación ease-in, SFX de aterrizaje.
 - **Herramienta Destruir:** raycast físico, impulso con Rigidbody, tumble, shrink, VFX.
 - **Pincel Rápido:** toggle ON/OFF, placement/destroy continuo, cooldown 0.08s.
 - **Decorador de Piedritas:** piedras procedurales icosaedro, rotación/escala/scatter aleatorio, soporte con auto-destrucción.

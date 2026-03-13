@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: -7357379159169274117}
   - component: {fileID: 2730902641688844278}
   - component: {fileID: -8562387348613211636}
+  - component: {fileID: 1978851167343379723}
   m_Layer: 6
   m_Name: Voxel_Sand
   m_TagString: Untagged
@@ -111,6 +112,21 @@ MonoBehaviour:
   _cameraLocalOffset: {x: 0, y: -0.12, z: 0.2}
   _placeVfxPrefab: {fileID: 1885632316061002488, guid: 886b33f6fdebc554dba4ceb2ff8621e8, type: 3}
   _placeSounds: []
+--- !u!114 &1978851167343379723
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3193317777048131821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47061e4238b9c3b4ca925fe07ee7fa70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _layerMask:
+    serializedVersion: 2
+    m_Bits: 192
 --- !u!1001 &7488737683674896354
 PrefabInstance:
   m_ObjectHideFlags: 0

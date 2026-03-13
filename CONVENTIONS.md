@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 59 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
+> **Última auditoría:** 60 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -472,6 +472,7 @@ métodos llamados cada frame.  Unity los stripea automáticamente en builds no-D
 | Tipo | Componentes requeridos |
 |------|----------------------|
 | Bloque voxel (`Voxel_*`) | `VoxelBlock` + `BlockDestroy` + `BlockSpawn` + `BoxCollider` + `MeshRenderer` |
+| Bloque arena (`Voxel_Sand`) | Igual que `Voxel_*` + `SandGravity` (gravedad post-spawn) |
 | Piedra (`Pebble_*`) | `ProceduralPebble` + `BlockDestroy` + `BlockSpawn` + `PebbleSupport` + `MeshCollider (convex)` |
 | VFX place (`VFX_BlockPlace`) | `VFXBlockPlace` + `ParticleSystem` |
 | VFX destroy (`VFX_BlockBreak`) | `VFXBlockDestroy` + `ParticleSystem` |
@@ -675,6 +676,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | **Scene transition** | Carga de escena con fade y dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")` (fade-to-black → async load → fade-in). `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions al transicionar desde la cámara frontal. `GameOptionsMenu.ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
 | **Singleton DontDestroyOnLoad** | Servicio cross-escena auto-creado | `SceneTransitionService`: se auto-crea en primer uso via `EnsureInstance()`, persiste entre escenas, Canvas overlay propio (sort order 999). |
 | **Pinch gesture detection** | Detección de gesto por distancia de landmarks | `HandTrackingService` mide distancia entre thumb tip (#4) e index tip (#8). Histéresis (enter 0.055, exit 0.08) + debounce (2 frames). `DwellSelector` escucha `OnPinchDetected` para selección instantánea de botón. |
+| **Sand gravity (poll continuo)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo en `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, luego `InvokeRepeating` cada 0.25s (patrón `PebbleSupport`). Si no hay soporte → cae animado (ease-in) hasta grid válido. Tras aterrizar reinicia el poll para reaccionar a bloques destruidos. Desactiva collider/`BlockDestroy` durante caída (mismo patrón que `BlockSpawn`). |
 
 ---
 
