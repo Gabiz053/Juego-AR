@@ -15,8 +15,11 @@ namespace _Project.Scripts.Title
     /// <summary>
     /// Listens to <see cref="HandTrackingService"/> fingertip positions and
     /// checks whether the cursor overlaps any of the mode-selection buttons.<br/>
-    /// Accumulates a dwell timer while hovering; when the threshold is reached,
-    /// calls <see cref="TitleSceneManager.SelectMode"/>.<br/>
+    /// Selection can happen two ways:<br/>
+    /// 1. <b>Pinch click</b> — a thumb-index pinch while hovering a button triggers
+    ///    instant selection (preferred method).<br/>
+    /// 2. <b>Dwell time</b> — staying over a button long enough also triggers
+    ///    selection as a fallback.<br/>
     /// Drives the radial progress fill on <see cref="HandCursorUI"/> and
     /// highlights the hovered button with a smooth scale-up and tint effect.
     /// </summary>
@@ -104,6 +107,7 @@ namespace _Project.Scripts.Title
             {
                 _handTracking.OnFingertipScreenPosition += HandleFingertipUpdate;
                 _handTracking.OnHandLost                += HandleHandLost;
+                _handTracking.OnPinchDetected           += HandlePinch;
             }
         }
 
@@ -113,6 +117,7 @@ namespace _Project.Scripts.Title
             {
                 _handTracking.OnFingertipScreenPosition -= HandleFingertipUpdate;
                 _handTracking.OnHandLost                -= HandleHandLost;
+                _handTracking.OnPinchDetected           -= HandlePinch;
             }
         }
 
@@ -249,7 +254,7 @@ namespace _Project.Scripts.Title
         private void TriggerSelection(int modeIndex)
         {
             _selectionMade = true;
-            Debug.Log($"[DwellSelector] Dwell complete on button {modeIndex} -- selecting mode.");
+            Debug.Log($"[DwellSelector] Selection triggered on button {modeIndex}.");
             OnDwellCompleted?.Invoke(modeIndex);
 
             if (_titleSceneManager != null)
@@ -262,6 +267,20 @@ namespace _Project.Scripts.Title
             if (_hoveredIndex >= 0)
                 Debug.Log("[DwellSelector] Hand lost -- dwell reset.");
             ResetDwell();
+        }
+
+        /// <summary>
+        /// Handles pinch gesture from <see cref="HandTrackingService"/>.
+        /// If the cursor is currently hovering over a button, triggers
+        /// instant selection without waiting for dwell to complete.
+        /// </summary>
+        private void HandlePinch()
+        {
+            if (_selectionMade) return;
+            if (_hoveredIndex < 0) return;
+
+            Debug.Log($"[DwellSelector] Pinch click on button {_hoveredIndex} -- selecting mode.");
+            TriggerSelection(_hoveredIndex);
         }
 
         /// <summary>Zeroes out dwell timer, hovered index, progress ring, and cursor hover state.</summary>

@@ -4,7 +4,7 @@
 Documento de referencia para mantener consistencia en todo el proyecto.
 **Cada nuevo asset, script o carpeta debe seguir estas reglas.**
 
-> **Última auditoría:** 57 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
+> **Última auditoría:** 59 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
 > 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
 
 ---
@@ -68,9 +68,9 @@ _Project/
 │   └── Main_AR.unity         ← Escena principal de juego
 ├── Scripts/
 │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
-│   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo
+│   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo, transiciones de escena
 │   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
-│   ├── Title/               ← Pantalla de inicio: face tracking, selección de modo
+│   ├── Title/               ← Pantalla de inicio: face tracking, hand tracking, selección de modo, animación de logo
 │   ├── UI/                  ← HUD, menú, orientación, servicios UI
 │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 ├── Shaders/                 ← Shaders HLSL personalizados (URP)
@@ -242,9 +242,10 @@ UI System                                  [Empty — agrupa objetos UI]
 ### `Title_Screen.unity` — jerarquía completa
 
 La escena de inicio utiliza la cámara frontal con Face Tracking para el filtro
-de Creeper y Hand Tracking (MediaPipe) para seleccionar el modo de juego con
-el dedo índice mediante dwell time. Presenta tres botones para seleccionar el
-modo de juego.
+de Creeper y Hand Tracking (MediaPipe, GPU delegate) para seleccionar el modo de
+juego con el dedo índice mediante **pinch click** (gesto de pellizco instantáneo)
+o **dwell time** (1s como fallback). El logo "ARMONIA" flota con bobbing vertical.
+La transición a `Main_AR` usa `SceneTransitionService` (fade-to-black).
 
 ```text
 AR System                                  [Empty — agrupa objetos AR]
@@ -263,7 +264,8 @@ AR System                                  [Empty — agrupa objetos AR]
 UI System                                  [Empty — agrupa objetos UI]
 ├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
 │   │                                       GraphicRaycaster, TitleSceneManager, DwellSelector]
-│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco]
+│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco,
+│   │                                       TitleLogoAnimator]
 │   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
 │   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
 │   ├── Btn_Normal                         [Button → SelectMode(1), Image]
@@ -285,6 +287,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `HandTrackingService` | XR Origin (Front Camera) | — |
 | `HandCursorUI` | HandCursor | — |
 | `DwellSelector` | TitleCanvas | — |
+| `TitleLogoAnimator` | Txt_Title | — |
 
 ### Wiring de botones — Title_Screen
 
@@ -550,22 +553,23 @@ Empieza **desactivado** — el usuario lo activa desde `Btn_Vibration` en el dro
 
 | Escena | Build Index | Descripción |
 |--------|-------------|-------------|
-| `Title_Screen.unity` | 0 | Pantalla de inicio: cámara frontal, Face Tracking + Creeper, selección de modo (Bonsai/Normal/Real). |
+| `Title_Screen.unity` | 0 | Pantalla de inicio: cámara frontal, Face Tracking + Creeper, Hand Tracking + pinch click, selección de modo (Bonsai/Normal/Real), logo animado. |
 | `Main_AR.unity` | 1 | Escena principal de juego: cámara trasera, AR planes/images, construcción voxel. |
 
 ### Flujo entre escenas
 
 ```text
 Title_Screen                               Main_AR
-┌─────────────────────┐    LoadScene    ┌──────────────────────┐
+┌─────────────────────┐  TransitionTo  ┌──────────────────────┐
 │ TitleSceneManager   │ ─────────────→ │ WorldModeBootstrapper │
-│ SelectMode(int)     │                │ Awake: lee contexto,  │
+│ SelectMode(int)     │  (fade-black)  │ Awake: lee contexto,  │
 │ → WorldModeContext  │                │   aplica escala       │
-└─────────────────────┘                │ Start: corrutina      │
-                           LoadScene   │   espera ARSession →  │
-                         ←──────────── │   configura managers  │
+│ → SceneTransition   │                │ Start: corrutina      │
+│   Service           │  TransitionTo  │   espera ARSession →  │
+└─────────────────────┘ ←──────────── │   configura managers  │
                          GameOptions   └──────────────────────┘
                          Menu.ExitGame()
+                          (fade-black)
 ```
 
 ---
@@ -668,7 +672,9 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | **VoxelBlock como fuente de audio** | Prefab data-component leído por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles (sin `VoxelBlock`). |
 | **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
 | **OnClick con int param** | Selección indexada desde botones UI | `Btn_Bonsai.OnClick → TitleSceneManager.SelectMode(0)` |
-| **Scene transition** | Carga de escena con dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneManager.LoadScene("Main_AR")`. `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions al transicionar desde la cámara frontal. `GameOptionsMenu.ExitGame()` carga `Title_Screen`. |
+| **Scene transition** | Carga de escena con fade y dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")` (fade-to-black → async load → fade-in). `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions al transicionar desde la cámara frontal. `GameOptionsMenu.ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
+| **Singleton DontDestroyOnLoad** | Servicio cross-escena auto-creado | `SceneTransitionService`: se auto-crea en primer uso via `EnsureInstance()`, persiste entre escenas, Canvas overlay propio (sort order 999). |
+| **Pinch gesture detection** | Detección de gesto por distancia de landmarks | `HandTrackingService` mide distancia entre thumb tip (#4) e index tip (#8). Histéresis (enter 0.055, exit 0.08) + debounce (2 frames). `DwellSelector` escucha `OnPinchDetected` para selección instantánea de botón. |
 
 ---
 

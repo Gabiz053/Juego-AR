@@ -17,8 +17,8 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 - **AR:** AR Foundation 6.0.6 + ARCore XR Plugin 6.0.6.
 - **Input:** Enhanced Touch (Input System 1.17.0).
 - **Paquetes extra:** NativeGallery (guardado de screenshots en galería),
-  MediaPipe Unity Plugin 0.16.3 (local package, preparado para
-  Hand/Face Tracking de la futura pantalla de inicio).
+  MediaPipe Unity Plugin 0.16.3 (embedded package, Hand Tracking + Face Tracking
+  en la pantalla de inicio).
 - **Bundle ID:** `com.Gabiz.ARmonia`
 - **Versión:** 0.2.0
 
@@ -34,7 +34,7 @@ si tu jardín está equilibrado en variedad, cantidad y decoración.
 6. [Inventario y herramientas](#inventario-y-herramientas)
 7. [Shaders personalizados](#shaders-personalizados)
 8. [Pantalla de inicio](#pantalla-de-inicio)
-9. [Lista completa de scripts (54)](#lista-completa-de-scripts-54)
+9. [Lista completa de scripts (59)](#lista-completa-de-scripts-59)
 10. [Estado del proyecto](#estado-del-proyecto)
 11. [Dependencias de paquetes](#dependencias-de-paquetes)
 12. [Cómo abrir el proyecto](#cómo-abrir-el-proyecto)
@@ -73,9 +73,9 @@ Assets/
 │   │   └── Main_AR.unity        ← Escena principal de juego
 │   ├── Scripts/
 │   │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
-│   │   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo
+│   │   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo, transiciones de escena
 │   │   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
-│   │   ├── Title/               ← Pantalla de inicio: face tracking, selección de modo
+│   │   ├── Title/               ← Pantalla de inicio: face tracking, hand tracking, selección de modo, animación de logo
 │   │   ├── UI/                  ← HUD, menú, orientación, servicios UI
 │   │   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
 │   ├── Shaders/
@@ -621,8 +621,13 @@ Shader HLSL para URP que ilumina los bloques voxel con estética Minecraft.
 ### Escena `Title_Screen.unity`
 
 La pantalla de inicio utiliza la **cámara frontal** con **AR Face Tracking** para
-superponer una cabeza de Creeper sobre la cara del jugador.  Tres botones permiten
-elegir el modo de escala del mundo antes de entrar al juego.
+superponer una cabeza de Creeper sobre la cara del jugador. **Hand Tracking**
+(MediaPipe HandLandmarker, GPU delegate con fallback a CPU) muestra un cursor que
+sigue la punta del índice. El jugador selecciona el modo de juego haciendo un
+gesto de **pinch** (pulgar + índice) sobre uno de los tres botones, o manteniendo
+el cursor encima durante 1 segundo (dwell time como fallback). El logo "ARMONIA"
+flota suavemente con una animación de bobbing vertical. La transición a la
+escena de juego es un **fade-to-black** gestionado por `SceneTransitionService`.
 
 **Flujo:**
 ```text
@@ -632,19 +637,27 @@ Title_Screen (cámara frontal)
   │     └── CreeperFaceFilter → instancia prefab de cabeza Creeper
   │           como hijo del ARFace (sigue posición y rotación)
   │
-  ├── Hand Tracking (MediaPipe HandLandmarker, CPU delegate)
+  ├── Hand Tracking (MediaPipe HandLandmarker, GPU delegate)
   │     └── HandTrackingService → extrae punta del dedo índice (landmark #8)
-  │           → HandCursorUI (cursor visual) + DwellSelector (1.5s hover → selección)
+  │           │                    + detección de pinch (landmark #4 ↔ #8)
+  │           ├── HandCursorUI (cursor visual con hover scale)
+  │           └── DwellSelector (pinch → selección instantánea,
+  │                               1s hover → selección fallback,
+  │                               highlight de botones al hover)
+  │
+  ├── TitleLogoAnimator → bobbing vertical del Txt_Title
   │
   └── TitleSceneManager
-        ├── Btn_Bonsai.OnClick → SelectMode(0) → WorldModeContext.Selected = Bonsai
-        ├── Btn_Normal.OnClick → SelectMode(1) → WorldModeContext.Selected = Normal
-        └── Btn_Real.OnClick   → SelectMode(2) → WorldModeContext.Selected = Real
-              └── SceneManager.LoadScene("Main_AR")
+        ├── Btn_Bonsai → SelectMode(0) → WorldModeContext.Selected = Bonsai
+        ├── Btn_Normal → SelectMode(1) → WorldModeContext.Selected = Normal
+        └── Btn_Real   → SelectMode(2) → WorldModeContext.Selected = Real
+              └── SceneTransitionService.TransitionTo("Main_AR")
+                    (fade-to-black → async load → fade-in)
 ```
 
 **Retorno:** Desde `Main_AR`, el botón `Btn_Exit` del menú de opciones llama a
-`GameOptionsMenu.ExitGame()` que carga `Title_Screen` (ya no cierra la aplicación).
+`GameOptionsMenu.ExitGame()` que usa `SceneTransitionService.TransitionTo("Title_Screen")`
+con la misma transición fade-to-black.
 
 ### Jerarquía de escena `Title_Screen.unity`
 
@@ -664,14 +677,18 @@ AR System                                  [Empty — agrupa objetos AR]
 
 UI System                                  [Empty — agrupa objetos UI]
 ├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
-│   │                                       GraphicRaycaster, TitleSceneManager]
-│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco]
+│   │                                       GraphicRaycaster, TitleSceneManager, DwellSelector]
+│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco,
+│   │                                       TitleLogoAnimator]
 │   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
 │   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
 │   ├── Btn_Normal                         [Button → SelectMode(1), Image]
 │   │   └── Txt_Normal                     [TMP_Text — "Normal", font: Minecraft SDF, size 60, gris oscuro]
-│   └── Btn_Real                           [Button → SelectMode(2), Image]
-│       └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+│   ├── Btn_Real                           [Button → SelectMode(2), Image]
+│   │   └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
+│   └── HandCursor                         [RectTransform, CanvasGroup, HandCursorUI]
+│       ├── Img_CursorDot                  [Image — 40×40 white circle, raycastTarget OFF]
+│       └── Img_DwellProgress              [Image — 60×60 radial fill ring, Fill Method Radial360]
 └── EventSystem                            [InputSystemUIInputModule, EventSystem]
 ```
 
@@ -679,11 +696,12 @@ UI System                                  [Empty — agrupa objetos UI]
 
 | Script | Namespace | Responsabilidad |
 |--------|-----------|----------------|
-| `TitleSceneManager` | `_Project.Scripts.Title` | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Wiring: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. |
+| `TitleSceneManager` | `_Project.Scripts.Title` | `SelectMode(int)`: escribe `WorldModeContext.Selected` y transiciona a `Main_AR` via `SceneTransitionService`. Wiring: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. |
 | `CreeperFaceFilter` | `_Project.Scripts.Title` | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables. Inspector defaults: offset `(0,0,0)`, rotation `(0,0,0)`, scale `(0.2, 0.2, 0.2)`. `_faceManager` asignado explícitamente. |
-| `HandTrackingService` | `_Project.Scripts.Title` | Inicializa MediaPipe HandLandmarker (CPU delegate, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice), convierte a coordenadas de pantalla con smoothing. Dispara `OnFingertipScreenPosition`, `OnHandDetected`, `OnHandLost`. |
-| `HandCursorUI` | `_Project.Scripts.Title` | Cursor UI que sigue la posición del dedo índice. Fade in/out con `CanvasGroup`. Indicador radial de dwell progress vía `SetDwellProgress(float)`. |
-| `DwellSelector` | `_Project.Scripts.Title` | Detecta solapamiento del cursor con los `RectTransform` de los botones. Acumula dwell timer (1.5s). Llama `TitleSceneManager.SelectMode(int)` al completar. |
+| `HandTrackingService` | `_Project.Scripts.Title` | Inicializa MediaPipe HandLandmarker (GPU delegate con fallback CPU, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice) con smoothing y landmark #4 (punta del pulgar) para detección de pinch. Eventos: `OnFingertipScreenPosition`, `OnHandDetected`, `OnHandLost`, `OnPinchDetected`. Pinch con histéresis (enter 0.055, exit 0.08) y debounce (2 frames). |
+| `HandCursorUI` | `_Project.Scripts.Title` | Cursor UI que sigue la posición del dedo índice. Fade in/out con `CanvasGroup`. Escala gradual del dot al hacer hover sobre botón (1× → 1.35×). El dot se oculta durante dwell (se muestra solo el ring de progreso radial). |
+| `DwellSelector` | `_Project.Scripts.Title` | Detecta solapamiento del cursor con los `RectTransform` de los botones. Dos modos de selección: **pinch click** (instantáneo) y **dwell time** (1s, fallback). Highlight de botones al hover (escala 1.12×, tint blanco). Drives `HandCursorUI.SetDwellProgress()` y `SetHovering()`. |
+| `TitleLogoAnimator` | `_Project.Scripts.Title` | Bobbing vertical suave del logo "ARMONIA" con oscilación senoidal (±12px, 0.6Hz). Amplitud y frecuencia configurables desde Inspector. |
 
 ### Mapa Script → GameObject (Title_Screen)
 
@@ -694,10 +712,11 @@ UI System                                  [Empty — agrupa objetos UI]
 | `HandTrackingService` | XR Origin (Front Camera) |
 | `HandCursorUI` | HandCursor |
 | `DwellSelector` | TitleCanvas |
+| `TitleLogoAnimator` | Txt_Title |
 
 ---
 
-## Lista completa de scripts (57)
+## Lista completa de scripts (59)
 
 ### AR (4 scripts) — `_Project.Scripts.AR`
 
@@ -708,7 +727,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ARWorldManager` | ~140 | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ≈ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
 | `WorldModeBootstrapper` | ~310 | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activación de AR managers (`ARPlaneManager` o `ARTrackedImageManager`) se difiere a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (con timeout de 5s) para evitar race condition al transicionar desde `Title_Screen` (front camera → rear camera). Debug detallado para Bonsai: logs de library assignment, image ADDED/UPDATED/REMOVED con nombre, tracking state y posición. Log indica `source: title screen` o `source: dev override`. |
 
-### Core (18 scripts) — `_Project.Scripts.Core`
+### Core (19 scripts) — `_Project.Scripts.Core`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
@@ -722,6 +741,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `HapticService` | MonoBehaviour | Wrapper del plugin Vibration (Benoit Freslon). Presets: `VibrateLight()` (pop ≈50ms, UI/colocar/foto), `VibrateMedium()` (peek ≈100ms, destruir), `VibrateHeavy()` (nope triple-tap, armonía perfecta). Toggle ON/OFF via `ToggleHaptics()`, default OFF. Evento `OnHapticsToggled(bool)`. Lazy `Init()` del plugin nativo. |
 | `ScreenshotService` | MonoBehaviour | `Capture()` con debounce (`_isCapturing`). Oculta `_canvasToHide`, `WaitForEndOfFrame`, lee píxeles con `Texture2D.ReadPixels`, guarda a galería via `NativeGallery.SaveImageToGallery()` (Android/iOS) con fallback a `Application.persistentDataPath` en Editor. Flash visual (`_flashOverlayObject` GameObject activado → CanvasGroup alpha 1→0 → desactivado). Audio via `UIAudioService.PlayPhoto()`. Haptic via `HapticService.VibrateLight()`. Toast de confirmación via `ScreenshotToastPanel.Show(texture)` con thumbnail. Evento `OnScreenshotCaptured(path)`. |
 | `WorldResetService` | MonoBehaviour | `ResetWorld()`: destroy blocks (reversa, solo `VoxelBlock`/`ProceduralPebble`), reset anchor, deactivate grid, clear undo, reset harmony. Evento `OnWorldReset`. |
+| `SceneTransitionService` | MonoBehaviour | Singleton (`DontDestroyOnLoad`). Crea su propio Canvas overlay (sort order 999) con Image negra + CanvasGroup. `TransitionTo(sceneName)`: fade-to-black (0.4s) → `LoadSceneAsync` → fade-in (0.4s). Auto-creación en primer uso via `EnsureInstance()`. Usa `Time.unscaledDeltaTime`. Bloquea raycasts durante transición. |
 | `IUndoableAction` | Interface | Contrato `Undo()`, `Redo()`. |
 | `PlaceBlockAction` | Class | Command: `Undo()` → `Destroy(instance)`. `Redo()` → `Instantiate` + `ArmForImmediate()`. Método estático compartido `ArmForImmediate()`: desabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
 | `DestroyBlockAction` | Class | Command: `Undo()` → `Instantiate` + `PlaceBlockAction.ArmForImmediate()`. `Redo()` → `Destroy(restoredInstance)`. Creado por `BlockDestroyer` (tap) y `BlockDestroy` (proximity knock). |
@@ -744,15 +764,16 @@ UI System                                  [Empty — agrupa objetos UI]
 | `PlowTool` | MonoBehaviour | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Notifica `HarmonyService.NotifyPebblePlaced()`. |
 | `DebugRayVisualizer` | MonoBehaviour | Dibuja rayo de 0.1s desde cámara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. |
 
-### Title (5 scripts) — `_Project.Scripts.Title`
+### Title (6 scripts) — `_Project.Scripts.Title`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|----------------|
-| `TitleSceneManager` | MonoBehaviour | `SelectMode(int)`: escribe `WorldModeContext.Selected` y carga `Main_AR`. Diseñado para `Button.OnClick`: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. Fuerza `Screen.orientation = Portrait`. |
+| `TitleSceneManager` | MonoBehaviour | `SelectMode(int)`: escribe `WorldModeContext.Selected` y transiciona a `Main_AR` via `SceneTransitionService.TransitionTo()`. Diseñado para `Button.OnClick`: `Btn_Bonsai→0`, `Btn_Normal→1`, `Btn_Real→2`. Fuerza `Screen.orientation = Portrait`. |
 | `CreeperFaceFilter` | MonoBehaviour | Suscribe a `ARFaceManager.trackablesChanged`, instancia prefab `Object_Creeper` como hijo del `ARFace`. Offset, rotación y escala configurables desde Inspector. Prefab scale default `(0.2, 0.2, 0.2)`. Cleanup automático en `OnDestroy`. |
-| `HandTrackingService` | MonoBehaviour | Inicializa MediaPipe HandLandmarker (CPU delegate, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice), convierte a coordenadas de pantalla con smoothing. Skip alternate frames (~15 Hz). |
-| `HandCursorUI` | MonoBehaviour | Cursor UI que sigue la punta del índice. `RectTransformUtility.ScreenPointToLocalPointInRectangle` para conversión a canvas. Fade in/out vía `CanvasGroup`. Indicador radial de dwell progress. |
-| `DwellSelector` | MonoBehaviour | Detecta solapamiento del cursor con `RectTransform` de botones vía `RectTransformUtility.RectangleContainsScreenPoint`. Dwell timer 1.5s. Dispara `TitleSceneManager.SelectMode(int)`. |
+| `HandTrackingService` | MonoBehaviour | Inicializa MediaPipe HandLandmarker (GPU delegate con fallback CPU, IMAGE mode). Captura frames de `ARCameraManager`, extrae landmark #8 (punta del índice) con smoothing (0.7), rotación 270° para front camera portrait. Detección de pinch: distancia thumb tip (#4) ↔ index tip (#8) con histéresis (enter 0.055, exit 0.08) y debounce (2 frames). Eventos: `OnFingertipScreenPosition`, `OnHandDetected`, `OnHandLost`, `OnPinchDetected`. |
+| `HandCursorUI` | MonoBehaviour | Cursor UI que sigue la punta del índice. `RectTransformUtility.ScreenPointToLocalPointInRectangle` para conversión a canvas. Fade in/out vía `CanvasGroup`. Escala gradual del dot al hover (1× → 1.35×, speed 1.5/s). Dot se oculta durante dwell progress (solo se ve ring radial). |
+| `DwellSelector` | MonoBehaviour | Detecta solapamiento del cursor con `RectTransform` de botones vía `RectTransformUtility.RectangleContainsScreenPoint`. Dos modos: **pinch click** (instantáneo via `OnPinchDetected`) y **dwell timer** (1s, fallback). Highlight de botones: escala 1.12× + tint blanco. Drives `HandCursorUI.SetDwellProgress()` y `SetHovering()`. |
+| `TitleLogoAnimator` | MonoBehaviour | Bobbing vertical del logo "ARMONIA" con oscilación senoidal. Amplitud (±12px) y frecuencia (0.6Hz) configurables desde Inspector. Opera sobre `RectTransform.anchoredPosition`. |
 
 ### UI (12 scripts) — `_Project.Scripts.UI`
 
@@ -765,7 +786,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `ScreenshotToastPanel` | MonoBehaviour | `[RequireComponent(CanvasGroup)]`. Toast de confirmación tras captura. `Show(Texture2D)` → fade in → `Btn_Accept` → fade out. |
 | `UndoRedoHUD` | MonoBehaviour | Botones `_undoButton`/`_redoButton`. Alpha enabled/disabled (1.0/0.35). |
 | `BrushHUD` | MonoBehaviour | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color`. |
-| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. `ExitGame()` carga `Title_Screen` (retorno a la pantalla de inicio). 8 toggles/acciones. Slider de música. |
+| `GameOptionsMenu` | MonoBehaviour | Controlador UI del dropdown de opciones. `ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService` (fade-to-black). 8 toggles/acciones. Slider de música. |
 | `OrientationManager` | MonoBehaviour | Detecta portrait/landscape. Oculta hotbar/toolpanel en landscape. Fuerza `Tool_None`. Restaura tool en portrait. |
 | `UIAudioService` | MonoBehaviour | `[RequireComponent(AudioSource)]`. 7 pools de clips + 4 clips individuales para fases de armonía. Pitch variation ±0.05. Vibración háptica integrada. |
 | `ButtonPressAnimation` | MonoBehaviour | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down/up automático. |
@@ -806,8 +827,10 @@ UI System                                  [Empty — agrupa objetos UI]
 - **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonía + haptic integrado), `MusicService` (shuffle, crossfade, slider).
 - **Vibración háptica:** `HapticService` via plugin Vibration. 3 presets. Toggle ON/OFF (default OFF).
 - **Screenshot:** captura sin UI visible, guardado en galería, flash visual, toast de confirmación.
-- **Pantalla de inicio:** Cámara frontal, AR Face Tracking con prefab `Object_Creeper` sobre la cara, 3 botones de modo (Bonsai/Normal/Real). Retorno desde Main_AR via `Btn_Exit → GameOptionsMenu.ExitGame()`.
-- **Selección de modo:** `TitleSceneManager.SelectMode(int)` → `WorldModeContext.Selected` → `WorldModeBootstrapper` lee en `Awake()`, difiere activación de AR managers a corrutina en `Start()`. Dev override con sentinel `WorldMode.None`.
+- **Pantalla de inicio:** Cámara frontal, AR Face Tracking con prefab `Object_Creeper` sobre la cara, 3 botones de modo (Bonsai/Normal/Real). Logo "ARMONIA" con bobbing vertical (`TitleLogoAnimator`). Retorno desde Main_AR via `Btn_Exit → GameOptionsMenu.ExitGame()`.
+- **Hand Tracking:** Cursor de dedo índice via MediaPipe HandLandmarker (GPU delegate, IMAGE mode). Selección de botones por **pinch click** (pulgar + índice, instantáneo) o **dwell time** (1s, fallback). Highlight de botones al hover (escala + tint). Cursor con escala gradual al hover. Scripts: `HandTrackingService`, `HandCursorUI`, `DwellSelector`.
+- **Transiciones de escena:** `SceneTransitionService` (singleton `DontDestroyOnLoad`). Fade-to-black (0.4s) → carga async → fade-in (0.4s). Usado en Title→Game y Game→Title.
+- **Selección de modo:** `TitleSceneManager.SelectMode(int)` → `WorldModeContext.Selected` → `SceneTransitionService.TransitionTo("Main_AR")` → `WorldModeBootstrapper` lee en `Awake()`, difiere activación de AR managers a corrutina en `Start()`. Dev override con sentinel `WorldMode.None`.
 
 ### Funcionalidades a medias
 
@@ -819,7 +842,6 @@ UI System                                  [Empty — agrupa objetos UI]
 
 | Feature | Detalle |
 |---------|---------|
-| Hand Tracking | Cursor de dedo índice con dwell time (1.5 s) para seleccionar modo en la pantalla de inicio. MediaPipe HandLandmarker (CPU delegate) procesando frames de la cámara frontal. Scripts: `HandTrackingService`, `HandCursorUI`, `DwellSelector`. |
 | Guardado/Carga | No hay serialización. Al cerrar la app se pierde el jardín. |
 | Tutorial / Onboarding | No hay guía para jugadores nuevos. |
 | Logros / Progresión | No hay sistema más allá de la barra de armonía. |
@@ -846,7 +868,7 @@ UI System                                  [Empty — agrupa objetos UI]
 | `com.unity.ai.navigation` | 2.0.9 | AI Navigation (no utilizado activamente). |
 | `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galería del dispositivo. |
 | `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hápticas nativas. Pop, Peek, Nope presets. |
-| `com.github.homuler.mediapipe` | 0.16.3 (embedded) | MediaPipe Unity Plugin. Hand Landmark Detection para selección de modo en Title_Screen (CPU delegate, IMAGE mode). |
+| `com.github.homuler.mediapipe` | 0.16.3 (embedded) | MediaPipe Unity Plugin. Hand Landmark Detection (GPU delegate, IMAGE mode) + pinch gesture para selección de modo en Title_Screen. Modelo: `hand_landmarker.bytes` en StreamingAssets. |
 
 ---
 

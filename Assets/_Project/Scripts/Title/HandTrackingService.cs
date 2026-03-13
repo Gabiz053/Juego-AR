@@ -24,6 +24,8 @@ namespace _Project.Scripts.Title
     /// (falls back to CPU), acquires CPU images from the front camera via
     /// <see cref="ARCameraManager.frameReceived"/>, and fires events with
     /// the index-fingertip position in screen-pixel coordinates.<br/>
+    /// Also detects a pinch gesture (thumb tip touching index tip) and
+    /// fires <see cref="OnPinchDetected"/> for click-style selection.<br/>
     /// Designed to run alongside <see cref="CreeperFaceFilter"/> on the same
     /// <c>XR Origin (Front Camera)</c> GameObject.
     /// </summary>
@@ -36,6 +38,9 @@ namespace _Project.Scripts.Title
         /// <summary>MediaPipe landmark index for the tip of the index finger.</summary>
         private const int LANDMARK_INDEX_TIP = 8;
 
+        /// <summary>MediaPipe landmark index for the tip of the thumb.</summary>
+        private const int LANDMARK_THUMB_TIP = 4;
+
         /// <summary>Exponential smoothing factor (lower = smoother, higher = responsive).</summary>
         private const float SMOOTHING_FACTOR = 0.7f;
 
@@ -44,6 +49,15 @@ namespace _Project.Scripts.Title
 
         /// <summary>Number of consecutive empty results before OnHandLost fires.</summary>
         private const int MAX_CONSECUTIVE_MISSES = 5;
+
+        /// <summary>Normalised distance below which thumb-index is considered a pinch.</summary>
+        private const float PINCH_ENTER_THRESHOLD = 0.055f;
+
+        /// <summary>Normalised distance above which a pinch is considered released (hysteresis).</summary>
+        private const float PINCH_EXIT_THRESHOLD = 0.08f;
+
+        /// <summary>Consecutive pinch frames required before firing the event (debounce).</summary>
+        private const int PINCH_DEBOUNCE_FRAMES = 2;
 
         #endregion
 
@@ -76,6 +90,9 @@ namespace _Project.Scripts.Title
         /// <summary>Fired once when the hand is lost.</summary>
         public event Action OnHandLost;
 
+        /// <summary>Fired once when a pinch gesture (thumb + index tips touching) is detected.</summary>
+        public event Action OnPinchDetected;
+
         #endregion
 
         #region State ---------------------------------------------
@@ -93,6 +110,8 @@ namespace _Project.Scripts.Title
         private bool _gpuInitialized;
         private int _imageRotationDegrees;
         private bool _loggedFirstFrame;
+        private bool _isPinching;
+        private int _pinchFrameCount;
 
         #endregion
 
@@ -363,7 +382,8 @@ namespace _Project.Scripts.Title
 
         /// <summary>
         /// Extracts the index fingertip landmark (index 8), converts to screen
-        /// coordinates, applies smoothing, and fires events.
+        /// coordinates, applies smoothing, fires position events, and checks
+        /// for a pinch gesture between thumb tip and index tip.
         /// </summary>
         private void ProcessLandmarks()
         {
@@ -396,6 +416,14 @@ namespace _Project.Scripts.Title
             }
 
             OnFingertipScreenPosition?.Invoke(_smoothedScreenPos);
+
+            // --- Pinch detection (thumb tip ↔ index tip distance) ---
+            Mediapipe.Tasks.Components.Containers.NormalizedLandmark thumb = hand.landmarks[LANDMARK_THUMB_TIP];
+            float dx = thumb.x - tip.x;
+            float dy = thumb.y - tip.y;
+            float distance = Mathf.Sqrt(dx * dx + dy * dy);
+
+            EvaluatePinch(distance);
         }
 
         /// <summary>
@@ -410,8 +438,46 @@ namespace _Project.Scripts.Title
             if (_consecutiveMisses < MAX_CONSECUTIVE_MISSES) return;
 
             _isTracking = false;
+            _isPinching = false;
+            _pinchFrameCount = 0;
             Debug.Log("[HandTrackingService] Hand lost.");
             OnHandLost?.Invoke();
+        }
+
+        /// <summary>
+        /// Evaluates a pinch gesture using hysteresis: enters pinch state when
+        /// distance drops below <see cref="PINCH_ENTER_THRESHOLD"/> for
+        /// <see cref="PINCH_DEBOUNCE_FRAMES"/> consecutive frames, exits when
+        /// distance rises above <see cref="PINCH_EXIT_THRESHOLD"/>.
+        /// Fires <see cref="OnPinchDetected"/> once per pinch.
+        /// </summary>
+        private void EvaluatePinch(float distance)
+        {
+            if (_isPinching)
+            {
+                if (distance > PINCH_EXIT_THRESHOLD)
+                {
+                    _isPinching = false;
+                    _pinchFrameCount = 0;
+                }
+            }
+            else
+            {
+                if (distance < PINCH_ENTER_THRESHOLD)
+                {
+                    _pinchFrameCount++;
+                    if (_pinchFrameCount >= PINCH_DEBOUNCE_FRAMES)
+                    {
+                        _isPinching = true;
+                        Debug.Log($"[HandTrackingService] Pinch detected -- distance: {distance:F3}.");
+                        OnPinchDetected?.Invoke();
+                    }
+                }
+                else
+                {
+                    _pinchFrameCount = 0;
+                }
+            }
         }
 
         /// <summary>

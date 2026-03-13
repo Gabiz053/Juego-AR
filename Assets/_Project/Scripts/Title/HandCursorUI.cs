@@ -31,10 +31,10 @@ namespace _Project.Scripts.Title
         private const float DWELL_RING_SHOW_THRESHOLD = 0.01f;
 
         /// <summary>Scale applied to the cursor dot when hovering over a button.</summary>
-        private const float HOVER_DOT_SCALE = 1.25f;
+        private const float HOVER_DOT_SCALE = 1.35f;
 
-        /// <summary>Speed at which the dot scale lerps to target.</summary>
-        private const float DOT_SCALE_SPEED = 10f;
+        /// <summary>Speed at which the dot scale lerps to target (units/s).</summary>
+        private const float DOT_SCALE_SPEED = 1.5f;
 
         #endregion
 
