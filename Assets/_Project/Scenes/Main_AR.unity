@@ -703,6 +703,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _directionalLight: {fileID: 764782032}
   _cameraSpotLight: {fileID: 1532319596}
+  _focusLightRange: 30
+  _focusLightIntensity: 0.15
+  _focusLightAngle: 70
   _disableGlobalOnFocus: 1
 --- !u!1 &41953904
 GameObject:
@@ -7997,7 +8000,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _occlusionManager: {fileID: 138378448}
-  _enabledOnStart: 0
+  _depthOnStart: 1
 --- !u!114 &1238779087
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8028,7 +8031,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_SerializedLibrary: {fileID: 11400000, guid: 5341c436db38c914784f256a7adadcb0, type: 2}
-  m_MaxNumberOfMovingImages: 1
+  m_MaxNumberOfMovingImages: 4
   m_TrackedImagePrefab: {fileID: 7182884874994584249, guid: 815257e6c32ab754999c5ccee62d5891, type: 3}
 --- !u!114 &1238779091
 MonoBehaviour:

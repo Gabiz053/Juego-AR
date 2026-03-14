@@ -28,6 +28,16 @@ namespace _Project.Scripts.Core
         [Tooltip("Spot/Point light child of the AR Camera (active in Focus mode).")]
         [SerializeField] private Light _cameraSpotLight;
 
+        [Header("Focus Light Settings")]
+        [Tooltip("Range of the camera spot light in Focus mode (metres).")]
+        [SerializeField] [Range(5f, 100f)] private float _focusLightRange = 15f;
+
+        [Tooltip("Intensity of the camera spot light in Focus mode.")]
+        [SerializeField] [Range(0.1f, 5f)] private float _focusLightIntensity = 0.25f;
+
+        [Tooltip("Outer cone angle of the spot light in Focus mode (degrees).")]
+        [SerializeField] [Range(20f, 120f)] private float _focusLightAngle = 70f;
+
         [Header("Behaviour")]
         [Tooltip("When ON, Focus mode also disables the directional light.")]
         [SerializeField] private bool _disableGlobalOnFocus = true;
@@ -74,7 +84,16 @@ namespace _Project.Scripts.Core
             IsFocusMode = focusMode;
 
             if (_cameraSpotLight != null)
+            {
                 _cameraSpotLight.enabled = focusMode;
+
+                if (focusMode)
+                {
+                    _cameraSpotLight.range     = _focusLightRange;
+                    _cameraSpotLight.intensity  = _focusLightIntensity;
+                    _cameraSpotLight.spotAngle  = _focusLightAngle;
+                }
+            }
 
             if (_directionalLight != null && _disableGlobalOnFocus)
                 _directionalLight.enabled = !focusMode;

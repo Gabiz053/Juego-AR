@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using _Project.Scripts.Infrastructure;
 
@@ -11,12 +12,13 @@ namespace _Project.Scripts.Voxel
 {
     /// <summary>
     /// Gives sand blocks gravity behaviour.  After <see cref="BlockSpawn"/>
-    /// completes its fly-in animation, starts polling downward to verify
-    /// support.<br/>
-    /// If no block or AR plane is found directly below, the block falls
-    /// smoothly to the nearest supported grid cell.  Keeps polling after
-    /// landing so it reacts when a supporting block is mined.<br/>
-    /// All timing, speed and distance values are configurable from the Inspector.<br/>
+    /// completes its fly-in animation, arms the block for gravity.<br/>
+    /// Reacts to <see cref="BlockDestroyedEvent"/> via the
+    /// <see cref="EventBus"/> for immediate response when a supporting block
+    /// is mined.  A slow safety-net poll (1 s) catches edge cases like
+    /// cascading falls or AR plane removal.<br/>
+    /// A shared static <see cref="HashSet{T}"/> of reserved cells prevents
+    /// two blocks from targeting the same landing position.<br/>
     /// Designed to be placed <b>only</b> on the <c>Voxel_Sand</c> prefab.
     /// </summary>
     [DisallowMultipleComponent]
@@ -31,6 +33,9 @@ namespace _Project.Scripts.Voxel
         /// <summary>Fraction of grid cell added above hit point for landing offset.</summary>
         private const float LANDING_OFFSET_RATIO = 0.5f;
 
+        /// <summary>Seconds between safety-net polls (cascades, AR plane removal).</summary>
+        private const float SAFETY_POLL_INTERVAL = 1f;
+
         #endregion
 
         #region Inspector -----------------------------------------
@@ -39,12 +44,9 @@ namespace _Project.Scripts.Voxel
         [Tooltip("Seconds to wait after spawn before the first support check.")]
         [SerializeField] [Range(0f, 1f)] private float _initialDelay = 0.15f;
 
-        [Tooltip("Seconds between each support poll (similar to PebbleSupport).")]
-        [SerializeField] [Range(0.05f, 1f)] private float _pollInterval = 0.15f;
-
         [Header("Fall")]
         [Tooltip("Fall speed in local units per second.")]
-        [SerializeField] [Range(1f, 30f)] private float _fallSpeed = 7f;
+        [SerializeField] [Range(1f, 30f)] private float _gravitySpeed = 15f;
 
         [Tooltip("Maximum raycast distance when searching for a landing spot.")]
         [SerializeField] [Range(5f, 100f)] private float _maxFallDistance = 50f;
@@ -60,18 +62,33 @@ namespace _Project.Scripts.Voxel
 
         #region State ---------------------------------------------
 
+        /// <summary>
+        /// Landing cells claimed by blocks that are currently mid-fall.
+        /// Prevents two blocks from targeting the same grid cell.
+        /// </summary>
+        private static readonly HashSet<Vector3Int> RESERVED_CELLS = new HashSet<Vector3Int>();
+
         private VoxelBlock        _voxelBlock;
         private BlockDestroy      _blockDestroy;
         private IGridManager      _gridManager;
         private IGameAudioService _audioService;
         private Collider          _collider;
-        private Transform        _worldContainer;
-        private bool             _isFalling;
-        private WaitForSeconds   _waitInitialDelay;
+        private Transform         _worldContainer;
+        private bool              _isArmed;
+        private bool              _isFalling;
+        private Vector3Int        _reservedCell;
+        private bool              _hasReservation;
+        private WaitForSeconds    _waitInitialDelay;
 
         #endregion
 
         #region Unity Lifecycle -----------------------------------
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            RESERVED_CELLS.Clear();
+        }
 
         private void Awake()
         {
@@ -83,6 +100,11 @@ namespace _Project.Scripts.Voxel
             ServiceLocator.TryGet<IGameAudioService>(out _audioService);
 
             _waitInitialDelay = new WaitForSeconds(_initialDelay);
+        }
+
+        private void OnEnable()
+        {
+            EventBus.Subscribe<BlockDestroyedEvent>(HandleBlockDestroyed);
         }
 
         private void Start()
@@ -103,7 +125,9 @@ namespace _Project.Scripts.Voxel
 
         private void OnDisable()
         {
-            CancelInvoke(nameof(PollSupport));
+            CancelInvoke(nameof(SafetyPoll));
+            EventBus.Unsubscribe<BlockDestroyedEvent>(HandleBlockDestroyed);
+            ReleaseReservation();
         }
 
         #endregion
@@ -111,8 +135,8 @@ namespace _Project.Scripts.Voxel
         #region Internals -----------------------------------------
 
         /// <summary>
-        /// Waits for <see cref="BlockSpawn"/> to finish, then starts
-        /// periodic support polling via <see cref="InvokeRepeating"/>.
+        /// Waits for <see cref="BlockSpawn"/> to finish, then arms the
+        /// block and starts the slow safety-net poll.
         /// </summary>
         private IEnumerator InitRoutine()
         {
@@ -128,28 +152,67 @@ namespace _Project.Scripts.Voxel
             // If the block was destroyed during the wait, abort.
             if (this == null || gameObject == null) yield break;
 
-            Debug.Log("[SandGravity] Armed -- starting support poll.");
-            InvokeRepeating(nameof(PollSupport), 0f, _pollInterval);
+            _isArmed = true;
+            Debug.Log("[SandGravity] Armed -- events + safety poll.");
+
+            // Immediate first check (e.g. placed in mid-air).
+            CheckAndFall();
+
+            // Slow safety net for cascading and edge cases.
+            InvokeRepeating(nameof(SafetyPoll), SAFETY_POLL_INTERVAL, SAFETY_POLL_INTERVAL);
         }
 
         /// <summary>
-        /// Periodic support check.  If no support is found below,
-        /// cancels polling and starts a fall coroutine.
+        /// Reacts to any block being destroyed.  The main trigger for
+        /// detecting support loss.
         /// </summary>
-        private void PollSupport()
+        private void HandleBlockDestroyed(BlockDestroyedEvent evt)
         {
-            if (_isFalling) return;
+            if (!_isArmed || _isFalling) return;
+            CheckAndFall();
+        }
 
+        /// <summary>
+        /// Slow safety-net poll that catches support loss not triggered by
+        /// <see cref="BlockDestroyedEvent"/> (e.g. cascading falls,
+        /// AR plane removal).
+        /// </summary>
+        private void SafetyPoll()
+        {
+            if (!_isArmed || _isFalling) return;
+            CheckAndFall();
+        }
+
+        /// <summary>
+        /// Core gravity check: if no support below, reserves the landing
+        /// cell and starts an animated fall.
+        /// </summary>
+        private void CheckAndFall()
+        {
             if (HasSupportBelow()) return;
 
-            // No support -- stop polling and fall.
-            CancelInvoke(nameof(PollSupport));
+            CancelInvoke(nameof(SafetyPoll));
 
             if (!TryFindLandingPosition(out Vector3 landingLocal))
             {
                 Debug.Log("[SandGravity] No landing position found -- staying in place.");
+                InvokeRepeating(nameof(SafetyPoll), SAFETY_POLL_INTERVAL, SAFETY_POLL_INTERVAL);
                 return;
             }
+
+            // Skip if landing at current position (already grounded).
+            Vector3Int targetCell  = PositionToCell(landingLocal);
+            Vector3Int currentCell = PositionToCell(transform.localPosition);
+            if (targetCell == currentCell)
+            {
+                InvokeRepeating(nameof(SafetyPoll), SAFETY_POLL_INTERVAL, SAFETY_POLL_INTERVAL);
+                return;
+            }
+
+            // Reserve the landing cell so other falling blocks stack above.
+            _reservedCell   = targetCell;
+            _hasReservation = true;
+            RESERVED_CELLS.Add(_reservedCell);
 
             Debug.Log($"[SandGravity] No support -- falling from {transform.localPosition} to {landingLocal}.");
             StartCoroutine(FallRoutine(landingLocal));
@@ -174,7 +237,8 @@ namespace _Project.Scripts.Voxel
 
         /// <summary>
         /// Raycasts far downward to find a landing surface, then computes
-        /// the snapped grid cell one unit above the hit point.
+        /// the snapped grid cell one unit above the hit point.  Skips cells
+        /// already reserved by other falling sand blocks.
         /// </summary>
         private bool TryFindLandingPosition(out Vector3 landingLocal)
         {
@@ -193,6 +257,16 @@ namespace _Project.Scripts.Voxel
             hitLocal.y += _gridManager.GridSize * LANDING_OFFSET_RATIO;
 
             landingLocal = _gridManager.GetSnappedPosition(hitLocal);
+
+            // Stack above any cells reserved by other falling sand blocks.
+            Vector3Int cell = PositionToCell(landingLocal);
+            int safety = 50;
+            while (RESERVED_CELLS.Contains(cell) && safety-- > 0)
+            {
+                landingLocal.y += _gridManager.GridSize;
+                cell = PositionToCell(landingLocal);
+            }
+
             return true;
         }
 
@@ -200,8 +274,8 @@ namespace _Project.Scripts.Voxel
         /// Smoothly moves the block from its current position to the landing
         /// position.  Disables collider and <see cref="BlockDestroy"/> during
         /// the fall (same safety pattern as <see cref="BlockSpawn"/>).<br/>
-        /// After landing, restarts the support poll so future neighbour
-        /// destruction is detected.
+        /// After landing, re-enables interactions, syncs physics, releases
+        /// the cell reservation, and restarts the safety poll.
         /// </summary>
         private IEnumerator FallRoutine(Vector3 targetLocal)
         {
@@ -212,9 +286,8 @@ namespace _Project.Scripts.Voxel
             if (_blockDestroy != null) _blockDestroy.enabled = false;
 
             Vector3 startLocal = transform.localPosition;
-            float sqrDistance  = (targetLocal - startLocal).sqrMagnitude;
-            float distance     = Mathf.Sqrt(sqrDistance);
-            float duration     = distance / _fallSpeed;
+            float distance     = Vector3.Distance(startLocal, targetLocal);
+            float duration     = distance / _gravitySpeed;
             float elapsed      = 0f;
 
             while (elapsed < duration)
@@ -239,15 +312,44 @@ namespace _Project.Scripts.Voxel
                 _blockDestroy.SetReady();
             }
 
-            // Landing SFX.
-            PlayLandingSound();
+            // Sync physics so raycasts from other blocks see this collider.
+            Physics.SyncTransforms();
 
+            // Release the reservation now that the collider is in place.
+            ReleaseReservation();
+
+            PlayLandingSound();
             Debug.Log($"[SandGravity] Landed at {targetLocal}.");
 
             _isFalling = false;
+            _isArmed   = true;
 
-            // Restart polling to detect future support loss.
-            InvokeRepeating(nameof(PollSupport), _pollInterval, _pollInterval);
+            // Restart slow safety-net poll.
+            InvokeRepeating(nameof(SafetyPoll), SAFETY_POLL_INTERVAL, SAFETY_POLL_INTERVAL);
+        }
+
+        /// <summary>
+        /// Converts a local-space position to a deterministic cell index.
+        /// Uses <see cref="Mathf.FloorToInt"/> to avoid banker's rounding
+        /// ambiguity at cell boundaries (0.5, 1.5, etc.).
+        /// </summary>
+        private Vector3Int PositionToCell(Vector3 localPos)
+        {
+            float g = _gridManager.GridSize;
+            return new Vector3Int(
+                Mathf.FloorToInt(localPos.x / g),
+                Mathf.FloorToInt(localPos.y / g),
+                Mathf.FloorToInt(localPos.z / g));
+        }
+
+        /// <summary>
+        /// Removes this block's cell reservation from the shared set.
+        /// </summary>
+        private void ReleaseReservation()
+        {
+            if (!_hasReservation) return;
+            RESERVED_CELLS.Remove(_reservedCell);
+            _hasReservation = false;
         }
 
         /// <summary>

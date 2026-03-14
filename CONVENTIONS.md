@@ -1,350 +1,201 @@
-# Convenciones del proyecto ARmonia
+<!-- markdownlint-disable MD013 MD060 -->
+
 # Convenciones del proyecto ARmonia
 
-Documento de referencia para mantener consistencia en todo el proyecto.
-**Cada nuevo asset, script o carpeta debe seguir estas reglas.**
+Referencia obligatoria para mantener consistencia. **Todo asset, script o carpeta nuevo debe cumplir estas reglas.**
 
-> **Última auditoría:** 60 scripts · 2 escenas · 17 prefabs · 6 ScriptableObjects ·
-> 2 shaders · 8 materiales · 40 clips de audio · 25 texturas/modelos · 5 fuentes
+> **Ultima auditoria:** 69 scripts - 2 escenas - 20 prefabs - 6 ScriptableObjects -
+> 2 shaders - 8 materiales - 46 clips de audio - 28 texturas - 7 modelos 3D - 5 fuentes
 
 ---
 
 ## Tabla de contenidos
 
-1. [Carpetas](#1-carpetas)
-2. [Jerarquía de escena](#2-jerarquía-de-escena)
-3. [Scripts C#](#3-scripts-c)
-4. [Variables y campos C#](#4-variables-y-campos-c)
-5. [Materiales](#5-materiales)
-6. [Prefabs](#6-prefabs)
-7. [Texturas y modelos 3D](#7-texturas)
-8. [Audio](#8-audio)
-9. [Escenas](#9-escenas)
-10. [Shaders](#10-shaders)
-11. [ScriptableObjects](#11-scriptableobjects)
-12. [Rendimiento — target S24 Ultra](#12-rendimiento--target-s24-ultra)
-13. [Estética URP](#13-estética-urp)
-14. [Patrones de comunicación](#14-patrones-de-comunicación)
-15. [Reglas generales](#15-reglas-generales)
+1. [Nombrado de assets](#1-nombrado-de-assets)
+2. [Codigo C#](#2-codigo-c)
+3. [Variables y campos C#](#3-variables-y-campos-c)
+4. [Jerarquia de escenas](#4-jerarquia-de-escenas)
+5. [Patrones de arquitectura](#5-patrones-de-arquitectura)
+6. [Rendimiento -- target S24 Ultra](#6-rendimiento----target-s24-ultra)
+7. [Estetica URP](#7-estetica-urp)
+8. [Reglas generales](#8-reglas-generales)
 
 ---
 
-## 1. Carpetas
+## 1. Nombrado de assets
+
+### 1.1 Carpetas
 
 | Regla | Correcto | Incorrecto |
 |-------|----------|------------|
 | PascalCase | `Scripts/` | `scripts/` |
-| Plural | `Materials/`, `Prefabs/`, `Textures/` | `Material/`, `Prefab/` |
+| Plural | `Materials/`, `Prefabs/` | `Material/`, `Prefab/` |
 | Sin espacios | `XR/` | `My Folder/` |
-| Raíz del proyecto | `_Project/` (con `_` para ordenar primero) | `Project/` |
-| Carpetas vacías | Confirmar con `.gitkeep` | Dejar vacía (Git la ignora) |
+| Raiz del proyecto | `_Project/` (con `_` para ordenar primero) | `Project/` |
+| Carpetas vacias | Confirmar con `.gitkeep` | Dejar vacia (Git la ignora) |
 
-### Estructura de `_Project/`
-
-```text
-_Project/
-├── Assets/
-│   ├── Fonts/               ← TTF + SDF assets de TextMeshPro
-│   ├── BlockDatabase.asset
-│   ├── HarmonyConfig.asset
-│   └── WorldModeConfig_*.asset
-├── Audio/
-│   ├── Music/               ← Pistas de fondo (.mp3)
-│   └── SFX/
-│       ├── UI/              ← Sonidos de interfaz (SFX_*)
-│       └── Voxels/          ← Sonidos de bloques y herramientas
-├── Materials/
-│   ├── AR/                  ← Materiales de planos AR y grid
-│   └── Blocks/              ← Materiales de bloques voxel
-├── Models/
-│   └── Blocks/              ← Modelos .glb importados (Model_Glass, Model_Grass, etc.)
-├── Prefabs/
-│   ├── AR/                  ← Planos AR, interactores XR
-│   ├── Blocks/              ← Bloques voxel y piedritas (+ _Deprecated/)
-│   ├── UI/                  ← (reservada para prefabs de UI)
-│   └── VFX/                 ← Efectos de partículas
-├── Scenes/
-│   ├── Title_Screen.unity    ← Pantalla de inicio (selección de modo, face tracking)
-│   └── Main_AR.unity         ← Escena principal de juego
-├── Scripts/
-│   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
-│   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo, transiciones de escena
-│   ├── Infrastructure/      ← ServiceLocator, EventBus, GameEvents, domain enums (BlockType, ToolType), service interfaces (IGameAudioService, IHapticService, etc.), IUndoableAction — arquitectura base
-│   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
-│   ├── Title/               ← Pantalla de inicio: face tracking, hand tracking, selección de modo, animación de logo
-│   ├── UI/                  ← HUD, menú, orientación, servicios UI
-│   └── Voxel/               ← Bloques, spawn/destroy, piedras procedurales, VFX
-├── Shaders/                 ← Shaders HLSL personalizados (URP)
-└── Textures/
-    ├── AR/                  ← Texturas de suelo AR (T_Sand, T_ZenFloor)
-    ├── Icons/               ← Icono de app
-    └── UI/                  ← Sprites PNG para hotbar y menú (Icon_*, UI_*)
-```
-
----
-
-## 2. Jerarquía de escena
-
-### `Main_AR.unity` — jerarquía completa
-
-La escena se organiza en **2 GameObjects raíz** que actúan como grupos lógicos.
-
-```text
-AR System                                  [Empty — agrupa objetos 3D/AR]
-├── AR Session                             [ARSession, ARInputManager]
-├── XR Interaction Manager                 [XRInteractionManager]
-├── XR Origin (Mobile AR)                  [XROrigin, ARPlaneManager, ARRaycastManager,
-│   │                                       ARAnchorManager, ARTrackedImageManager,
-│   │                                       ARWorldManager, ARDepthService,
-│   │                                       ARPlaneGridAligner, WorldModeBootstrapper]
-│   ├── Camera Offset
-│   │   └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
-│   │                                       ARCameraManager, ARCameraBackground,
-│   │                                       AROcclusionManager]
-│   │       └── CameraFlashLight           [Light (Spot) — linterna de foco]
-│   ├── Svc_Audio                          [Empty — agrupa servicios de audio y hápticos]
-│   │       GameAudioService + AudioSource (SFX)
-│   │       MusicService + AudioSource (Music)
-│   │       HapticService
-│   ├── Svc_Interaction                    [Empty — agrupa input y herramientas]
-│   │       TouchInputRouter
-│   │       ARBlockPlacer
-│   │       BlockDestroyer
-│   │       BrushTool
-│   │       PlowTool
-│   │       DebugRayVisualizer + LineRenderer
-│   ├── Svc_GameLogic                      [Empty — agrupa lógica de juego]
-│   │       HarmonyService
-│   │       UndoRedoService
-│   └── Svc_Lighting                       [Empty — gestión de iluminación]
-│           LightingService
-├── WorldContainer                         [GridManager, GridVisualizer]
-├── ToolManager                            [ToolManager]
-└── Directional Light                      [Light (Directional), URP AdditionalLightData]
-
-UI System                                  [Empty — agrupa objetos UI]
-├── MainCanvas                             [Canvas, CanvasScaler, GraphicRaycaster,
-│   │                                       UIManager, OrientationManager,
-│   │                                       UIAudioService, AudioSource]
-│   ├── HUD_Hotbar                         [Image]
-│   │   └── Hotbar_LayoutGroup             [HorizontalLayoutGroup]
-│   │       ├── Btn_Sand       → Icon_Sand, Txt_Sand
-│   │       ├── Btn_Glass      → Icon_Glass, Txt_Glass
-│   │       ├── Btn_Stone      → Icon_Stone, Txt_Stone
-│   │       ├── Btn_Wood       → Icon_Wood, Txt_Wood
-│   │       ├── Btn_Torch      → Icon_Torch, Txt_Torch
-│   │       ├── Btn_Grass      → Icon_Grass, Txt_Grass
-│   │       └── Btn_None       → Txt_None
-│   │
-│   ├── HUD_ToolPanel                      [Image]
-│   │   └── Tools_LayoutGroup              [VerticalLayoutGroup]
-│   │       ├── Btn_Break      → Icon_Break, Txt_Break
-│   │       ├── Btn_Brush      → Icon_Brush, Txt_Brush  [BrushHUD]
-│   │       └── Btn_Hoe        → Icon_Hoe, Txt_Hoe
-│   │
-│   ├── HUD_Selector                       [Image — highlight amarillo]
-│   │
-│   ├── HUD_Harmony                        [HarmonyHUD]
-│   │   ├── Img_BarBackground              [Image]
-│   │   │   └── Img_BarFill               [Image — fill anchor-driven]
-│   │   └── Txt_HarmonyStatus             [TMP_Text]
-│   │
-│   ├── HUD_UndoRedo                       [UndoRedoHUD]
-│   │   └── Undo_LayoutGroup              [HorizontalLayoutGroup]
-│   │       ├── Btn_Undo       → Icon_Undo, Txt_Undo
-│   │       └── Btn_Redo       → Icon_Redo, Txt_Redo
-│   │
-│   ├── HUD_MenuBlocker                    [Button+Image — invisible fullscreen]
-│   │
-│   ├── HUD_OptionsMenu                    [GameOptionsMenu]
-│   │   ├── Svc_WorldReset                 [WorldResetService]
-│   │   ├── Svc_Screenshot                 [ScreenshotService]
-│   │   ├── Btn_Settings       → Icon_Settings, Txt_Settings
-│   │   └── Panel_OptionsDropdown          [VerticalLayoutGroup, ContentSizeFitter]
-│   │       ├── Btn_Lighting               [DropdownButtonState] → Txt_Lighting
-│   │       ├── Btn_Depth                  [DropdownButtonState] → Txt_Depth
-│   │       ├── Btn_Grid                   [DropdownButtonState] → Txt_Grid
-│   │       ├── Btn_Plane                  [DropdownButtonState] → Txt_Plane
-│   │       ├── Btn_Vibration              [DropdownButtonState] → Txt_Vibration
-│   │       ├── Panel_MusicVolume
-│   │       │   ├── Sld_MusicVolume        [Slider]
-│   │       │   │   ├── Background
-│   │       │   │   ├── Fill Area
-│   │       │   │   └── Handle Slide Area → Handle
-│   │       │   └── Txt_MusicVolume        [TMP_Text]
-│   │       ├── Btn_Photo      → Txt_Photo
-│   │       ├── Btn_ClearAll   → Txt_ClearAll
-│   │       └── Btn_Exit       → Txt_Exit
-│   │
-│   ├── HUD_PerfectHarmony                 [PerfectHarmonyPanel, CanvasGroup]
-│   │   ├── Txt_Status                     [TMP_Text — título]
-│   │   ├── HUD_Particles                  [HarmonyParticles, ParticleSystem]
-│   │   └── Btn_Continue       → Txt_Continue
-│   │
-│   ├── HUD_ScreenshotFlash                [Image (blanco), CanvasGroup — flash de captura, desactivado por defecto]
-│   │
-│   ├── Popup_ScreenshotToast              [ScreenshotToastPanel, CanvasGroup — desactivado por defecto]
-│   │   └── Panel_ToastCard               [Image — card centrada]
-│   │       ├── Img_Preview                [RawImage — thumbnail de la captura]
-│   │       ├── Txt_ToastMessage           [TMP_Text — "📷 Foto guardada"]
-│   │       └── Btn_Accept     → Txt_Accept
-│   │
-│   ├── Plane_Controls                     [contenedor de controles extra]
-│   │
-│   └── Popup_ConfirmClearAll              [RectTransform]
-│       └── Overlay_Background             [Image — overlay semi-transparente]
-│           └── Panel_ConfirmDialog        [Image — card centrada]
-│               ├── Txt_ConfirmMessage     [TMP_Text × 2]
-│               └── Dialog_LayoutGroup     [HorizontalLayoutGroup]
-│                   ├── Btn_Confirm → Txt_Confirm
-│                   └── Btn_Cancel  → Txt_Cancel
-│
-└── EventSystem                            [InputSystemUIInputModule, EventSystem]
-```
-
-### Mapa Script → GameObject
-
-| Script | GameObject host | RequireComponent |
-|--------|----------------|------------------|
-| `ARWorldManager` | XR Origin (Mobile AR) | `ARAnchorManager` |
-| `ARDepthService` | XR Origin (Mobile AR) | — |
-| `ARPlaneGridAligner` | XR Origin (Mobile AR) | — |
-| `WorldModeBootstrapper` | XR Origin (Mobile AR) | — |
-| `GameAudioService` | Svc_Audio | — |
-| `MusicService` | Svc_Audio | — |
-| `TouchInputRouter` | Svc_Interaction | — |
-| `ARBlockPlacer` | Svc_Interaction | — |
-| `BlockDestroyer` | Svc_Interaction | — |
-| `BrushTool` | Svc_Interaction | — |
-| `PlowTool` | Svc_Interaction | — |
-| `DebugRayVisualizer` | Svc_Interaction | — |
-| `HarmonyService` | Svc_GameLogic | — |
-| `UndoRedoService` | Svc_GameLogic | — |
-| `LightingService` | Svc_Lighting | — |
-| `HapticService` | Svc_Audio | — |
-| `GridManager` | WorldContainer | — |
-| `GridVisualizer` | WorldContainer | — |
-| `ToolManager` | ToolManager | — |
-| `UIManager` | MainCanvas | — |
-| `OrientationManager` | MainCanvas | — |
-| `UIAudioService` | MainCanvas | `AudioSource` |
-| `HarmonyHUD` | HUD_Harmony | — |
-| `UndoRedoHUD` | HUD_UndoRedo | — |
-| `BrushHUD` | Btn_Brush | — |
-| `GameOptionsMenu` | HUD_OptionsMenu | — |
-| `PerfectHarmonyPanel` | HUD_PerfectHarmony | `CanvasGroup` |
-| `HarmonyParticles` | HUD_Particles | `ParticleSystem` |
-| `WorldResetService` | Svc_WorldReset | — |
-| `ScreenshotService` | Svc_Screenshot | — |
-| `ScreenshotToastPanel` | Popup_ScreenshotToast | `CanvasGroup` |
-| `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
-| `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration` | — |
-
-### `Title_Screen.unity` — jerarquía completa
-
-La escena de inicio utiliza la cámara frontal con Face Tracking para el filtro
-de Creeper y Hand Tracking (MediaPipe, GPU delegate) para seleccionar el modo de
-juego con el dedo índice mediante **pinch click** (gesto de pellizco instantáneo)
-o **dwell time** (1s como fallback). El logo "ARMONIA" flota con bobbing vertical.
-La transición a `Main_AR` usa `SceneTransitionService` (fade-to-black).
-
-```text
-AR System                                  [Empty — agrupa objetos AR]
-├── XR Origin (Front Camera)               [XROrigin, XRInputModalityManager,
-│   │                                       ARFaceManager (maxFaces 1), CreeperFaceFilter,
-│   │                                       HandTrackingService,
-│   │                                       ARPlaneManager (disabled), ARRaycastManager (disabled)]
-│   └── Camera Offset
-│       └── Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
-│                                           ARCameraManager (User facing), ARCameraBackground,
-│                                           UniversalAdditionalCameraData]
-├── XR Interaction Manager                 [XRInteractionManager]
-├── AR Session                             [ARSession, ARInputManager]
-└── Directional Light                      [Light (Directional), UniversalAdditionalLightData]
-
-UI System                                  [Empty — agrupa objetos UI]
-├── TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080×2400, match 0.5),
-│   │                                       GraphicRaycaster, TitleSceneManager, DwellSelector]
-│   ├── Txt_Title                          [TMP_Text — "ARMONIA", font: minecraft_fot_esp SDF, size 72, bold, blanco,
-│   │                                       TitleLogoAnimator]
-│   ├── Btn_Bonsai                         [Button → SelectMode(0), Image]
-│   │   └── Txt_Bonsai                     [TMP_Text — "Bonsai", font: Minecraft SDF, size 60, gris oscuro]
-│   ├── Btn_Normal                         [Button → SelectMode(1), Image]
-│   │   └── Txt_Normal                     [TMP_Text — "Normal", font: Minecraft SDF, size 60, gris oscuro]
-│   ├── Btn_Real                           [Button → SelectMode(2), Image]
-│   │   └── Txt_Real                       [TMP_Text — "Real", font: Minecraft SDF, size 60, gris oscuro]
-│   └── HandCursor                         [RectTransform, CanvasGroup, HandCursorUI]
-│       ├── Img_CursorDot                  [Image — 40×40 white circle, raycastTarget OFF]
-│       └── Img_DwellProgress              [Image — 60×60 radial fill ring, Fill Method Radial360]
-└── EventSystem                            [InputSystemUIInputModule, EventSystem]
-```
-
-### Mapa Script → GameObject (Title_Screen)
-
-| Script | GameObject host | RequireComponent |
-|--------|----------------|------------------|
-| `TitleSceneManager` | TitleCanvas | — |
-| `CreeperFaceFilter` | XR Origin (Front Camera) | — |
-| `HandTrackingService` | XR Origin (Front Camera) | — |
-| `HandCursorUI` | HandCursor | — |
-| `DwellSelector` | TitleCanvas | — |
-| `TitleLogoAnimator` | Txt_Title | — |
-
-### Wiring de botones — Title_Screen
-
-| Botón | OnClick destino | Parámetro |
-|-------|----------------|-----------|
-| `Btn_Bonsai` | `TitleSceneManager.SelectMode(int)` | `0` |
-| `Btn_Normal` | `TitleSceneManager.SelectMode(int)` | `1` |
-| `Btn_Real` | `TitleSceneManager.SelectMode(int)` | `2` |
-
-### Reglas de nombrado de GameObjects
+### 1.2 GameObjects
 
 | Prefijo | Uso | Ejemplos |
 |---------|-----|----------|
-| *(ninguno)* | Objetos estándar de Unity | `AR Session`, `Main Camera`, `EventSystem` |
+| *(ninguno)* | Objetos estandar de Unity | `AR Session`, `Main Camera`, `EventSystem` |
 | `HUD_` | Regiones persistentes de pantalla | `HUD_Hotbar`, `HUD_Harmony`, `HUD_UndoRedo` |
-| `Panel_` | Paneles contenidos en una sección | `Panel_OptionsDropdown`, `Panel_ConfirmDialog`, `Panel_MusicVolume` |
-| `Popup_` | Modales fullscreen | `Popup_ConfirmClearAll` |
+| `Pnl_` | Paneles contenidos en una seccion | `Pnl_OptionsDropdown`, `Pnl_ConfirmDialog` |
+| `Popup_` | Modales fullscreen | `Popup_ConfirmClearAll`, `Popup_ScreenshotToast` |
 | `Overlay_` | Fondos oscuros/transparentes | `Overlay_Background` |
-| `Bar_` / `Img_` | Componentes de barras de progreso | `Img_BarBackground`, `Img_BarFill` |
-| `Btn_` | Botones (contiene un hijo `Txt_` o `Icon_`) | `Btn_Sand`, `Btn_Settings`, `Btn_Confirm` |
-| `Txt_` | Labels de TextMesh Pro | `Txt_Sand`, `Txt_HarmonyStatus`, `Txt_ConfirmMessage` |
-| `Icon_` | Imágenes de icono dentro de botones | `Icon_Undo`, `Icon_Sand`, `Icon_Settings` |
+| `Img_` | Imagenes y barras de progreso | `Img_BarBackground`, `Img_BarFill`, `Img_Preview` |
+| `Btn_` | Botones (contiene hijo `Txt_` o `Icon_`) | `Btn_Sand`, `Btn_Settings`, `Btn_Confirm` |
+| `Txt_` | Labels de TextMesh Pro | `Txt_Sand`, `Txt_HarmonyStatus` |
+| `Icon_` | Imagenes de icono dentro de botones | `Icon_Undo`, `Icon_Sand`, `Icon_Settings` |
 | `Sld_` | Sliders | `Sld_MusicVolume` |
 | `*_LayoutGroup` | Objetos con LayoutGroup component | `Hotbar_LayoutGroup`, `Dialog_LayoutGroup` |
-| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Screenshot`, `Svc_WorldReset`, `Svc_Audio`, `Svc_Interaction` |
+| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Audio`, `Svc_Interaction`, `Svc_WorldReset` |
 | PascalCase | Singletons / contenedores | `WorldContainer`, `ToolManager`, `MainCanvas` |
 
 **Reglas obligatorias:**
+
 - Cada `Btn_X` debe contener al menos un hijo `Txt_X` o `Icon_X` con el mismo sufijo.
-- Todos los nombres en **inglés**. No español en la jerarquía.
+- Todos los nombres en **ingles**. No espanol en la jerarquia.
 - Sin espacios en nombres propios. Usar `_` para separar prefijo de nombre.
-- Los objetos estándar de Unity mantienen su nombre por defecto (`AR Session`, `Directional Light`, etc.).
+- Los objetos estandar de Unity mantienen su nombre por defecto (`AR Session`, `Directional Light`, etc.).
 
-### Wiring de botones — regla del Brush
+### 1.3 Materiales
 
-El `Btn_Brush` es una **excepción** al patrón estándar de botones:
+Prefijo obligatorio: **`M_`**
 
-| Botón | OnClick destino | Razón |
-|-------|----------------|-------|
-| `Btn_Sand` … `Btn_Hoe` (salvo Brush) | `UIManager.OnSlotClicked(int)` | Son herramientas normales |
-| `Btn_Brush` | `BrushTool.ToggleBrush()` — **llamada directa** | El Brush es un mode overlay, no una herramienta. No pasa por ToolManager. |
+| Patron | Ejemplo |
+|--------|---------|
+| `M_{Nombre}` | `M_ARGround.mat` |
+| `M_Block{Tipo}` | `M_BlockSand.mat`, `M_BlockStone.mat` |
+| `M_{Sistema}{Nombre}` | `M_GridLines.mat` |
+
+**Shader asignado:**
+
+| Material | Shader |
+|----------|--------|
+| `M_Block*.mat` | `ARmonia/Blocks/VoxelLit` |
+| `M_ARGround*.mat` | `ARmonia/AR/ARPlane` |
+| `M_GridLines.mat` | Vertex colour (sin textura) |
+
+### 1.4 Prefabs
+
+| Categoria | Prefijo | Ejemplo |
+|-----------|---------|---------|
+| Bloques voxel | `Voxel_` | `Voxel_Sand.prefab`, `Voxel_Torch.prefab` |
+| Piedras decorativas | `Pebble_` | `Pebble_Stone.prefab` |
+| Objetos 3D | `Object_` | `Object_Creeper.prefab`, `Object_Frog.prefab` |
+| Elementos AR | `AR_` | `AR_Default_Plane.prefab` |
+| Efectos visuales | `VFX_` | `VFX_BlockPlace.prefab`, `VFX_BlockBreak.prefab` |
+| Elementos UI | `UI_` | `UI_HotbarSlot.prefab` |
+
+**Componentes obligatorios por tipo de prefab:**
+
+| Tipo | Componentes requeridos |
+|------|------------------------|
+| Bloque voxel (`Voxel_*`) | `VoxelBlock` + `BlockDestroy` + `BlockSpawn` + `BoxCollider` + `MeshRenderer` |
+| Bloque arena (`Voxel_Sand`) | Igual que `Voxel_*` + `SandGravity` |
+| Piedra (`Pebble_*`) | `ProceduralPebble` + `BlockDestroy` + `BlockSpawn` + `PebbleSupport` + `MeshCollider (convex)` |
+| VFX place (`VFX_BlockPlace`) | `VFXBlockPlace` + `ParticleSystem` |
+| VFX destroy (`VFX_BlockBreak`) | `VFXBlockDestroy` + `ParticleSystem` |
+
+### 1.5 Texturas y modelos 3D
+
+**Texturas:**
+
+| Tipo | Prefijo | Ejemplo |
+|------|---------|---------|
+| Albedo / Diffuse | `T_` | `T_BlockSand_D.png` |
+| Normal map | `T_` + sufijo `_N` | `T_BlockStone_N.png` |
+| Mask (ORM) | `T_` + sufijo `_M` | `T_BlockWood_M.png` |
+| UI icons | `Icon_` | `Icon_Destroy.png` |
+| UI sprites | `UI_` | `UI_HotbarBg.png` |
+| App icon | PascalCase sin prefijo | `ARmoniaIcon.png` |
+| Variantes de icono | Sin prefijo, en `Textures/Images/` | `ARmoniaIcon_bw.jpg` |
+
+**Regla pixel-art:** todas las texturas de bloques usan `Filter Mode = Point (no filter)` y `Compression = None` para bordes nitidos.
+
+**Modelos 3D:**
+
+| Regla | Ejemplo |
+|-------|---------|
+| Prefijo `Model_` + PascalCase | `Model_Glass.glb`, `Model_Stone.glb` |
+| Modelos sin nombre propio | `minecraft_creeper_head 1.glb`, `frog_fountain_minecraft_mob.glb` |
+| Ubicacion bloques: `_Project/Models/Blocks/` | Meshes de bloques voxel |
+| Ubicacion objetos: `_Project/Models/Things/` | Meshes decorativos (Creeper, Frog) |
+| Formato `.glb` (glTF Binary) | Unity importa mesh + texturas embebidas |
+
+### 1.6 Audio
+
+| Tipo | Prefijo | Ejemplo |
+|------|---------|---------|
+| Efectos de sonido | `SFX_` | `SFX_BlockPlace.mp3`, `SFX_MenuClick.mp3` |
+| Musica de fondo | `MUS_` o nombre original | `1-13. Wet Hands.mp3` |
+| Voz / Narracion | `VO_` | `VO_Tutorial01.mp3` |
+
+**Subcarpetas:**
+
+| Carpeta | Contenido |
+|---------|-----------|
+| `Audio/Music/` | Pistas de fondo (12 tracks) |
+| `Audio/SFX/UI/` | Sonidos de interfaz (8 clips) |
+| `Audio/SFX/Voxels/` | Sonidos de bloques y herramientas (26 clips) |
+
+### 1.7 Shaders
+
+| Regla | Ejemplo |
+|-------|---------|
+| Ruta en menu de shader | `Shader "ARmonia/{Carpeta}/{Nombre}"` |
+| Archivo en `_Project/Shaders/` | `ARPlane.shader`, `VoxelLit.shader` |
+| Nombre del pass | `Name "ForwardLit"`, `Name "ARPlaneOverlay"` |
+
+**Reglas tecnicas:**
+
+- `CBUFFER_START(UnityPerMaterial)` para compatibilidad con SRP Batcher.
+- `#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE` para sombras.
+- `#pragma multi_compile _ _SHADOWS_SOFT` para sombras suaves.
+- `#pragma multi_compile_fog` si soporta fog.
+- `MaterialPropertyBlock` en vez de material instances para propiedades per-object en runtime.
+
+### 1.8 ScriptableObjects
+
+| Regla | Ejemplo |
+|-------|---------|
+| `CreateAssetMenu` con ruta `ARmonia/` | `[CreateAssetMenu(menuName = "ARmonia/Core/Harmony Config")]` |
+| Nombre de archivo = `{Tipo}` o `{Tipo}_{Variante}` | `BlockDatabase.asset`, `WorldModeConfig_Normal.asset` |
+| Ubicacion | `_Project/Assets/` |
+
+**ScriptableObjects actuales:**
+
+| Asset | Clase | Campos principales |
+|-------|-------|--------------------|
+| `BlockDatabase.asset` | `BlockDatabaseSO` | `_entries[]` (BlockType -> prefab) |
+| `HarmonyConfig.asset` | `HarmonyConfig` | Pesos, umbrales, gate minimos |
+| `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | Scale 0.02, TrackedImage, ImageLibrary -> `ReferenceImageLibrary.asset` |
+| `WorldModeConfig_Normal.asset` | `WorldModeSO` | Scale 0.10, ARPlane |
+| `WorldModeConfig_Real.asset` | `WorldModeSO` | Scale 1.00, ARPlane |
+| `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | 2 imagenes: `one` (0.13x0.13m), `qr_prueba` (0.10x0.10m), SpecifySize ON |
+
+### 1.9 Escenas
+
+| Regla | Ejemplo |
+|-------|---------|
+| PascalCase con contexto | `Main_AR.unity` |
+| Pantalla de titulo | `Title_Screen.unity` |
+| Escena de test | `Test_GridManager.unity` |
 
 ---
 
-## 3. Scripts C\#
+## 2. Codigo C\#
 
-### Nombrado de archivos
+### 2.1 Archivos y namespaces
 
 | Regla | Ejemplo |
 |-------|---------|
 | PascalCase | `GridManager.cs` |
-| Nombre de archivo = nombre de clase exacto | `ARBlockPlacer.cs` → `public class ARBlockPlacer` |
-| Sin prefijos/sufijos extra | `BlockPlacer.cs` **incorrecto** si la clase es `ARBlockPlacer` |
-| Namespace sigue la ruta de carpeta | `namespace _Project.Scripts.Core` |
+| Nombre de archivo = nombre de clase | `ARBlockPlacer.cs` -> `public class ARBlockPlacer` |
+| Namespace sigue ruta de carpeta | `namespace _Project.Scripts.Core` |
 
-### Namespaces por carpeta
+**Namespaces del proyecto:**
 
 | Carpeta | Namespace |
 |---------|-----------|
@@ -356,7 +207,9 @@ El `Btn_Brush` es una **excepción** al patrón estándar de botones:
 | `Scripts/UI/` | `_Project.Scripts.UI` |
 | `Scripts/Voxel/` | `_Project.Scripts.Voxel` |
 
-### Atributos obligatorios de clase
+### 2.2 Atributos de clase
+
+Cada MonoBehaviour lleva estos atributos **obligatorios**:
 
 ```csharp
 [DisallowMultipleComponent]
@@ -372,7 +225,7 @@ Ejemplo real:
 public class GridManager : MonoBehaviour { }
 ```
 
-### Orden de regiones dentro de cada MonoBehaviour
+### 2.3 Orden de regiones
 
 Cada script sigue este orden de `#region`:
 
@@ -380,48 +233,43 @@ Cada script sigue este orden de `#region`:
 #region Constants              // private const, static readonly
 #region Inspector              // [SerializeField] con [Header] y [Tooltip]
 #region Events                 // public event Action<T>
-#region Cached Components      // o "#region State" — referencias y estado runtime
-#region Public API             // Propiedades y métodos públicos
+#region Cached Components      // o "#region State" -- referencias y estado runtime
+#region Public API             // Propiedades y metodos publicos
 #region Unity Lifecycle        // Awake, OnEnable, Start, Update, LateUpdate, OnDisable, OnDestroy
-#region Internals              // Métodos privados auxiliares
+#region Internals              // Metodos privados auxiliares
 #region Validation             // ValidateReferences() llamado desde Start()
 ```
 
-### Reglas de estilo C\#
+### 2.4 Reglas de estilo
 
 | Regla | Ejemplo |
 |-------|---------|
-| Cada `[SerializeField]` lleva `[Tooltip]` | `[Tooltip("Descripción clara.")] [SerializeField] private float _value;` |
+| Cada `[SerializeField]` lleva `[Tooltip]` | `[Tooltip("Desc.")] [SerializeField] private float _value;` |
 | Cada grupo de campos lleva `[Header]` | `[Header("Dependencies")]` |
-| `ValidateReferences()` en `Start()` | `private void Start() { ValidateReferences(); }` |
-| Formato de `ValidateReferences()` | Siempre `Debug.LogWarning("[Clase] _campo is not assigned.", this);` — ver subsección abajo |
-| XML `<summary>` en toda clase pública | `/// <summary>Gestiona la rejilla de construcción.</summary>` |
-| Yield cacheados como campo | `private readonly WaitForSeconds _wait = new WaitForSeconds(0.5f);` |
+| XML `<summary>` en toda clase publica | `/// <summary>Gestiona la rejilla.</summary>` |
+| Yield cacheados como campo | `private readonly WaitForSeconds _wait = new(0.5f);` |
 | No dejar `using` sin usar | Limpiar imports |
 | `Debug.Log` en decisiones clave | `Debug.Log($"[ClassName] Action -- context.");` |
 
-### Convención de Debug.Log
+### 2.5 Convencion de Debug.Log
 
-Cada servicio y controlador incluye `Debug.Log` **estratégicos** en puntos de
-decisión importantes para facilitar el diagnóstico en consola:
+Cada servicio y controlador lleva `Debug.Log` estrategicos en puntos clave para facilitar el diagnostico:
 
-| Cuándo | Ejemplo |
+| Cuando | Ejemplo |
 |--------|---------|
-| Inicialización de servicio | `Debug.Log($"[HarmonyService] Initialized -- score: {_lastScore:F2}.");` |
+| Inicializacion de servicio | `Debug.Log($"[HarmonyService] Initialized -- score: {_lastScore:F2}.");` |
 | Cambio de estado relevante | `Debug.Log($"[ToolManager] Tool changed to {CurrentTool}.");` |
 | Evento de juego importante | `Debug.Log("[HarmonyService] *** PERFECT HARMONY REACHED ***");` |
 | Toggle ON/OFF | `Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");` |
-| Operación destructiva | `Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");` |
+| Operacion destructiva | `Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");` |
 
-**Formato obligatorio:** `[ClassName] Message -- context.`
-**No añadir** `Debug.Log` en hot paths (`Update`, loops de coroutine) ni en
-métodos llamados cada frame.  Unity los stripea automáticamente en builds no-Development.
+**Formato:** `[ClassName] Message -- context.`
 
-### Convención de ValidateReferences()
+No meter `Debug.Log` en hot paths (`Update`, loops de coroutine). Unity los stripea automaticamente en builds no-Development.
 
-Cada MonoBehaviour tiene un método `ValidateReferences()` llamado desde `Start()`.
-Este método valida que todas las dependencias (campos, servicios, componentes) se
-hayan resuelto correctamente.  **Formato único obligatorio:**
+### 2.6 Convencion de ValidateReferences()
+
+Cada MonoBehaviour tiene un `ValidateReferences()` llamado desde `Start()` para comprobar que las dependencias se resolvieron. **Formato unico:**
 
 ```csharp
 #region Validation ----------------------------------------
@@ -441,297 +289,348 @@ private void ValidateReferences()
 |-------|----------|------------|
 | Nivel de log | `Debug.LogWarning` | `Debug.LogError` |
 | Nombre del campo | `_fieldName` (nombre real del campo privado) | `FieldName`, `"No Collider found"` |
-| Mensaje | `"[Clase] _campo is not assigned."` | `"[Clase] _campo not found!"`, `"[Clase] _campo is not assigned!"` |
-| Puntuación | Punto final `.` | Exclamación `!` |
+| Mensaje | `"[Clase] _campo is not assigned."` | `"[Clase] _campo not found!"` |
+| Puntuacion | Punto final `.` | Exclamacion `!` |
 | Contexto `this` | Siempre `this` como segundo argumento | Sin contexto |
-| `OnValidate()` | **Prohibido** — no usar `#if UNITY_EDITOR` + `OnValidate` | `#if UNITY_EDITOR private void OnValidate() ...` |
-| Arrays vacíos | `if (_arr == null \|\| _arr.Length == 0)` | Solo `_arr == null` |
-| Componentes vía GetComponent | `"[Clase] ComponentType is not assigned."` | `"[Clase] ComponentType not found!"` |
+| `OnValidate()` | **Prohibido** en MonoBehaviours | Solo `ScriptableObject` puede usarlo |
+| Arrays vacios | `if (_arr == null \|\| _arr.Length == 0)` | Solo `_arr == null` |
+| GetComponent | `"[Clase] ComponentType is not assigned."` | `"[Clase] ComponentType not found!"` |
 
 ---
 
-## 4. Variables y campos C\#
+## 3. Variables y campos C\#
 
-| Tipo | Convención | Ejemplo |
-|------|-----------|---------|
+| Tipo | Convencion | Ejemplo |
+|------|------------|---------|
 | `[SerializeField]` private | `_camelCase` | `_gridManager`, `_audioService` |
-| Private field (sin serialize) | `_camelCase` | `_lastScore`, `_knocked`, `_isCapturing` |
-| Public property | PascalCase | `GridSize`, `IsWorldAnchored`, `CurrentScore` |
+| Private field | `_camelCase` | `_lastScore`, `_knocked` |
+| Public property | PascalCase | `GridSize`, `IsWorldAnchored` |
 | Constant (`const`) | `UPPER_SNAKE_CASE` | `MIN_FORWARD_SQR_MAG`, `RAY_DURATION` |
 | Static readonly | `UPPER_SNAKE_CASE` | `GRID_MATRIX_ID`, `GRID_ENABLED_ID` |
-| Local variable | `camelCase` | `snappedPosition`, `halfSize`, `elapsed` |
-| Method parameter | `camelCase` | `hitPose`, `playerCamera`, `enable` |
+| Local variable | `camelCase` | `snappedPosition`, `halfSize` |
+| Method parameter | `camelCase` | `hitPose`, `playerCamera` |
 | Public method | PascalCase | `AnchorWorld()`, `GetSnappedPosition()` |
 | Private method | PascalCase | `OrientTowardsCamera()`, `Recalculate()` |
-| Event (`Action`) | `On` + PascalCase | `OnToolChanged`, `OnHarmonyChanged`, `OnPerfectHarmony` |
+| Event (`Action`) | `On` + PascalCase | `OnToolChanged`, `OnHarmonyChanged` |
 | Enum values | PascalCase con `_` si compuesto | `Build_Sand`, `Tool_Destroy`, `Bonsai` |
 | Boolean properties | `Is`/`Can`/`Has` + PascalCase | `IsGridActive`, `CanUndo`, `IsBuildTool` |
 
 ---
 
-## 5. Materiales
+## 4. Jerarquia de escenas
 
-**Prefijo obligatorio: `M_`**
+### 4.1 Main_AR.unity
 
-| Patrón | Ejemplo |
-|--------|---------|
-| `M_{Nombre}` | `M_ARGround.mat` |
-| `M_Block{Tipo}` | `M_BlockSand.mat`, `M_BlockStone.mat` |
-| `M_{Sistema}{Nombre}` | `M_GridLines.mat` |
-
-**Shader asignado obligatorio:**
-
-| Material de bloque | Shader |
-|-------------------|--------|
-| `M_Block*.mat` | `ARmonia/Blocks/VoxelLit` |
-| `M_ARGround*.mat` | `ARmonia/AR/ARPlane` |
-| `M_GridLines.mat` | Vertex colour (sin textura) |
-
----
-
-## 6. Prefabs
-
-**Prefijo por categoría:**
-
-| Categoría | Prefijo | Ejemplo |
-|-----------|---------|---------|
-| Bloques voxel | `Voxel_` | `Voxel_Sand.prefab`, `Voxel_Torch.prefab` |
-| Piedras decorativas | `Pebble_` | `Pebble_Stone.prefab` |
-| Elementos AR | `AR_` | `AR_Default_Plane.prefab`, `AR_RayInteractor.prefab` |
-| Efectos visuales | `VFX_` | `VFX_BlockPlace.prefab`, `VFX_BlockBreak.prefab` |
-| Elementos UI | `UI_` | `UI_HotbarSlot.prefab` |
-
-**Componentes obligatorios por tipo de prefab:**
-
-| Tipo | Componentes requeridos |
-|------|----------------------|
-| Bloque voxel (`Voxel_*`) | `VoxelBlock` + `BlockDestroy` + `BlockSpawn` + `BoxCollider` + `MeshRenderer` |
-| Bloque arena (`Voxel_Sand`) | Igual que `Voxel_*` + `SandGravity` (gravedad post-spawn) |
-| Piedra (`Pebble_*`) | `ProceduralPebble` + `BlockDestroy` + `BlockSpawn` + `PebbleSupport` + `MeshCollider (convex)` |
-| VFX place (`VFX_BlockPlace`) | `VFXBlockPlace` + `ParticleSystem` |
-| VFX destroy (`VFX_BlockBreak`) | `VFXBlockDestroy` + `ParticleSystem` |
-
----
-
-## 7. Texturas
-
-**Prefijo por tipo:**
-
-| Tipo | Prefijo | Ejemplo |
-|------|---------|---------|
-| Albedo / Diffuse | `T_` | `T_BlockSand_D.png` |
-| Normal map | `T_` + sufijo `_N` | `T_BlockStone_N.png` |
-| Mask (ORM) | `T_` + sufijo `_M` | `T_BlockWood_M.png` |
-| UI icons | `Icon_` | `Icon_Destroy.png` |
-| UI sprites | `UI_` | `UI_HotbarBg.png` |
-| App icon | PascalCase sin prefijo | `ARmoniaIcon.png` |
-
-**Regla pixel-art:** Todas las texturas de bloques usan
-`Filter Mode = Point (no filter)` y `Compression = None` para mantener bordes
-nítidos de pixel.
-
-### Modelos 3D
-
-| Regla | Ejemplo |
-|-------|---------|
-| Prefijo `Model_` + PascalCase | `Model_Glass.glb`, `Model_Stone.glb` |
-| Ubicación: `_Project/Models/Blocks/` | No mezclar con texturas |
-| Formato `.glb` (glTF Binary) | Unity importa mesh + texturas embebidas |
-
----
-
-## 8. Audio
-
-| Tipo | Prefijo | Ejemplo |
-|------|---------|---------|
-| Efectos de sonido | `SFX_` | `SFX_BlockPlace.mp3`, `SFX_MenuClick.mp3` |
-| Música de fondo | `MUS_` o nombre original | `1-13. Wet Hands.mp3` |
-| Voz / Narración | `VO_` | `VO_Tutorial01.mp3` |
-
-**Organización de subcarpetas:**
-
-| Carpeta | Contenido |
-|---------|-----------|
-| `Audio/Music/` | Pistas de fondo (12 tracks) |
-| `Audio/SFX/UI/` | Sonidos de interfaz (5 clips) |
-| `Audio/SFX/Voxels/` | Sonidos de bloques y herramientas (23 clips) |
-
-### Vibración háptica
-
-**Plugin:** [Vibration](https://github.com/BenoitFreslon/Vibration) (Benoit Freslon) — paquete UPM.
-
-**Servicio central:** `HapticService` en `Svc_Audio`.  
-Empieza **desactivado** — el usuario lo activa desde `Btn_Vibration` en el dropdown.
-
-| Preset | Método | Duración | Uso |
-|--------|--------|----------|-----|
-| Light (Pop) | `VibrateLight()` | ≈ 50 ms | UI taps, colocar bloque, foto |
-| Medium (Peek) | `VibrateMedium()` | ≈ 100 ms | Destruir bloque |
-| Heavy (Nope) | `VibrateHeavy()` | Patrón triple | Fases altas de armonía, armonía perfecta |
-
-**Patrón de integración:** los scripts llaman `_hapticService?.VibrateX()`.
-`UIAudioService` incluye vibración en todos los métodos `Play*()` (excepto `PlayPhoto`, que la maneja `ScreenshotService`).
-
----
-
-## 9. Escenas
-
-| Regla | Ejemplo |
-|-------|---------|
-| PascalCase con contexto | `Main_AR.unity` |
-| Pantalla de título | `Title_Screen.unity` |
-| Pantalla de menú | `Menu_Main.unity` |
-| Pantalla de carga | `Loading.unity` |
-| Escena de test | `Test_GridManager.unity` |
-
-### Escenas actuales
-
-| Escena | Build Index | Descripción |
-|--------|-------------|-------------|
-| `Title_Screen.unity` | 0 | Pantalla de inicio: cámara frontal, Face Tracking + Creeper, Hand Tracking + pinch click, selección de modo (Bonsai/Normal/Real), logo animado. |
-| `Main_AR.unity` | 1 | Escena principal de juego: cámara trasera, AR planes/images, construcción voxel. |
-
-### Flujo entre escenas
+La escena se organiza en **2 GameObjects raiz** como grupos logicos.
 
 ```text
-Title_Screen                               Main_AR
-┌─────────────────────┐  TransitionTo  ┌──────────────────────┐
-│ TitleSceneManager   │ ─────────────→ │ WorldModeBootstrapper │
-│ SelectMode(int)     │  (fade-black)  │ Awake: lee contexto,  │
-│ → WorldModeContext  │                │   aplica escala       │
-│ → SceneTransition   │                │ Start: corrutina      │
-│   Service           │  TransitionTo  │   espera ARSession →  │
-└─────────────────────┘ ←──────────── │   configura managers  │
-                         GameOptions   └──────────────────────┘
-                         Menu.ExitGame()
-                          (fade-black)
+AR System                                  [Empty -- agrupa objetos 3D/AR]
++-- AR Session                             [ARSession, ARInputManager,
+|                                           ARPointCloudManager, AROcclusionManager]
++-- XR Interaction Manager                 [XRInteractionManager]
++-- XR Origin (Mobile AR)                  [XROrigin, ARSession, ARPlaneManager,
+|   |                                       ARAnchorManager, ARRaycastManager,
+|   |                                       ARTrackedImageManager, ARMeshManager,
+|   |                                       ARWorldManager, ARDepthService,
+|   |                                       ARPlaneGridAligner, WorldModeBootstrapper]
+|   +-- Camera Offset
+|   |   +-- Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
+|   |                                       ARCameraManager, ARCameraBackground,
+|   |                                       UniversalAdditionalCameraData]
+|   |       +-- CameraFlashLight           [Light (Spot), AudioSource]
+|   +-- Svc_Audio                          [Empty -- agrupa servicios de audio y hapticos]
+|   |       GameAudioService, MusicService, HapticService
+|   +-- Svc_Interaction                    [Empty -- agrupa input y herramientas]
+|   |       TouchInputRouter, ARBlockPlacer, BlockDestroyer,
+|   |       BrushTool, PlowTool, DebugRayVisualizer + LineRenderer
+|   +-- Svc_GameLogic                      [Empty -- agrupa logica de juego]
+|   |       HarmonyService, UndoRedoService
+|   +-- Svc_Lighting                       [Empty -- gestion de iluminacion]
+|           LightingService
++-- WorldContainer                         [GridManager, GridVisualizer]
++-- ToolManager                            [ToolManager]
++-- Directional Light                      [Light (Directional), AudioSource,
+                                            UniversalAdditionalLightData]
+
+UI System                                  [Empty -- agrupa objetos UI]
++-- MainCanvas                             [Canvas, CanvasScaler, GraphicRaycaster,
+|   |                                       UIManager, OrientationManager,
+|   |                                       UIAudioService, AudioSource]
+|   +-- HUD_Hotbar                         [Image]
+|   |   +-- Hotbar_LayoutGroup             [VerticalLayoutGroup]
+|   |       +-- Btn_Sand       -> Icon_Sand, Txt_Sand
+|   |       +-- Btn_Glass      -> Icon_Glass, Txt_Glass
+|   |       +-- Btn_Stone      -> Icon_Stone, Txt_Stone
+|   |       +-- Btn_Wood       -> Icon_Wood, Txt_Wood
+|   |       +-- Btn_Torch      -> Icon_Torch, Txt_Torch
+|   |       +-- Btn_Grass      -> Icon_Grass, Txt_Grass
+|   |       +-- Btn_None       -> Txt_None
+|   |
+|   +-- HUD_ToolPanel                      [Image]
+|   |   +-- Tools_LayoutGroup              [HorizontalLayoutGroup]
+|   |       +-- Btn_Break      -> Icon_Break, Txt_Break
+|   |       +-- Btn_Hoe        -> Icon_Hoe, Txt_Hoe
+|   |       +-- Btn_Brush      -> Icon_Brush, Txt_Brush  [BrushHUD]
+|   |
+|   +-- HUD_Selector                       [Image -- highlight amarillo]
+|   |
+|   +-- HUD_Harmony                        [HarmonyHUD]
+|   |   +-- Txt_HarmonyStatus             [TMP_Text]
+|   |   +-- Txt_Status                    [TMP_Text]
+|   |   +-- Img_BarBackground              [Image]
+|   |       +-- Img_BarFill               [Image -- fill anchor-driven]
+|   |
+|   +-- HUD_UndoRedo                       [UndoRedoHUD]
+|   |   +-- Undo_LayoutGroup              [VerticalLayoutGroup]
+|   |       +-- Btn_Undo       -> Icon_Undo, Txt_Undo
+|   |       +-- Btn_Redo       -> Icon_Redo, Txt_Redo
+|   |
+|   +-- HUD_MenuBlocker                    [Button+Image -- invisible fullscreen, OFF]
+|   |
+|   +-- HUD_OptionsMenu                    [GameOptionsMenu]
+|   |   +-- Svc_WorldReset                 [WorldResetService]
+|   |   +-- Svc_Screenshot                 [ScreenshotService]
+|   |   +-- Btn_Settings       -> Icon_Settings, Txt_Settings
+|   |   +-- Pnl_OptionsDropdown            [HorizontalLayoutGroup, ContentSizeFitter]
+|   |       +-- Btn_Lighting               [DropdownButtonState] -> Txt_Lighting
+|   |       +-- Btn_Depth                  [DropdownButtonState] -> Txt_Depth
+|   |       +-- Plane_Controls             [VerticalLayoutGroup]
+|   |       |   +-- Btn_Plane              [DropdownButtonState] -> Txt_Plane
+|   |       |   +-- Btn_Grid              [DropdownButtonState] -> Txt_Grid
+|   |       +-- Btn_Photo      -> Txt_Photo
+|   |       +-- Btn_ClearAll   -> Txt_ClearAll
+|   |       +-- Btn_Exit       -> Txt_Exit
+|   |       +-- Btn_Vibration              [DropdownButtonState] -> Txt_Vibration
+|   |       +-- Pnl_MusicVolume            [HorizontalLayoutGroup]
+|   |           +-- Txt_MusicVolume        [TMP_Text]
+|   |           +-- Sld_MusicVolume        [Slider]
+|   |               +-- Background
+|   |               +-- Fill Area -> Fill
+|   |               +-- Handle Slide Area -> Handle
+|   |
+|   +-- Popup_ConfirmClearAll              [RectTransform -- OFF]
+|   |   +-- Overlay_Background             [Image -- overlay semi-transparente]
+|   |       +-- Pnl_ConfirmDialog          [Image -- card centrada]
+|   |           +-- Txt_ConfirmMessage     [TMP_Text]
+|   |           +-- Dialog_LayoutGroup     [VerticalLayoutGroup]
+|   |               +-- Btn_Confirm -> Txt_Confirm
+|   |               +-- Btn_Cancel  -> Txt_Cancel
+|   |
+|   +-- HUD_PerfectHarmony                 [PerfectHarmonyPanel]
+|   |   +-- HUD_Particles                  [HarmonyParticles, ParticleSystem]
+|   |   +-- Overlay_Background             [Image]
+|   |       +-- Pnl_ConfirmDialog          [Image]
+|   |           +-- Txt_ConfirmMessage     [TMP_Text]
+|   |           +-- Dialog_LayoutGroup     [VerticalLayoutGroup]
+|   |               +-- Btn_Continue -> Txt_Continue
+|   |
+|   +-- HUD_ScreenshotFlash                [Image (blanco) -- flash, OFF]
+|   |
+|   +-- Popup_ScreenshotToast              [ScreenshotToastPanel -- OFF]
+|       +-- Pnl_ToastCard                  [HorizontalLayoutGroup]
+|           +-- Txt_ToastMessage           [TMP_Text]
+|           +-- Img_Preview                [RawImage -- thumbnail captura]
+|           +-- Dialog_LayoutGroup         [VerticalLayoutGroup]
+|               +-- Btn_Continue -> Txt_Continue
+|
++-- EventSystem                            [EventSystem, StandaloneInputModule]
 ```
 
+### 4.2 Mapa Script -> GameObject (Main_AR)
+
+| Script | GameObject host | RequireComponent |
+|--------|-----------------|------------------|
+| `ARWorldManager` | XR Origin (Mobile AR) | `ARAnchorManager` |
+| `ARDepthService` | XR Origin (Mobile AR) | -- |
+| `ARPlaneGridAligner` | XR Origin (Mobile AR) | -- |
+| `WorldModeBootstrapper` | XR Origin (Mobile AR) | -- |
+| `GameAudioService` | Svc_Audio | -- |
+| `MusicService` | Svc_Audio | -- |
+| `HapticService` | Svc_Audio | -- |
+| `TouchInputRouter` | Svc_Interaction | -- |
+| `ARBlockPlacer` | Svc_Interaction | -- |
+| `BlockDestroyer` | Svc_Interaction | -- |
+| `BrushTool` | Svc_Interaction | -- |
+| `PlowTool` | Svc_Interaction | -- |
+| `DebugRayVisualizer` | Svc_Interaction | -- |
+| `HarmonyService` | Svc_GameLogic | -- |
+| `UndoRedoService` | Svc_GameLogic | -- |
+| `LightingService` | Svc_Lighting | -- |
+| `GridManager` | WorldContainer | -- |
+| `GridVisualizer` | WorldContainer | -- |
+| `ToolManager` | ToolManager | -- |
+| `UIManager` | MainCanvas | -- |
+| `OrientationManager` | MainCanvas | -- |
+| `UIAudioService` | MainCanvas | `AudioSource` |
+| `HarmonyHUD` | HUD_Harmony | -- |
+| `UndoRedoHUD` | HUD_UndoRedo | -- |
+| `BrushHUD` | Btn_Brush | -- |
+| `GameOptionsMenu` | HUD_OptionsMenu | -- |
+| `PerfectHarmonyPanel` | HUD_PerfectHarmony | `CanvasGroup` |
+| `HarmonyParticles` | HUD_Particles | `ParticleSystem` |
+| `WorldResetService` | Svc_WorldReset | -- |
+| `ScreenshotService` | Svc_Screenshot | -- |
+| `ScreenshotToastPanel` | Popup_ScreenshotToast | `CanvasGroup` |
+| `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
+| `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration` | -- |
+
+### 4.3 Title_Screen.unity
+
+Camara frontal con Face Tracking (filtro de Creeper) y Hand Tracking (MediaPipe, GPU delegate) para seleccionar modo con **pinch click** o **dwell time** (3s fallback). Logo "ARMONIA" con bobbing vertical. Transicion a `Main_AR` via `SceneTransitionService` (fade-to-black).
+
+```text
+AR System                                  [Empty -- agrupa objetos AR]
++-- XR Origin (Front Camera)               [XROrigin, InputActionManager,
+|   |                                       ARFaceManager (enabled, maxFaces 1),
+|   |                                       ARPlaneManager (disabled), ARRaycastManager (disabled),
+|   |                                       CreeperFaceFilter, HandTrackingService]
+|   +-- Camera Offset
+|       +-- Main Camera                    [Camera, AudioListener, TrackedPoseDriver,
+|                                           ARCameraManager (User facing), ARCameraBackground,
+|                                           UniversalAdditionalCameraData]
++-- XR Interaction Manager                 [XRInteractionManager]
++-- AR Session                             [ARSession, ARInputManager]
++-- Directional Light                      [Light (Directional), UniversalAdditionalLightData]
+
+UI System                                  [Empty -- agrupa objetos UI]
++-- TitleCanvas                            [Canvas (Overlay, order 10), CanvasScaler (1080x2400, match 0.5),
+|   |                                       GraphicRaycaster, TitleSceneManager, DwellSelector, AudioSource]
+|   +-- HUD_Buttons                        [Image (semi-transparente), VerticalLayoutGroup]
+|   |   +-- Txt_GameMode                   [TMP_Text -- "Elige tu modo de juego", size 60]
+|   |   +-- Btn_Bonsai                     [Button -> SelectMode(0), Image]
+|   |   |   +-- Txt_Bonsai                 [TMP_Text -- "Bonsai", size 50]
+|   |   +-- Btn_Normal                     [Button -> SelectMode(1), Image]
+|   |   |   +-- Txt_Normal                 [TMP_Text -- "Normal", size 50]
+|   |   +-- Btn_Real                       [Button -> SelectMode(2), Image]
+|   |       +-- Txt_Real                   [TMP_Text -- "Real", size 50]
+|   +-- HUD_Logo                           [Image, TitleLogoAnimator]
+|   +-- HandCursor                         [RectTransform, CanvasGroup, HandCursorUI]
+|       +-- Img_CursorDot                  [Image -- 100x100 white circle, raycastTarget OFF]
+|       +-- Img_DwellProgress              [Image -- 100x100 radial fill ring]
++-- EventSystem                            [EventSystem, InputSystemUIInputModule]
+
+MusicPlayer                                [AudioSource, MusicService]
+```
+
+### 4.4 Mapa Script -> GameObject (Title_Screen)
+
+| Script | GameObject host | RequireComponent |
+|--------|-----------------|------------------|
+| `TitleSceneManager` | TitleCanvas | -- |
+| `CreeperFaceFilter` | XR Origin (Front Camera) | -- |
+| `HandTrackingService` | XR Origin (Front Camera) | -- |
+| `HandCursorUI` | HandCursor | -- |
+| `DwellSelector` | TitleCanvas | `AudioSource` |
+| `TitleLogoAnimator` | HUD_Logo | -- |
+| `MusicService` | MusicPlayer | -- |
+
+### 4.5 Wiring de botones
+
+**Title_Screen:**
+
+| Boton | OnClick destino | Parametro |
+|-------|-----------------|-----------|
+| `Btn_Bonsai` | `TitleSceneManager.SelectMode(int)` | `0` |
+| `Btn_Normal` | `TitleSceneManager.SelectMode(int)` | `1` |
+| `Btn_Real` | `TitleSceneManager.SelectMode(int)` | `2` |
+
+**Main_AR -- regla del Brush:**
+
+El `Btn_Brush` es una **excepcion** al patron estandar de botones:
+
+| Boton | OnClick destino | Razon |
+|-------|-----------------|-------|
+| `Btn_Sand` ... `Btn_Hoe` (salvo Brush) | `UIManager.OnSlotClicked(int)` | Herramientas normales |
+| `Btn_Brush` | `BrushTool.ToggleBrush()` -- **llamada directa** | Mode overlay, no pasa por ToolManager |
+
 ---
 
-## 10. Shaders
+## 5. Patrones de arquitectura
 
-| Regla | Ejemplo |
-|-------|---------|
-| Ruta en menú de shader | `Shader "ARmonia/{Carpeta}/{Nombre}"` |
-| Archivo en `_Project/Shaders/` | `ARPlane.shader`, `VoxelLit.shader` |
-| Nombre del pass | `Name "ForwardLit"`, `Name "ARPlaneOverlay"` |
+Tabla con ejemplo real de cada patron arquitectonico del proyecto:
 
-**Shaders actuales:**
+| Patron | Uso | Ejemplo real |
+|--------|-----|--------------|
+| **Service Locator** | Resolucion de dependencias por interfaz sin singletons ni `Find*` | `ServiceLocator.Register<IGameAudioService>(this)` en `Awake`; `ServiceLocator.TryGet<IGameAudioService>(out _audioService)` en consumidor |
+| **EventBus** (pub/sub tipado) | Comunicacion cross-sistema sin referencias directas | `EventBus.Publish(new BlockPlacedEvent(cell, id))` -> cualquier suscriptor lo recibe |
+| **C# Events** (`event Action<T>`) | Notificacion intra-capa, UI reactiva | `IHarmonyService.OnHarmonyChanged` -> `HarmonyHUD.SetHarmony` |
+| **Llamada directa** | Acoplamiento estrecho dentro de la misma capa | `ARBlockPlacer` -> `IGridManager.GetSnappedPosition()` |
+| **Inspector** `[SerializeField]` | Inyeccion de dependencias para MonoBehaviours de escena | Toda seccion `#region Inspector` en scripts de escena |
+| **Command Pattern** | Undo/Redo | `IUndoableAction` -> `PlaceBlockAction` / `DestroyBlockAction` |
+| **Facade** | Simplificar acceso a subsistema | `GridManager` envuelve `GridVisualizer` |
+| **ScriptableObject data** | Config compartida sin depender de escena | `BlockDatabaseSO`, `HarmonyConfig`, `WorldModeSO` |
+| **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
+| **Internal static helper** | Logica compartida entre Commands sin estado | `PlaceBlockAction.ArmForImmediate()` -- deshabilita BlockSpawn, habilita Collider + SetReady(). Usado por Redo (place) y Undo (destroy). |
+| **ServiceLocator.TryGet en Awake** | Servicios de escena desde prefabs instanciados | `BlockSpawn`, `BlockDestroy`, `SandGravity` resuelven interfaces en `Awake` |
+| **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX |
+| **VoxelBlock como fuente de audio** | Prefab data-component leido por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles. |
+| **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick -> BrushTool.ToggleBrush()` |
+| **OnClick con int param** | Seleccion indexada desde botones UI | `Btn_Bonsai.OnClick -> TitleSceneManager.SelectMode(0)` |
+| **Scene transition** | Carga de escena con fade y dato estatico pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")`. `WorldModeBootstrapper` lee en `Awake()` y difiere activacion de AR managers a corrutina que espera `ARSession.state >= SessionInitializing`. |
+| **DontDestroyOnLoad + ServiceLocator** | Servicio cross-escena | `SceneTransitionService`: se registra como `ISceneTransitionService` en `Awake`, persiste via `DontDestroyOnLoad`, guard `IsRegistered<T>()` para evitar duplicados. Canvas overlay propio (sort order 999). |
+| **Pinch gesture detection** | Deteccion de gesto por distancia de landmarks | `HandTrackingService` mide distancia thumb tip (#4) <-> index tip (#8). Histeresis (enter 0.055, exit 0.08) + debounce (2 frames). |
+| **Sand gravity (EventBus + safety poll)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, suscripcion a `BlockDestroyedEvent` (trigger primario) + `InvokeRepeating` cada 1s (safety net). Si no hay soporte -> reserva celda en `HashSet` estatico -> cae animado (ease-in). `Physics.SyncTransforms()` tras aterrizar. Desactiva collider/BlockDestroy durante caida. |
 
-| Shader | Ruta | Descripción |
-|--------|------|-------------|
-| `ARmonia/AR/ARPlane` | `ARPlane.shader` | Arena zen con grid animado, 5 tonos, pulse/shimmer, sombras, transparente. |
-| `ARmonia/Blocks/VoxelLit` | `VoxelLit.shader` | Toon-lit 3 bandas, point-sampled, vertex AO, emisión, fog, shadow caster + depth. |
+### Vibracion haptica -- patron de integracion
 
-**Reglas para shaders:**
-- Usar `CBUFFER_START(UnityPerMaterial)` para compatibilidad con SRP Batcher.
-- Incluir `#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE`.
-- Incluir `#pragma multi_compile _ _SHADOWS_SOFT`.
-- Incluir `#pragma multi_compile_fog` si el shader soporta fog.
-- Usar `MaterialPropertyBlock` en vez de material instances para propiedades per-object en runtime.
+`HapticService` vive en `Svc_Audio`. Empieza **desactivado** (el usuario lo activa desde `Btn_Vibration`).
 
----
-
-## 11. ScriptableObjects
-
-| Regla | Ejemplo |
-|-------|---------|
-| `CreateAssetMenu` con ruta `ARmonia/` | `[CreateAssetMenu(menuName = "ARmonia/Core/Harmony Config")]` |
-| Nombre de archivo = `{Tipo}` o `{Tipo}_{Variante}` | `BlockDatabase.asset`, `WorldModeConfig_Normal.asset` |
-| Ubicación | `_Project/Assets/` |
-
-**ScriptableObjects actuales:**
-
-| Asset | Clase | Campos principales |
-|-------|-------|--------------------|
-| `BlockDatabase.asset` | `BlockDatabase` | `_entries[]` (BlockType → prefab) |
-| `HarmonyConfig.asset` | `HarmonyConfig` | Pesos, umbrales, gate mínimos |
-| `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | Scale 0.02, TrackedImage, ImageLibrary → `ReferenceImageLibrary.asset` |
-| `WorldModeConfig_Normal.asset` | `WorldModeSO` | Scale 0.10, ARPlane |
-| `WorldModeConfig_Real.asset` | `WorldModeSO` | Scale 1.00, ARPlane |
-| `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | 2 imágenes: `one` (0.13×0.13m), `qr_prueba` (0.10×0.10m), ambas con SpecifySize ON |
+Los scripts llaman `_hapticService?.VibrateX()`. `UIAudioService` incluye vibracion en todos los metodos `Play*()` (excepto `PlayPhoto`, que la maneja `ScreenshotService`).
 
 ---
 
-## 12. Rendimiento — target S24 Ultra
+## 6. Rendimiento -- target S24 Ultra
 
-Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
+Reglas obligatorias para 60fps estables en AR movil:
 
-| Regla | Por qué | Cómo |
+| Regla | Por que | Como |
 |-------|---------|------|
-| **No `GetComponent` en `Update()`** | Presión GC + CPU spike por frame | Cachear en `Awake()` o `Start()` |
-| **No `Find()` / `FindObjectOfType()`** | Scan O(n) cada llamada | Usar `[SerializeField]` en Inspector o `ServiceLocator.TryGet<T>()` para prefabs |
-| **No allocation en hot paths** | GC stutter en móvil | Reutilizar `List<>`, `HashSet<>`, `MaterialPropertyBlock`, `WaitForSeconds` |
-| **UI event-driven** | Polling gasta batería + CPU | Usar `event Action<T>` → suscribir en `OnEnable`, desuscribir en `OnDisable` |
-| **No concatenar `string` en `Update()`** | `StringBuilder` oculto alloc | Usar interpolated strings solo en `Debug.Log` (stripped en Release) |
+| **No `GetComponent` en `Update()`** | Presion GC + CPU spike por frame | Cachear en `Awake()` o `Start()` |
+| **No `Find()` / `FindObjectOfType()`** | Scan O(n) cada llamada | `[SerializeField]` en Inspector o `ServiceLocator.TryGet<T>()` para prefabs |
+| **No allocation en hot paths** | GC stutter en movil | Reutilizar `List<>`, `HashSet<>`, `MaterialPropertyBlock`, `WaitForSeconds` |
+| **UI event-driven** | Polling gasta bateria + CPU | `event Action<T>` -> suscribir en `OnEnable`, desuscribir en `OnDisable` |
+| **No concatenar `string` en `Update()`** | `StringBuilder` oculto alloc | Interpolated strings solo en `Debug.Log` (stripped en Release) |
 | **Cachear `Camera.main`** | Internamente llama `FindObjectWithTag` | Guardar en `Awake()`: `_mainCamera = Camera.main` |
 | **Usar `sqrMagnitude`** | Evita `sqrt` por frame | `if (sqrDist <= radius * radius)` |
 | **HashSet para celdas pendientes** | Lookup O(1) contra double-tap | `_pendingCells` en `ARBlockPlacer` |
-| **Shader IDs estáticos** | `Shader.PropertyToID` es costoso | `static readonly int ID = Shader.PropertyToID("_Name")` |
-| **Coroutine yields cacheados** | `new WaitForSeconds` = alloc | `private readonly WaitForSeconds _wait = new WaitForSeconds(0.5f)` |
+| **Shader IDs estaticos** | `Shader.PropertyToID` es costoso | `static readonly int ID = Shader.PropertyToID("_Name")` |
+| **Coroutine yields cacheados** | `new WaitForSeconds` = alloc | `private readonly WaitForSeconds _wait = new(0.5f)` |
 | **No `Instantiate`/`Destroy` masivo** | GC spikes | Pool VFX prefabs (pendiente de implementar) |
 
 ---
 
-## 13. Estética URP
+## 7. Estetica URP
 
-| Regla | Configuración |
+| Regla | Configuracion |
 |-------|---------------|
 | **Texturas pixel-art** | `Filter Mode = Point (no filter)`, `Compression = None` |
-| **Sombras suaves** | URP Asset → Shadows → Soft Shadows = ON |
-| **Resolución de sombras** | Mínimo 1024 para sombras nítidas |
+| **Sombras suaves** | URP Asset -> Shadows -> Soft Shadows = ON |
+| **Resolucion de sombras** | Minimo 1024 para sombras nitidas |
 | **Shader de bloques** | `ARmonia/Blocks/VoxelLit` con toon lighting 3 bandas |
 | **Shader de suelo AR** | `ARmonia/AR/ARPlane` con arena zen + grid animado |
 | **MaterialPropertyBlock** | Usar en vez de material instances para propiedades per-object |
-| **Oclusión por profundidad** | `AROcclusionManager` via `ARDepthService` (default OFF, modo Best al activar) |
+| **Oclusion por profundidad** | `AROcclusionManager` via `ARDepthService` (toggle enabled/disabled, checkbox `_depthOnStart`, default ON) |
 | **Pipeline Assets** | `Mobile_RPAsset` para Android, `PC_RPAsset` para Editor |
-| **Fuente** | `minecraft_fot_esp` (con caracteres españoles) vía TextMeshPro SDF |
+| **Fuente** | `minecraft_fot_esp` (con caracteres espanoles) via TextMeshPro SDF |
 
 ---
 
-## 14. Patrones de comunicación
-
-| Patrón | Uso | Ejemplo real |
-|--------|-----|-------------|
-| **Service Locator** | Resolución de dependencias por interfaz sin singletons ni `Find*` | `ServiceLocator.Register<IGameAudioService>(this)` en `Awake`; `ServiceLocator.TryGet<IGameAudioService>(out _audioService)` en consumidor |
-| **EventBus (Pub/Sub tipado)** | Comunicación cross-sistema sin referencias directas | `EventBus.Publish(new BlockPlacedEvent(cell, id))` → cualquier suscriptor recibe el evento sin conocer al publisher |
-| **C# Events (`event Action<T>`)** | Notificación intra-capa, UI reactiva | `IHarmonyService.OnHarmonyChanged` → `HarmonyHUD.SetHarmony` |
-| **Llamada directa** | Acoplamiento estrecho dentro de la misma capa | `ARBlockPlacer` → `IGridManager.GetSnappedPosition()` |
-| **Inspector `[SerializeField]`** | Inyección de dependencias para MonoBehaviours de escena | Toda sección `#region Inspector` en scripts de escena |
-| **Command Pattern** | Undo/Redo | `IUndoableAction` → `PlaceBlockAction` / `DestroyBlockAction` |
-| **Facade Pattern** | Simplificar acceso a subsistema | `GridManager` envuelve `GridVisualizer` |
-| **ScriptableObject data** | Configuración compartida sin dependencia de escena | `BlockDatabase`, `HarmonyConfig`, `WorldModeSO` |
-| **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
-| **Internal static helper** | Lógica compartida entre Commands sin estado | `PlaceBlockAction.ArmForImmediate()` — deshabilita BlockSpawn, habilita Collider + BlockDestroy.SetReady(). Usado por `Redo` (place) y `Undo` (destroy). |
-| **ServiceLocator.TryGet en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn`, `BlockDestroy`, `SandGravity` resuelven interfaces (`IGameAudioService`, `IHapticService`, `IToolManager`, etc.) via `ServiceLocator.TryGet<T>()` en `Awake` |
-| **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX. Callers no tocan audio ni VFX. |
-| **VoxelBlock como fuente de audio** | Prefab data-component leído por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles (sin `VoxelBlock`). |
-| **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
-| **OnClick con int param** | Selección indexada desde botones UI | `Btn_Bonsai.OnClick → TitleSceneManager.SelectMode(0)` |
-| **Scene transition** | Carga de escena con fade y dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `ServiceLocator.TryGet<ISceneTransitionService>().TransitionTo("Main_AR")` (fade-to-black → async load → fade-in). `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions. `GameOptionsMenu.ExitGame()` transiciona a `Title_Screen` via ServiceLocator. |
-| **DontDestroyOnLoad con ServiceLocator** | Servicio cross-escena registrado en ServiceLocator | `SceneTransitionService`: se registra como `ISceneTransitionService` en `Awake`, persiste entre escenas via `DontDestroyOnLoad`, guard `ServiceLocator.IsRegistered<T>()` para evitar duplicados. Canvas overlay propio (sort order 999). |
-| **Pinch gesture detection** | Detección de gesto por distancia de landmarks | `HandTrackingService` mide distancia entre thumb tip (#4) e index tip (#8). Histéresis (enter 0.055, exit 0.08) + debounce (2 frames). `DwellSelector` escucha `OnPinchDetected` para selección instantánea de botón. |
-| **Sand gravity (poll continuo)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo en `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, luego `InvokeRepeating` cada 0.15s. Si no hay soporte → cae animado (ease-in) hasta grid válido. Tras aterrizar reinicia el poll para reaccionar a bloques destruidos. Desactiva collider/`BlockDestroy` durante caída (mismo patrón que `BlockSpawn`). |
-
----
-
-## 15. Reglas generales
+## 8. Reglas generales
 
 ### Obligatorio
 
-- Todos los nombres en **inglés** — no español en nombres de escena, scripts ni assets.
+- Todos los nombres en **ingles** -- no espanol en nombres de escena, scripts ni assets.
 - Sin espacios en nombres de assets o carpetas.
-- Sin caracteres especiales (solo letras, números, `_`).
-- Cada asset tiene su `.meta` — **nunca mover ni renombrar assets fuera de Unity Editor**.
-- Carpetas vacías confirmadas con `.gitkeep`.
+- Sin caracteres especiales (solo letras, numeros, `_`).
+- Cada asset tiene su `.meta` -- **nunca mover ni renombrar assets fuera de Unity Editor**.
+- Carpetas vacias confirmadas con `.gitkeep`.
 - Bloques en `Prefabs/Blocks/`, VFX en `Prefabs/VFX/`.
 - Scripts AR en `Scripts/AR/`, no mezclados con Core o Interaction.
 - Cada `[SerializeField]` lleva `[Tooltip]`.
 - Cada grupo de `[SerializeField]` lleva `[Header]`.
-- Cada MonoBehaviour tiene `ValidateReferences()` llamado en `Start()` — formato estandarizado (ver Sección 3).
+- Cada MonoBehaviour tiene `ValidateReferences()` llamado en `Start()` -- formato estandarizado (ver seccion 2.6).
 - Cachear yield objects de coroutines como campos.
-- Usar `#region` siguiendo el orden de la plantilla (Sección 3).
+- Usar `#region` siguiendo el orden de la plantilla (seccion 2.3).
 - Usar `[DisallowMultipleComponent]` en cada MonoBehaviour.
 - Usar `[AddComponentMenu("ARmonia/...")]` en cada MonoBehaviour.
 - Cada clase tiene XML `<summary>` doc comment.
@@ -739,28 +638,20 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 
 ### Prohibido
 
-- `GetComponent` en `Update()` — cachear en `Awake()`.
-- `Find()` o `FindObjectOfType()` — usar `[SerializeField]`.
-- Allocations en hot paths (`Update`, loops de coroutine) — reutilizar buffers.
-- Hardcodear magic numbers — usar `[SerializeField]` o `const`.
-- Duplicar referencias de escena en prefabs — usar `FindAnyObjectByType<T>()` en `Awake` o `[SerializeField]` para datos de prefab.
-- Dejar `Debug.Log` en release sin condicional (Unity los stripea automáticamente en builds no-Development, pero mantener limpio).
-- `OnValidate()` en MonoBehaviours — usar únicamente `ValidateReferences()` llamado desde `Start()`. Excepción: `ScriptableObject` puede usar `OnValidate()` para validar datos de asset (e.g. entradas duplicadas).
-- `Debug.LogError` dentro de `ValidateReferences()` — siempre usar `Debug.LogWarning` (ver convención en Sección 3).
+- `GetComponent` en `Update()` -- cachear en `Awake()`.
+- `Find()` o `FindObjectOfType()` -- usar `[SerializeField]`.
+- Allocations en hot paths (`Update`, loops de coroutine) -- reutilizar buffers.
+- Hardcodear magic numbers -- usar `[SerializeField]` o `const`.
+- Duplicar referencias de escena en prefabs -- usar `ServiceLocator.TryGet<T>()` en `Awake` o `[SerializeField]` para datos de prefab.
+- Dejar `Debug.Log` en release sin condicional (Unity los stripea en builds no-Development, pero mantener limpio).
+- `OnValidate()` en MonoBehaviours -- solo `ValidateReferences()` desde `Start()`. Excepcion: `ScriptableObject` puede usar `OnValidate()` para validacion de datos de asset.
+- `Debug.LogError` dentro de `ValidateReferences()` -- siempre `Debug.LogWarning` (ver seccion 2.6).
 
-### Mantenimiento de documentación
+### Mantenimiento de documentacion
 
-Cada vez que se realice un cambio en el proyecto (nuevo script, nuevo prefab,
-nueva carpeta, renombrado de asset, cambio de jerarquía de escena, nuevo
-paquete, etc.) se deben actualizar **los dos archivos de documentación** para
-que sigan reflejando el estado real del proyecto:
+Cada vez que se haga un cambio en el proyecto (nuevo script, prefab, carpeta, renombrado, cambio de jerarquia, nuevo paquete, etc.) se deben actualizar **los dos archivos de documentacion**:
 
-- **`README.md`** — actualizar la sección correspondiente: estructura de
-  carpetas, inventario de assets, lista de scripts, estado del proyecto,
-  dependencias o cualquier otra sección afectada por el cambio.
-- **`CONVENTIONS.md`** — actualizar la sección correspondiente: jerarquía de
-  escena, mapa Script-GameObject, reglas de nombrado o cualquier otra sección
-  afectada por el cambio.
+- **`README.md`** -- estructura de carpetas, inventario de assets, catalogo de scripts, estado del proyecto, dependencias.
+- **`CONVENTIONS.md`** -- jerarquia de escena, mapa Script-GameObject, reglas de nombrado.
 
-**La documentación desactualizada se considera un bug igual que el código roto.**
-
+**La documentacion desactualizada se considera un bug igual que el codigo roto.**

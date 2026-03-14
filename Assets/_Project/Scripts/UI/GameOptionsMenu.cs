@@ -118,7 +118,14 @@ namespace _Project.Scripts.UI
         /// <summary>Toggles AR depth occlusion ON / OFF.</summary>
         public void ToggleDepth()
         {
-            if (_depthService == null) return;
+            Debug.Log("[GameOptionsMenu] ToggleDepth pressed.");
+
+            if (_depthService == null)
+            {
+                Debug.LogWarning("[GameOptionsMenu] _depthService is null -- cannot toggle depth.");
+                return;
+            }
+
             _depthService.ToggleDepth();
             _uiAudio?.PlayToggle();
         }
@@ -326,6 +333,10 @@ namespace _Project.Scripts.UI
                 Debug.LogWarning("[GameOptionsMenu] _worldResetService is not assigned.", this);
             if (_screenshotService == null)
                 Debug.LogWarning("[GameOptionsMenu] _screenshotService is not assigned.", this);
+            if (_depthService == null)
+                Debug.LogWarning("[GameOptionsMenu] _depthService is not assigned.", this);
+            if (_lightingService == null)
+                Debug.LogWarning("[GameOptionsMenu] _lightingService is not assigned.", this);
         }
 
         #endregion
