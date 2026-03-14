@@ -172,7 +172,8 @@ namespace _Project.Scripts.Interaction
             if (!didHit) return false;
 
             float sqrDistToCamera = (hitPoint - _mainCamera.transform.position).sqrMagnitude;
-            if (sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return false;
+            if (WorldModeContext.Selected != WorldMode.Bonsai &&
+                sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return false;
 
             PlaceAt(hitPoint, hitNormal, onARPlane);
             return true;

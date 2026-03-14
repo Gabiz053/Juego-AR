@@ -90,12 +90,12 @@ Assets/
 |   |   +-- Title_Screen.unity   <- Pantalla de inicio
 |   |   +-- Main_AR.unity        <- Escena principal de juego
 |   +-- Scripts/
-|   |   +-- AR/                  <- Gestion AR: ancla, planos, profundidad, modos (4 scripts)
-|   |   +-- Core/                <- Grid, armonia, audio, iluminacion, undo/redo, reset, screenshot, transiciones, SOs (17 scripts)
-|   |   +-- Infrastructure/      <- ServiceLocator, EventBus, GameEvents, enums, interfaces (16 scripts)
+|   |   +-- AR/                  <- Gestion AR: ancla, planos, profundidad, modos, bonsai (5 scripts)
+|   |   +-- Core/                <- Grid, armonia, audio, iluminacion, undo/redo, reset, screenshot, transiciones, guardado, SOs (19 scripts)
+|   |   +-- Infrastructure/      <- ServiceLocator, EventBus, GameEvents, enums, interfaces (17 scripts)
 |   |   +-- Interaction/         <- Input tactil, herramientas, colocacion/destruccion (7 scripts)
 |   |   +-- Title/               <- Pantalla de inicio: face/hand tracking, seleccion modo (6 scripts)
-|   |   +-- UI/                  <- HUD, menu, orientacion (11 scripts)
+|   |   +-- UI/                  <- HUD, menu, orientacion, popups de guardado/carga (13 scripts)
 |   |   +-- Voxel/               <- Bloques, spawn/destroy, piedras procedurales, VFX (8 scripts)
 |   +-- Shaders/
 |   |   +-- ARPlane.shader       <- Arena zen con grid animado
@@ -667,7 +667,7 @@ Shader HLSL para URP que ilumina los bloques voxel con estetica Minecraft.
 | `WorldModeConfig_Real.asset` | `WorldModeSO` | `Assets/` | Escala 1.00, ancla por AR plane. Escala Minecraft real. |
 | `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | `Assets/` | 2 imagenes: `one` (0.13x0.13m), `qr_prueba` (0.10x0.10m). SpecifySize ON. Usada por modo Bonsai. |
 
-### 8.2 Prefabs (20 archivos)
+### 8.2 Prefabs (21 archivos)
 
 **Bloques voxel activos (6):**
 
@@ -705,6 +705,12 @@ Shader HLSL para URP que ilumina los bloques voxel con estetica Minecraft.
 | `VFX_BlockBreak` | `VFXBlockDestroy` + `ParticleSystem` | Burst de cubitos con gravedad al destruir. Auto-destruccion a 1.0s. |
 
 **AR (2):** `AR_Default_Plane.prefab`, `AR_RayInteractor.prefab`.
+
+**UI (1):**
+
+| Prefab | Componentes | Descripcion |
+|--------|-------------|-------------|
+| `UI_GardenListItem` | `Button` + `Image` + `ButtonPressAnimation` | Boton dinamico para lista de jardines guardados en `BonsaiSelectorPopup`. Hijo `Txt_GardenName` (TMP_Text). |
 
 ### 8.3 Materiales (8)
 
@@ -769,24 +775,27 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 
 ---
 
-## 9. Catalogo de scripts (69)
+## 9. Catalogo de scripts (75)
 
-### AR (4 scripts) -- `_Project.Scripts.AR`
+### AR (5 scripts) -- `_Project.Scripts.AR`
 
 | Script | Responsabilidad |
 |--------|-----------------|
 | `ARDepthService` | Toggle runtime de `AROcclusionManager` (enabled/disabled). Checkbox `_depthOnStart` controla estado inicial (default ON). Evento `OnDepthToggled`. |
 | `ARPlaneGridAligner` | Inyecta `WorldContainer.worldToLocalMatrix` en cada plano AR como `_GridMatrix` via `MaterialPropertyBlock`. Controla `_GridEnabled` y `MeshRenderer.enabled` de los planos. |
 | `ARWorldManager` | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ~ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
-| `WorldModeBootstrapper` | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activacion de AR managers se difiere a corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (timeout 5s) para evitar race condition al transicionar desde `Title_Screen`. Debug detallado para Bonsai. Log indica `source: title screen` o `source: dev override`. |
+| `BonsaiSessionController` | Controlador de flujo para modo Bonsai. Escucha `WorldModeBootstrapper.OnBonsaiImageDetected` y abre `BonsaiSelectorPopup`. Se auto-desactiva si `WorldModeContext.Selected != Bonsai`. |
+| `WorldModeBootstrapper` | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activacion de AR managers se difiere a corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (timeout 5s). En modo Bonsai: seguimiento continuo de `ARTrackedImage` sin `ARAnchor`, dispara `OnBonsaiImageDetected` en primera deteccion. |
 
-### Core (17 scripts) -- `_Project.Scripts.Core`
+### Core (19 scripts) -- `_Project.Scripts.Core`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|-----------------|
 | `BlockDatabaseSO` | ScriptableObject | Array de `BlockEntry` (type + prefab). Lazy `Dictionary<BlockType,GameObject>` para O(1). `OnValidate` editor-only para detectar duplicados. |
 | `HarmonyConfig` | ScriptableObject | `varietyWeight` (0.45), `decorationWeight` (0.35), `quantityWeight` (0.20), `fullVarietyTypeCount` (6), `targetBlockCount` (50), `targetPebbleCount` (25), `minSandBlocks` (10), `minGrassBlocks` (10), `gateStrength` (0.85). |
 | `WorldModeSO` | ScriptableObject | `Mode`, `DisplayName`, `WorldContainerScale`, `AnchorType` (enum anidado: `ARPlane`/`TrackedImage`), `ImageLibrary` (XRReferenceImageLibrary para Bonsai), `ImagePhysicalWidth`, `MaxBlocks`. |
+| `GardenSaveData` | Class (structs) | Estructuras serializables para persistencia: `VoxelSaveData` (blockType + position), `PebbleSaveData` (prefabIndex + transform), `GardenSaveData` (gardenName, createdAt, voxels[], pebbles[]). JsonUtility compatible. |
+| `SaveLoadService` | MonoBehaviour | Implementa `ISaveLoadService`. Serializa WorldContainer a JSON en `persistentDataPath/Gardens/`. `SaveCurrentGarden()` itera hijos, `ApplyGarden()` limpia mundo, instancia via `BlockDatabaseSO`, arma con `ArmForImmediate()`, limpia undo, rescanea armonia. |
 | `GridManager` | MonoBehaviour | Dueno de `_gridSize` (1.0). `GetSnappedPosition()`: `Floor(pos/size)*size + half`. Facade de `GridVisualizer`: `ActivateGrid()` / `DeactivateGrid()`. |
 | `GridVisualizer` | MonoBehaviour | Crea un `GameObject` hijo con `MeshFilter` + `MeshRenderer`. Genera mesh de lineas con fade radial (alpha proporcional a 1 - sqrDist/sqrRadius). Solo reconstruye al cambiar celda central. Buffers reutilizados para zero-GC. |
 | `HarmonyService` | MonoBehaviour | Evalua armonia. `Dictionary<BlockType,int>` para conteos. Eventos: `OnHarmonyChanged(float)`, `OnPerfectHarmony`, `OnWorldReset`. Suscrito via EventBus a: `BlockPlacedEvent`, `BlockDestroyedEvent`, `PebblePlacedEvent`, `PebbleDestroyedEvent`, `WorldResetEvent`, `UndoPerformedEvent`, `RedoPerformedEvent`. Handlers privados (`Handle*`) actualizan conteos y llaman `Recalculate()`. `RebuildCounters()` escanea O(n) el WorldContainer tras undo/redo/reset. |
@@ -802,7 +811,7 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `PlaceBlockAction` | Class | Command: `Undo()` -> `Destroy(instance)`. `Redo()` -> `Instantiate` + `ArmForImmediate()`. Metodo estatico compartido `ArmForImmediate()`: deshabilita `BlockSpawn`, habilita `Collider` + `BlockDestroy.SetReady()`. |
 | `DestroyBlockAction` | Class | Command: `Undo()` -> `Instantiate` + `PlaceBlockAction.ArmForImmediate()`. `Redo()` -> `Destroy(restoredInstance)`. Creado por `BlockDestroyer` (tap) y `BlockDestroy` (proximity knock). |
 
-### Infrastructure (16 scripts) -- `_Project.Scripts.Infrastructure`
+### Infrastructure (17 scripts) -- `_Project.Scripts.Infrastructure`
 
 | Script | Tipo | Responsabilidad |
 |--------|------|-----------------|
@@ -817,6 +826,7 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `IGridManager` | Interface | Contrato para `GridManager`. |
 | `IHapticService` | Interface | Contrato para `HapticService`. |
 | `IHarmonyService` | Interface | Contrato para `HarmonyService`. |
+| `ISaveLoadService` | Interface | Contrato para `SaveLoadService`. `SaveCurrentGarden()`, `GetSavedGardensList()`, `LoadGarden()`, `ApplyGarden()`, `DeleteGarden()`. |
 | `ISceneTransitionService` | Interface | Contrato para `SceneTransitionService`. |
 | `IToolManager` | Interface | Contrato para `ToolManager`. |
 | `IUIAudioService` | Interface | Contrato para `UIAudioService`. |
@@ -846,7 +856,7 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `DwellSelector` | Solapamiento cursor con `RectTransform` de botones via `RectTransformUtility.RectangleContainsScreenPoint`. Dos modos: **pinch click** (instantaneo via `OnPinchDetected`) y **dwell timer** (3s en Inspector, fallback). Highlight: escala 1.12x + tint blanco. Drives `HandCursorUI.SetDwellProgress()` y `SetHovering()`. `[RequireComponent(AudioSource)]`. |
 | `TitleLogoAnimator` | Bobbing vertical del logo "ARMONIA" (`HUD_Logo`, Image) con oscilacion senoidal. Amplitud (+/-12px) y frecuencia configurables (default 0.6Hz, en escena 0.2Hz). Opera sobre `RectTransform.anchoredPosition`. |
 
-### UI (11 scripts) -- `_Project.Scripts.UI`
+### UI (13 scripts) -- `_Project.Scripts.UI`
 
 | Script | Responsabilidad |
 |--------|-----------------|
@@ -857,7 +867,9 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `ScreenshotToastPanel` | `[RequireComponent(CanvasGroup)]`. Toast de confirmacion post-captura. `Show(Texture2D)` -> fade in -> `Btn_Continue` -> fade out. |
 | `UndoRedoHUD` | Botones `_undoButton`/`_redoButton`. Alpha enabled/disabled (1.0/0.35). |
 | `BrushHUD` | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color`. |
-| `GameOptionsMenu` | Controlador UI del dropdown de opciones. 5 toggles (iluminacion, profundidad, grid, plano, vibracion), slider de musica, foto, reset con dialogo de confirmacion, salir. `ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
+| `GameOptionsMenu` | Controlador UI del dropdown de opciones. 5 toggles (iluminacion, profundidad, grid, plano, vibracion), slider de musica, foto, guardar jardin, reset con dialogo de confirmacion, salir. `SaveGarden()` abre `SaveGardenPopup`. `ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
+| `SaveGardenPopup` | `[RequireComponent(CanvasGroup)]`. Modal con `TMP_InputField` para nombre de jardin. `Show()` -> fade in. `OnSave()` valida nombre no vacio, delega a `ISaveLoadService.SaveCurrentGarden()`. |
+| `BonsaiSelectorPopup` | `[RequireComponent(CanvasGroup)]`. Modal para seleccion de jardin en modo Bonsai. Lista dinamica de botones o estado vacio con "Volver al Menu". Instancia `UI_GardenListItem` por cada jardin guardado. |
 | `OrientationManager` | Detecta portrait/landscape. Oculta hotbar/toolpanel en landscape. Fuerza `Tool_None`. Restaura tool en portrait. |
 | `ButtonPressAnimation` | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down/up automatico. |
 | `DropdownButtonState` | Dim/restore de `Image.color` para toggles ON/OFF. `SetState(bool)`. |
@@ -893,10 +905,11 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 - **HarmonyHUD:** barra animada, gradiente tricolor, frases por fase, pop/shake.
 - **Panel Armonia Perfecta:** fade, particulas procedurales multicolor, boton Continuar.
 - **Undo/Redo:** patron Command, stack con cap de 20, HUD con botones atenuados.
-- **Menu opciones:** 5 toggles (iluminacion, profundidad, grid, plano visual, vibracion), slider de musica, foto, reset con confirmacion, salir.
+- **Menu opciones:** 5 toggles (iluminacion, profundidad, grid, plano visual, vibracion), slider de musica, foto, guardar jardin, reset con confirmacion, salir.
 - **Audio:** `GameAudioService` (SFX con pitch variation), `UIAudioService` (7 pools + 4 fases armonia + haptic integrado), `MusicService` (shuffle, crossfade, slider).
 - **Vibracion haptica:** `HapticService` via plugin Vibration. 3 presets. Toggle ON/OFF (default OFF).
 - **Screenshot:** captura sin UI visible, guardado en galeria, flash visual, toast de confirmacion.
+- **Guardado de jardin:** `SaveLoadService` serializa bloques y piedras del WorldContainer a JSON en `persistentDataPath/Gardens/`. Popup con `TMP_InputField` para nombre. Carga restaura mundo con `ArmForImmediate`, limpia undo, rescanea armonia.
 - **Pantalla de inicio:** Camara frontal, Face Tracking con Creeper, 3 botones de modo. Logo con bobbing. Retorno via `Btn_Exit`.
 - **Hand Tracking:** Cursor de indice via MediaPipe (GPU delegate). Seleccion por **pinch click** o **dwell time** (3s). Highlight de botones al hover.
 - **Transiciones de escena:** `SceneTransitionService` singleton. Fade-to-black 0.4s -> async load -> fade-in 0.4s.
@@ -904,13 +917,12 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 
 ### Parcial
 
-- **Modo Bonsai:** `XRReferenceImageLibrary` configurada con imagenes `one` (0.13m) y `qr_prueba` (0.10m). Activacion diferida de `ARTrackedImageManager`. Funcional en dispositivo, pero no ha sido testeado a fondo.
+- **Modo Bonsai:** `XRReferenceImageLibrary` configurada con imagenes `one` (0.13m) y `qr_prueba` (0.10m). Activacion diferida de `ARTrackedImageManager`. Seguimiento continuo de imagen (WorldContainer sigue la carta). `BonsaiSessionController` abre `BonsaiSelectorPopup` al detectar imagen. Selector muestra jardines guardados o estado vacio con boton de vuelta al menu. Funcional en dispositivo, pendiente de testeo exhaustivo.
 
 ### Trabajo a futuro
 
 | Feature | Detalle |
 |---------|---------|
-| Guardado/Carga | No hay serializacion. Al cerrar la app se pierde el jardin. |
 | Tutorial / Onboarding | No hay guia para jugadores nuevos. |
 | Logros / Progresion | No hay sistema mas alla de la barra de armonia. |
 | Luz dinamica de antorchas | El prefab Torch tiene un `Light` component URP pero no emite. |

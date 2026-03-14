@@ -4,7 +4,7 @@
 
 Referencia obligatoria para mantener consistencia. **Todo asset, script o carpeta nuevo debe cumplir estas reglas.**
 
-> **Ultima auditoria:** 69 scripts - 2 escenas - 20 prefabs - 6 ScriptableObjects -
+> **Ultima auditoria:** 75 scripts - 2 escenas - 21 prefabs - 6 ScriptableObjects -
 > 2 shaders - 8 materiales - 46 clips de audio - 28 texturas - 7 modelos 3D - 5 fuentes
 
 ---
@@ -41,7 +41,7 @@ Referencia obligatoria para mantener consistencia. **Todo asset, script o carpet
 | *(ninguno)* | Objetos estandar de Unity | `AR Session`, `Main Camera`, `EventSystem` |
 | `HUD_` | Regiones persistentes de pantalla | `HUD_Hotbar`, `HUD_Harmony`, `HUD_UndoRedo` |
 | `Pnl_` | Paneles contenidos en una seccion | `Pnl_OptionsDropdown`, `Pnl_ConfirmDialog` |
-| `Popup_` | Modales fullscreen | `Popup_ConfirmClearAll`, `Popup_ScreenshotToast` |
+| `Popup_` | Modales fullscreen | `Popup_ConfirmClearAll`, `Popup_ScreenshotToast`, `Popup_SaveGarden`, `Popup_BonsaiSelector` |
 | `Overlay_` | Fondos oscuros/transparentes | `Overlay_Background` |
 | `Img_` | Imagenes y barras de progreso | `Img_BarBackground`, `Img_BarFill`, `Img_Preview` |
 | `Btn_` | Botones (contiene hijo `Txt_` o `Icon_`) | `Btn_Sand`, `Btn_Settings`, `Btn_Confirm` |
@@ -49,7 +49,7 @@ Referencia obligatoria para mantener consistencia. **Todo asset, script o carpet
 | `Icon_` | Imagenes de icono dentro de botones | `Icon_Undo`, `Icon_Sand`, `Icon_Settings` |
 | `Sld_` | Sliders | `Sld_MusicVolume` |
 | `*_LayoutGroup` | Objetos con LayoutGroup component | `Hotbar_LayoutGroup`, `Dialog_LayoutGroup` |
-| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Audio`, `Svc_Interaction`, `Svc_WorldReset` |
+| `Svc_` | GameObjects de servicio (sin visual) | `Svc_Audio`, `Svc_Interaction`, `Svc_WorldReset`, `Svc_SaveLoad`, `Svc_BonsaiSession` |
 | PascalCase | Singletons / contenedores | `WorldContainer`, `ToolManager`, `MainCanvas` |
 
 **Reglas obligatorias:**
@@ -86,7 +86,7 @@ Prefijo obligatorio: **`M_`**
 | Objetos 3D | `Object_` | `Object_Creeper.prefab`, `Object_Frog.prefab` |
 | Elementos AR | `AR_` | `AR_Default_Plane.prefab` |
 | Efectos visuales | `VFX_` | `VFX_BlockPlace.prefab`, `VFX_BlockBreak.prefab` |
-| Elementos UI | `UI_` | `UI_HotbarSlot.prefab` |
+| Elementos UI | `UI_` | `UI_HotbarSlot.prefab`, `UI_GardenListItem.prefab` |
 
 **Componentes obligatorios por tipo de prefab:**
 
@@ -346,7 +346,8 @@ AR System                                  [Empty -- agrupa objetos 3D/AR]
 |   +-- Svc_GameLogic                      [Empty -- agrupa logica de juego]
 |   |       HarmonyService, UndoRedoService
 |   +-- Svc_Lighting                       [Empty -- gestion de iluminacion]
-|           LightingService
+|   |       LightingService
+|   +-- Svc_BonsaiSession                  [BonsaiSessionController -- solo activo en Bonsai]
 +-- WorldContainer                         [GridManager, GridVisualizer]
 +-- ToolManager                            [ToolManager]
 +-- Directional Light                      [Light (Directional), AudioSource,
@@ -390,6 +391,7 @@ UI System                                  [Empty -- agrupa objetos UI]
 |   +-- HUD_OptionsMenu                    [GameOptionsMenu]
 |   |   +-- Svc_WorldReset                 [WorldResetService]
 |   |   +-- Svc_Screenshot                 [ScreenshotService]
+|   |   +-- Svc_SaveLoad                   [SaveLoadService]
 |   |   +-- Btn_Settings       -> Icon_Settings, Txt_Settings
 |   |   +-- Pnl_OptionsDropdown            [HorizontalLayoutGroup, ContentSizeFitter]
 |   |       +-- Btn_Lighting               [DropdownButtonState] -> Txt_Lighting
@@ -398,6 +400,7 @@ UI System                                  [Empty -- agrupa objetos UI]
 |   |       |   +-- Btn_Plane              [DropdownButtonState] -> Txt_Plane
 |   |       |   +-- Btn_Grid              [DropdownButtonState] -> Txt_Grid
 |   |       +-- Btn_Photo      -> Txt_Photo
+|   |       +-- Btn_SaveGarden -> Txt_SaveGarden
 |   |       +-- Btn_ClearAll   -> Txt_ClearAll
 |   |       +-- Btn_Exit       -> Txt_Exit
 |   |       +-- Btn_Vibration              [DropdownButtonState] -> Txt_Vibration
@@ -427,11 +430,32 @@ UI System                                  [Empty -- agrupa objetos UI]
 |   +-- HUD_ScreenshotFlash                [Image (blanco) -- flash, OFF]
 |   |
 |   +-- Popup_ScreenshotToast              [ScreenshotToastPanel -- OFF]
-|       +-- Pnl_ToastCard                  [HorizontalLayoutGroup]
-|           +-- Txt_ToastMessage           [TMP_Text]
-|           +-- Img_Preview                [RawImage -- thumbnail captura]
-|           +-- Dialog_LayoutGroup         [VerticalLayoutGroup]
-|               +-- Btn_Continue -> Txt_Continue
+|   |   +-- Pnl_ToastCard                  [HorizontalLayoutGroup]
+|   |       +-- Txt_ToastMessage           [TMP_Text]
+|   |       +-- Img_Preview                [RawImage -- thumbnail captura]
+|   |       +-- Dialog_LayoutGroup         [VerticalLayoutGroup]
+|   |           +-- Btn_Continue -> Txt_Continue
+|   |
+|   +-- Popup_SaveGarden                   [SaveGardenPopup, CanvasGroup -- OFF]
+|   |   +-- Overlay_Background             [Image -- overlay semi-transparente]
+|   |       +-- Pnl_SaveCard               [Image, VerticalLayoutGroup]
+|   |           +-- Txt_SaveTitle           [TMP_Text -- "Guardar Jardin"]
+|   |           +-- Inp_GardenName          [TMP_InputField]
+|   |           +-- Dialog_LayoutGroup      [HorizontalLayoutGroup]
+|   |               +-- Btn_Save   -> Txt_Save
+|   |               +-- Btn_Cancel -> Txt_Cancel
+|   |
+|   +-- Popup_BonsaiSelector               [BonsaiSelectorPopup, CanvasGroup -- OFF]
+|       +-- Overlay_Background             [Image -- overlay semi-transparente]
+|           +-- Pnl_SelectorCard           [Image, VerticalLayoutGroup]
+|               +-- Txt_SelectorTitle      [TMP_Text -- "Selecciona un jardin"]
+|               +-- ScrollView_Gardens     [ScrollRect]
+|               |   +-- Viewport           [Mask]
+|               |       +-- Content_GardenList [VerticalLayoutGroup]
+|               +-- Pnl_EmptyState          [OFF por defecto]
+|               |   +-- Txt_EmptyMessage   [TMP_Text]
+|               |   +-- Btn_BackToMenu     -> Txt_BackToMenu
+|               +-- Btn_CloseSelector      -> Txt_CloseSelector
 |
 +-- EventSystem                            [EventSystem, StandaloneInputModule]
 ```
@@ -471,6 +495,10 @@ UI System                                  [Empty -- agrupa objetos UI]
 | `WorldResetService` | Svc_WorldReset | -- |
 | `ScreenshotService` | Svc_Screenshot | -- |
 | `ScreenshotToastPanel` | Popup_ScreenshotToast | `CanvasGroup` |
+| `SaveGardenPopup` | Popup_SaveGarden | `CanvasGroup` |
+| `BonsaiSelectorPopup` | Popup_BonsaiSelector | `CanvasGroup` |
+| `SaveLoadService` | Svc_SaveLoad | -- |
+| `BonsaiSessionController` | Svc_BonsaiSession | -- |
 | `ButtonPressAnimation` | Cada `Btn_*` | `Button` |
 | `DropdownButtonState` | `Btn_Lighting`, `Btn_Depth`, `Btn_Grid`, `Btn_Plane`, `Btn_Vibration` | -- |
 
@@ -542,6 +570,7 @@ El `Btn_Brush` es una **excepcion** al patron estandar de botones:
 |-------|-----------------|-------|
 | `Btn_Sand` ... `Btn_Hoe` (salvo Brush) | `UIManager.OnSlotClicked(int)` | Herramientas normales |
 | `Btn_Brush` | `BrushTool.ToggleBrush()` -- **llamada directa** | Mode overlay, no pasa por ToolManager |
+| `Btn_SaveGarden` | `GameOptionsMenu.SaveGarden()` | Abre popup de guardado |
 
 ---
 
@@ -569,6 +598,9 @@ Tabla con ejemplo real de cada patron arquitectonico del proyecto:
 | **Scene transition** | Carga de escena con fade y dato estatico pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")`. `WorldModeBootstrapper` lee en `Awake()` y difiere activacion de AR managers a corrutina que espera `ARSession.state >= SessionInitializing`. |
 | **DontDestroyOnLoad + ServiceLocator** | Servicio cross-escena | `SceneTransitionService`: se registra como `ISceneTransitionService` en `Awake`, persiste via `DontDestroyOnLoad`, guard `IsRegistered<T>()` para evitar duplicados. Canvas overlay propio (sort order 999). |
 | **Pinch gesture detection** | Deteccion de gesto por distancia de landmarks | `HandTrackingService` mide distancia thumb tip (#4) <-> index tip (#8). Histeresis (enter 0.055, exit 0.08) + debounce (2 frames). |
+| **JSON persistence** | Guardado/carga de estado del mundo a disco | `SaveLoadService` serializa `GardenSaveData` via `JsonUtility` a `persistentDataPath/Gardens/`. `ISaveLoadService` registrada en ServiceLocator. |
+| **Continuous image tracking** | Seguimiento AR de carta impresa en Bonsai mode | `WorldModeBootstrapper` actualiza pose del WorldContainer cada frame desde `ARTrackedImage.updated`. Sin `ARAnchor` -- pose directa. |
+| **Session controller** | Orquestacion de flujo de modo de juego | `BonsaiSessionController` escucha `OnBonsaiImageDetected`, abre popup selector. Self-disable si no es modo Bonsai. |
 | **Sand gravity (EventBus + safety poll)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, suscripcion a `BlockDestroyedEvent` (trigger primario) + `InvokeRepeating` cada 1s (safety net). Si no hay soporte -> reserva celda en `HashSet` estatico -> cae animado (ease-in). `Physics.SyncTransforms()` tras aterrizar. Desactiva collider/BlockDestroy durante caida. |
 
 ### Vibracion haptica -- patron de integracion

@@ -4,6 +4,7 @@
 //  world (scale, grid, anchor strategy) accordingly.
 // ------------------------------------------------------------
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -59,11 +60,23 @@ namespace _Project.Scripts.AR
 
         #endregion
 
+        #region Events --------------------------------------------
+
+        /// <summary>
+        /// Raised once when Bonsai mode detects and anchors to a tracked
+        /// image for the first time.  <see cref="BonsaiSessionController"/>
+        /// subscribes to open the garden selector popup.
+        /// </summary>
+        public event Action OnBonsaiImageDetected;
+
+        #endregion
+
         #region State ---------------------------------------------
 
-        private WorldModeSO _activeConfig;
-        private Camera      _mainCamera;
-        private bool        _anchored;
+        private WorldModeSO    _activeConfig;
+        private Camera         _mainCamera;
+        private bool           _anchored;
+        private ARTrackedImage _trackedImage;
 
         #endregion
 
@@ -218,48 +231,87 @@ namespace _Project.Scripts.AR
                 _arPlaneManager.enabled = false;
         }
 
-        /// <summary>Listens for added or updated tracked images and anchors on the first valid one.</summary>
+        /// <summary>
+        /// Listens for added, updated and removed tracked images.
+        /// First detection anchors the WorldContainer and fires
+        /// <see cref="OnBonsaiImageDetected"/>.  Subsequent updates
+        /// keep the WorldContainer glued to the live image pose
+        /// (continuous tracking so the garden follows the card).
+        /// </summary>
         private void OnTrackablesChangedImage(ARTrackablesChangedEventArgs<ARTrackedImage> args)
         {
-            if (_anchored) return;
+            // Guard: during scene unload references may already be destroyed.
+            if (_worldContainer == null) return;
 
-            foreach (ARTrackedImage img in args.added)
+            // -- First detection: anchor to the image --
+            if (!_anchored)
             {
-                Debug.Log($"[WorldModeBootstrapper] Image ADDED -- name: '{img.referenceImage.name}', state: {img.trackingState}, pos: {img.transform.position}, size: {img.size}.");
-                if (img.trackingState == TrackingState.Tracking || img.trackingState == TrackingState.Limited)
+                foreach (ARTrackedImage img in args.added)
                 {
-                    AnchorToImage(img);
-                    return;
+                    Debug.Log($"[WorldModeBootstrapper] Image ADDED -- name: '{img.referenceImage.name}', state: {img.trackingState}, pos: {img.transform.position}, size: {img.size}.");
+                    if (img.trackingState == TrackingState.Tracking || img.trackingState == TrackingState.Limited)
+                    {
+                        AnchorToImage(img);
+                        return;
+                    }
                 }
+
+                foreach (ARTrackedImage img in args.updated)
+                {
+                    if (img.trackingState == TrackingState.Tracking)
+                    {
+                        AnchorToImage(img);
+                        return;
+                    }
+                }
+
+                return;
             }
+
+            // -- Continuous tracking: follow the image pose --
+            if (_trackedImage == null || _worldContainer == null) return;
 
             foreach (ARTrackedImage img in args.updated)
             {
-                Debug.Log($"[WorldModeBootstrapper] Image UPDATED -- name: '{img.referenceImage.name}', state: {img.trackingState}, pos: {img.transform.position}.");
+                if (img.trackableId != _trackedImage.trackableId) continue;
+
                 if (img.trackingState == TrackingState.Tracking)
                 {
-                    AnchorToImage(img);
-                    return;
+                    _worldContainer.SetPositionAndRotation(
+                        img.transform.position,
+                        img.transform.rotation);
                 }
             }
 
             foreach (KeyValuePair<TrackableId, ARTrackedImage> kvp in args.removed)
             {
-                Debug.Log($"[WorldModeBootstrapper] Image REMOVED -- id: {kvp.Key}.");
+                if (_trackedImage != null && kvp.Key == _trackedImage.trackableId)
+                    Debug.LogWarning("[WorldModeBootstrapper] Tracked image lost -- garden may drift.");
             }
         }
 
-        /// <summary>Anchors the world to the tracked image pose and unsubscribes from further events.</summary>
+        /// <summary>
+        /// Positions the WorldContainer at the tracked image pose,
+        /// activates the grid, stores the image reference for continuous
+        /// tracking, and fires <see cref="OnBonsaiImageDetected"/>.
+        /// Unlike plane mode, no <see cref="ARAnchor"/> is created --
+        /// the pose is updated every frame from the live image.
+        /// </summary>
         private void AnchorToImage(ARTrackedImage img)
         {
-            if (_anchored || _arWorldManager == null) return;
+            if (_anchored || _worldContainer == null) return;
 
-            Pose imagePose = new Pose(img.transform.position, img.transform.rotation);
-            _arWorldManager.AnchorWorld(imagePose, _mainCamera.transform);
-            _anchored = true;
+            _worldContainer.SetPositionAndRotation(
+                img.transform.position,
+                img.transform.rotation);
 
-            _arTrackedImageManager.trackablesChanged.RemoveListener(OnTrackablesChangedImage);
-            Debug.Log($"[WorldModeBootstrapper] World anchored to image '{img.referenceImage.name}' -- pose: {imagePose.position}, rotation: {imagePose.rotation.eulerAngles}.");
+            _gridManager?.ActivateGrid(_mainCamera.transform);
+
+            _trackedImage = img;
+            _anchored     = true;
+
+            OnBonsaiImageDetected?.Invoke();
+            Debug.Log($"[WorldModeBootstrapper] World anchored to image '{img.referenceImage.name}' -- continuous tracking active, pose: {img.transform.position}.");
         }
 
         /// <summary>Searches <c>_modeConfigs</c> for the <see cref="WorldModeSO"/> matching <paramref name="mode"/>.</summary>

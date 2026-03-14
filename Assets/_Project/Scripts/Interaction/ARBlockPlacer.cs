@@ -144,7 +144,8 @@ namespace _Project.Scripts.Interaction
             float   worldScale   = _worldContainer.localScale.x;
 
             float sqrDistToCamera = (worldPos - _mainCamera.transform.position).sqrMagnitude;
-            if (sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return;
+            if (WorldModeContext.Selected != WorldMode.Bonsai &&
+                sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return;
             if (IsCameraInsideVoxel(worldPos, worldScale)) return;
             if (!IsSpaceEmpty(worldPos, worldScale) || _pendingCells.Contains(snappedLocal)) return;
 

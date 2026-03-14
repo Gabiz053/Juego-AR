@@ -70,6 +70,10 @@ namespace _Project.Scripts.UI
         [Tooltip("Service that controls background music playback.")]
         [SerializeField] private MusicService       _musicService;
 
+        [Header("Save")]
+        [Tooltip("Popup for naming and saving the current garden.")]
+        [SerializeField] private SaveGardenPopup _saveGardenPopup;
+
         [Header("Music Volume")]
         [Tooltip("Slider that controls music volume (0-100).")]
         [SerializeField] private Slider   _musicSlider;
@@ -197,6 +201,16 @@ namespace _Project.Scripts.UI
         {
             if (_screenshotService == null) return;
             _screenshotService.Capture();
+        }
+
+        /// <summary>Opens the save-garden popup and closes the dropdown.</summary>
+        public void SaveGarden()
+        {
+            if (_saveGardenPopup == null) return;
+            _saveGardenPopup.Show();
+            ToggleMenu();
+            _uiAudio?.PlayClick();
+            Debug.Log("[GameOptionsMenu] Save garden popup opened.");
         }
 
         /// <summary>Returns to the title screen scene with a fade transition.</summary>
