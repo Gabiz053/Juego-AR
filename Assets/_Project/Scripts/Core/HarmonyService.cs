@@ -1,12 +1,13 @@
 // ------------------------------------------------------------
 //  HarmonyService.cs  -  _Project.Scripts.Core
 //  Passive garden evaluator -- recalculates harmony on events
-//  from placement / destroy systems, never polls Update.
+//  published through EventBus, never polls Update.
 // ------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Core
@@ -15,11 +16,12 @@ namespace _Project.Scripts.Core
     /// Evaluates the harmony of the AR garden and emits
     /// <see cref="OnHarmonyChanged"/> whenever the score changes.<br/>
     /// Three pillars: <b>Variety</b>, <b>Decoration</b>, <b>Quantity</b>.<br/>
-    /// Driven entirely by events -- no <c>Update</c> polling.
+    /// Driven entirely by <see cref="EventBus"/> subscriptions -- no
+    /// <c>Update</c> polling and no direct <c>Notify*</c> calls from other systems.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Harmony Service")]
-    public class HarmonyService : MonoBehaviour
+    public class HarmonyService : MonoBehaviour, IHarmonyService
     {
         #region Inspector -----------------------------------------
 
@@ -54,12 +56,43 @@ namespace _Project.Scripts.Core
         private float _lastScore    = -1f;
         private bool  _perfectFired;
 
+        #endregion
+
+        #region Public API ----------------------------------------
+
         /// <summary>Current harmony score [0, 1].</summary>
         public float CurrentScore => _lastScore < 0f ? 0f : _lastScore;
 
         #endregion
 
         #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            ServiceLocator.Register<IHarmonyService>(this);
+        }
+
+        private void OnEnable()
+        {
+            EventBus.Subscribe<BlockPlacedEvent>(HandleBlockPlaced);
+            EventBus.Subscribe<BlockDestroyedEvent>(HandleBlockDestroyed);
+            EventBus.Subscribe<PebblePlacedEvent>(HandlePebblePlaced);
+            EventBus.Subscribe<PebbleDestroyedEvent>(HandlePebbleDestroyed);
+            EventBus.Subscribe<WorldResetEvent>(HandleWorldReset);
+            EventBus.Subscribe<UndoPerformedEvent>(HandleUndoRedo);
+            EventBus.Subscribe<RedoPerformedEvent>(HandleRedoPerformed);
+        }
+
+        private void OnDisable()
+        {
+            EventBus.Unsubscribe<BlockPlacedEvent>(HandleBlockPlaced);
+            EventBus.Unsubscribe<BlockDestroyedEvent>(HandleBlockDestroyed);
+            EventBus.Unsubscribe<PebblePlacedEvent>(HandlePebblePlaced);
+            EventBus.Unsubscribe<PebbleDestroyedEvent>(HandlePebbleDestroyed);
+            EventBus.Unsubscribe<WorldResetEvent>(HandleWorldReset);
+            EventBus.Unsubscribe<UndoPerformedEvent>(HandleUndoRedo);
+            EventBus.Unsubscribe<RedoPerformedEvent>(HandleRedoPerformed);
+        }
 
         private void Start()
         {
@@ -69,22 +102,29 @@ namespace _Project.Scripts.Core
             Debug.Log($"[HarmonyService] Initialized -- score: {_lastScore:F2}, blocks: {_totalBlocks}, pebbles: {_totalPebbles}.");
         }
 
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IHarmonyService>();
+        }
+
         #endregion
 
-        #region Public API ----------------------------------------
+        #region EventBus Handlers ---------------------------------
 
-        /// <summary>Call after a voxel block is placed.</summary>
-        public void NotifyBlockPlaced(BlockType type)
+        /// <summary>Increments the counter for the placed block type.</summary>
+        private void HandleBlockPlaced(BlockPlacedEvent evt)
         {
+            BlockType type = evt.Type;
             _blockCounts.TryGetValue(type, out int current);
             _blockCounts[type] = current + 1;
             _totalBlocks++;
             Recalculate();
         }
 
-        /// <summary>Call after a voxel block is destroyed.</summary>
-        public void NotifyBlockDestroyed(BlockType type)
+        /// <summary>Decrements the counter for the destroyed block type.</summary>
+        private void HandleBlockDestroyed(BlockDestroyedEvent evt)
         {
+            BlockType type = evt.Type;
             if (_blockCounts.TryGetValue(type, out int current) && current > 0)
             {
                 _blockCounts[type] = current - 1;
@@ -95,22 +135,22 @@ namespace _Project.Scripts.Core
             Recalculate();
         }
 
-        /// <summary>Call after a pebble is placed.</summary>
-        public void NotifyPebblePlaced()
+        /// <summary>Increments the pebble counter.</summary>
+        private void HandlePebblePlaced(PebblePlacedEvent _)
         {
             _totalPebbles++;
             Recalculate();
         }
 
-        /// <summary>Call after a pebble is destroyed.</summary>
-        public void NotifyPebbleDestroyed()
+        /// <summary>Decrements the pebble counter.</summary>
+        private void HandlePebbleDestroyed(PebbleDestroyedEvent _)
         {
             _totalPebbles = Mathf.Max(0, _totalPebbles - 1);
             Recalculate();
         }
 
         /// <summary>Full world reset -- clears counters and score.</summary>
-        public void NotifyWorldReset()
+        private void HandleWorldReset(WorldResetEvent _)
         {
             _blockCounts.Clear();
             _totalBlocks  = 0;
@@ -122,12 +162,20 @@ namespace _Project.Scripts.Core
             Debug.Log("[HarmonyService] World reset -- all counters cleared.");
         }
 
-        /// <summary>Full rescan after undo / redo operations.</summary>
-        public void NotifyUndoRedo()
+        /// <summary>Full rescan after undo operation.</summary>
+        private void HandleUndoRedo(UndoPerformedEvent _)
         {
             RebuildCounters();
             Recalculate();
-            Debug.Log($"[HarmonyService] Undo/Redo rescan -- blocks: {_totalBlocks}, pebbles: {_totalPebbles}, score: {_lastScore:F2}.");
+            Debug.Log($"[HarmonyService] Undo rescan -- blocks: {_totalBlocks}, pebbles: {_totalPebbles}, score: {_lastScore:F2}.");
+        }
+
+        /// <summary>Full rescan after redo operation.</summary>
+        private void HandleRedoPerformed(RedoPerformedEvent _)
+        {
+            RebuildCounters();
+            Recalculate();
+            Debug.Log($"[HarmonyService] Redo rescan -- blocks: {_totalBlocks}, pebbles: {_totalPebbles}, score: {_lastScore:F2}.");
         }
 
         #endregion
@@ -240,20 +288,10 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_config == null)
-                Debug.LogError("[HarmonyService] _config is not assigned!", this);
+                Debug.LogWarning("[HarmonyService] _config is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[HarmonyService] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[HarmonyService] _worldContainer is not assigned.", this);
         }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (_config == null) return;
-            float sum = _config.varietyWeight + _config.decorationWeight + _config.quantityWeight;
-            if (!Mathf.Approximately(sum, 1f))
-                Debug.LogWarning($"[HarmonyService] Pillar weights sum to {sum:F2} -- should be 1.0.", this);
-        }
-#endif
 
         #endregion
     }

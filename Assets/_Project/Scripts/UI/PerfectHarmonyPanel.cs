@@ -1,5 +1,4 @@
 // ------------------------------------------------------------
-// ------------------------------------------------------------
 //  PerfectHarmonyPanel.cs  -  _Project.Scripts.UI
 //  Controls the "Perfect Harmony" celebration overlay.
 // ------------------------------------------------------------
@@ -8,7 +7,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -28,9 +27,6 @@ namespace _Project.Scripts.UI
         #region Inspector -----------------------------------------
 
         [Header("Required")]
-        [Tooltip("HarmonyService -- subscribes to OnPerfectHarmony.")]
-        [SerializeField] private HarmonyService _harmonyService;
-
         [Tooltip("Continue button -- shown after the intro animation.")]
         [SerializeField] private Button _continueButton;
 
@@ -50,9 +46,21 @@ namespace _Project.Scripts.UI
         #region State ---------------------------------------------
 
         private CanvasGroup      _canvasGroup;
+        private CanvasGroup      _buttonCanvasGroup;
         private HarmonyParticles _particles;
-        private UIAudioService   _uiAudio;
-        private HapticService    _hapticService;
+        private IHarmonyService   _harmonyService;
+        private IUIAudioService   _uiAudio;
+        private IHapticService    _hapticService;
+
+        #endregion
+
+        #region Public API ----------------------------------------
+
+        /// <summary>Called by Btn_Continue.onClick.</summary>
+        public void OnContinuePressed()
+        {
+            StartCoroutine(FadeOut());
+        }
 
         #endregion
 
@@ -66,11 +74,16 @@ namespace _Project.Scripts.UI
 
             _particles = GetComponentInChildren<HarmonyParticles>(includeInactive: true);
 
-            Canvas root = GetComponentInParent<Canvas>();
-            if (root != null)
-                _uiAudio = root.GetComponentInChildren<UIAudioService>();
+            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
 
-            _hapticService = FindAnyObjectByType<HapticService>();
+            if (_continueButton != null)
+            {
+                _buttonCanvasGroup = _continueButton.GetComponent<CanvasGroup>();
+                if (_buttonCanvasGroup == null)
+                    _buttonCanvasGroup = _continueButton.gameObject.AddComponent<CanvasGroup>();
+            }
 
             // Start invisible � DO NOT use SetActive(false) or events
             // from HarmonyService will never reach this panel.
@@ -115,16 +128,6 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Public API ----------------------------------------
-
-        /// <summary>Called by Btn_Continue.onClick.</summary>
-        public void OnContinuePressed()
-        {
-            StartCoroutine(FadeOut());
-        }
-
-        #endregion
-
         #region Internals -----------------------------------------
 
         /// <summary>Triggered by <see cref="HarmonyService.OnPerfectHarmony"/>.</summary>
@@ -162,34 +165,32 @@ namespace _Project.Scripts.UI
             if (_continueButton != null)
             {
                 _continueButton.gameObject.SetActive(true);
-                CanvasGroup btnCg = _continueButton.GetComponent<CanvasGroup>();
-                if (btnCg == null) btnCg = _continueButton.gameObject.AddComponent<CanvasGroup>();
-                btnCg.alpha        = 0f;
-                btnCg.interactable = false;
+                if (_buttonCanvasGroup != null)
+                {
+                    _buttonCanvasGroup.alpha        = 0f;
+                    _buttonCanvasGroup.interactable = false;
+                }
             }
 
             _canvasGroup.blocksRaycasts = true;
 
             float elapsed = 0f;
-            CanvasGroup buttonGroup = _continueButton != null
-                ? _continueButton.GetComponent<CanvasGroup>()
-                : null;
 
             while (elapsed < _fadeInDuration)
             {
                 elapsed += Time.deltaTime;
                 float t  = Mathf.SmoothStep(0f, 1f, elapsed / _fadeInDuration);
                 _canvasGroup.alpha = t;
-                if (buttonGroup != null) buttonGroup.alpha = t;
+                if (_buttonCanvasGroup != null) _buttonCanvasGroup.alpha = t;
                 yield return null;
             }
 
             _canvasGroup.alpha        = 1f;
             _canvasGroup.interactable = true;
-            if (buttonGroup != null)
+            if (_buttonCanvasGroup != null)
             {
-                buttonGroup.alpha        = 1f;
-                buttonGroup.interactable = true;
+                _buttonCanvasGroup.alpha        = 1f;
+                _buttonCanvasGroup.interactable = true;
             }
 
             _particles?.Play();
@@ -206,10 +207,7 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayClick();
             _canvasGroup.interactable = false;
 
-            CanvasGroup buttonGroup = _continueButton != null
-                ? _continueButton.GetComponent<CanvasGroup>()
-                : null;
-            if (buttonGroup != null) buttonGroup.interactable = false;
+            if (_buttonCanvasGroup != null) _buttonCanvasGroup.interactable = false;
 
             float elapsed = 0f;
             while (elapsed < _fadeOutDuration)
@@ -217,7 +215,7 @@ namespace _Project.Scripts.UI
                 elapsed += Time.deltaTime;
                 float t  = 1f - Mathf.SmoothStep(0f, 1f, elapsed / _fadeOutDuration);
                 _canvasGroup.alpha = t;
-                if (buttonGroup != null) buttonGroup.alpha = t;
+                if (_buttonCanvasGroup != null) _buttonCanvasGroup.alpha = t;
                 yield return null;
             }
 
@@ -235,11 +233,11 @@ namespace _Project.Scripts.UI
         private void ValidateReferences()
         {
             if (_harmonyService == null)
-                Debug.LogError("[PerfectHarmonyPanel] _harmonyService is not assigned!", this);
+                Debug.LogWarning("[PerfectHarmonyPanel] _harmonyService is not assigned.", this);
             if (_continueButton == null)
-                Debug.LogWarning("[PerfectHarmonyPanel] _continueButton is not assigned!", this);
+                Debug.LogWarning("[PerfectHarmonyPanel] _continueButton is not assigned.", this);
             if (_canvasGroup == null)
-                Debug.LogError("[PerfectHarmonyPanel] CanvasGroup not found!", this);
+                Debug.LogWarning("[PerfectHarmonyPanel] _canvasGroup is not assigned.", this);
         }
 
         #endregion

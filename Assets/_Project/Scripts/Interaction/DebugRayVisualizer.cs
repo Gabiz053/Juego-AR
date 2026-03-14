@@ -54,21 +54,6 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _mainCamera = Camera.main;
-            SetupLineRenderer();
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
-
-        #endregion
-
         #region Public API ----------------------------------------
 
         /// <summary>Whether the visualizer is active.</summary>
@@ -87,6 +72,21 @@ namespace _Project.Scripts.Interaction
 
         /// <summary>Updates the max distance used to calculate drawn ray length.</summary>
         public void SetMaxDistance(float distance) => _maxRayDistance = distance;
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _mainCamera = Camera.main;
+            SetupLineRenderer();
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
 
         #endregion
 
@@ -142,9 +142,9 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_lineRenderer == null)
-                Debug.LogError("[DebugRayVisualizer] _lineRenderer is not assigned!", this);
+                Debug.LogWarning("[DebugRayVisualizer] _lineRenderer is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[DebugRayVisualizer] Camera.main not found!", this);
+                Debug.LogWarning("[DebugRayVisualizer] _mainCamera is not assigned.", this);
         }
 
         #endregion

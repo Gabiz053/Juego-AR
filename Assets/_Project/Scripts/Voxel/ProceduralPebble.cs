@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  ProceduralPebble.cs  -  _Project.Scripts.Voxel
-//  Procedural mesh generation only -- no game logic.
-//  Generates a low-poly stone from a jittered icosphere.
+//  Procedural low-poly stone from a jittered icosphere.
 // ------------------------------------------------------------
 
 using UnityEngine;
@@ -20,6 +19,13 @@ namespace _Project.Scripts.Voxel
     [AddComponentMenu("ARmonia/Voxel/Procedural Pebble")]
     public class ProceduralPebble : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Upper bound for randomly generated mesh seeds.</summary>
+        private const int MAX_RANDOM_SEED = 99999;
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Shape")]
@@ -39,6 +45,8 @@ namespace _Project.Scripts.Voxel
 
         private void Awake() => BuildMesh();
 
+        private void Start() => ValidateReferences();
+
         #endregion
 
         #region Internals -----------------------------------------
@@ -51,7 +59,7 @@ namespace _Project.Scripts.Voxel
         {
             var mf   = GetComponent<MeshFilter>();
             var mc   = GetComponent<MeshCollider>();
-            int seed = _seed == 0 ? Random.Range(1, 99999) : _seed;
+            int seed = _seed == 0 ? Random.Range(1, MAX_RANDOM_SEED) : _seed;
 
             Mesh mesh     = GenerateMesh(_size, _jitterFraction, seed);
             mesh.name     = "PebbleMesh";
@@ -59,10 +67,6 @@ namespace _Project.Scripts.Voxel
             mc.sharedMesh = mesh;
             mc.convex     = true;
         }
-
-        #endregion
-
-        #region Icosphere Data ------------------------------------
 
         private static readonly float PHI = (1f + Mathf.Sqrt(5f)) * 0.5f;
 
@@ -88,10 +92,6 @@ namespace _Project.Scripts.Voxel
              3, 9, 4,  3, 4, 2,  3, 2, 6,  3, 6, 8,  3, 8, 9,
              4, 9, 5,  2, 4,11,  6, 2,10,  8, 6, 7,  9, 8, 1,
         };
-
-        #endregion
-
-        #region Mesh Generation -----------------------------------
 
         /// <summary>
         /// Jitters icosahedron vertices by a random per-vertex offset,
@@ -159,6 +159,18 @@ namespace _Project.Scripts.Voxel
             if (ay >= ax && ay >= az)
                 return new Vector2(v.x / hx * 0.5f + 0.5f, v.z / hz * 0.5f + 0.5f);
             return new Vector2(v.x / hx * 0.5f + 0.5f, v.y / hy * 0.5f + 0.5f);
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (GetComponent<MeshFilter>() == null)
+                Debug.LogWarning("[ProceduralPebble] MeshFilter is not assigned.", this);
+            if (GetComponent<MeshCollider>() == null)
+                Debug.LogWarning("[ProceduralPebble] MeshCollider is not assigned.", this);
         }
 
         #endregion

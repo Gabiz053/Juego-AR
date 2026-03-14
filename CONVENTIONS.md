@@ -69,6 +69,7 @@ _Project/
 ├── Scripts/
 │   ├── AR/                  ← Gestión AR: ancla, planos, profundidad, modos
 │   ├── Core/                ← Grid, armonía, audio, iluminación, undo/redo, reset, screenshot, datos de modo, transiciones de escena
+│   ├── Infrastructure/      ← ServiceLocator, EventBus, GameEvents, domain enums (BlockType, ToolType), service interfaces (IGameAudioService, IHapticService, etc.), IUndoableAction — arquitectura base
 │   ├── Interaction/         ← Input táctil, herramientas, colocación/destrucción, debug ray
 │   ├── Title/               ← Pantalla de inicio: face tracking, hand tracking, selección de modo, animación de logo
 │   ├── UI/                  ← HUD, menú, orientación, servicios UI
@@ -349,6 +350,7 @@ El `Btn_Brush` es una **excepción** al patrón estándar de botones:
 |---------|-----------|
 | `Scripts/AR/` | `_Project.Scripts.AR` |
 | `Scripts/Core/` | `_Project.Scripts.Core` |
+| `Scripts/Infrastructure/` | `_Project.Scripts.Infrastructure` |
 | `Scripts/Interaction/` | `_Project.Scripts.Interaction` |
 | `Scripts/Title/` | `_Project.Scripts.Title` |
 | `Scripts/UI/` | `_Project.Scripts.UI` |
@@ -392,6 +394,7 @@ Cada script sigue este orden de `#region`:
 | Cada `[SerializeField]` lleva `[Tooltip]` | `[Tooltip("Descripción clara.")] [SerializeField] private float _value;` |
 | Cada grupo de campos lleva `[Header]` | `[Header("Dependencies")]` |
 | `ValidateReferences()` en `Start()` | `private void Start() { ValidateReferences(); }` |
+| Formato de `ValidateReferences()` | Siempre `Debug.LogWarning("[Clase] _campo is not assigned.", this);` — ver subsección abajo |
 | XML `<summary>` en toda clase pública | `/// <summary>Gestiona la rejilla de construcción.</summary>` |
 | Yield cacheados como campo | `private readonly WaitForSeconds _wait = new WaitForSeconds(0.5f);` |
 | No dejar `using` sin usar | Limpiar imports |
@@ -410,9 +413,40 @@ decisión importantes para facilitar el diagnóstico en consola:
 | Toggle ON/OFF | `Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");` |
 | Operación destructiva | `Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");` |
 
-**Formato obligatorio:** `[ClassName] Message -- context.`  
+**Formato obligatorio:** `[ClassName] Message -- context.`
 **No añadir** `Debug.Log` en hot paths (`Update`, loops de coroutine) ni en
 métodos llamados cada frame.  Unity los stripea automáticamente en builds no-Development.
+
+### Convención de ValidateReferences()
+
+Cada MonoBehaviour tiene un método `ValidateReferences()` llamado desde `Start()`.
+Este método valida que todas las dependencias (campos, servicios, componentes) se
+hayan resuelto correctamente.  **Formato único obligatorio:**
+
+```csharp
+#region Validation ----------------------------------------
+
+private void ValidateReferences()
+{
+    if (_fieldName == null)
+        Debug.LogWarning("[ClassName] _fieldName is not assigned.", this);
+}
+
+#endregion
+```
+
+**Reglas:**
+
+| Regla | Correcto | Incorrecto |
+|-------|----------|------------|
+| Nivel de log | `Debug.LogWarning` | `Debug.LogError` |
+| Nombre del campo | `_fieldName` (nombre real del campo privado) | `FieldName`, `"No Collider found"` |
+| Mensaje | `"[Clase] _campo is not assigned."` | `"[Clase] _campo not found!"`, `"[Clase] _campo is not assigned!"` |
+| Puntuación | Punto final `.` | Exclamación `!` |
+| Contexto `this` | Siempre `this` como segundo argumento | Sin contexto |
+| `OnValidate()` | **Prohibido** — no usar `#if UNITY_EDITOR` + `OnValidate` | `#if UNITY_EDITOR private void OnValidate() ...` |
+| Arrays vacíos | `if (_arr == null \|\| _arr.Length == 0)` | Solo `_arr == null` |
+| Componentes vía GetComponent | `"[Clase] ComponentType is not assigned."` | `"[Clase] ComponentType not found!"` |
 
 ---
 
@@ -627,7 +661,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 | Regla | Por qué | Cómo |
 |-------|---------|------|
 | **No `GetComponent` en `Update()`** | Presión GC + CPU spike por frame | Cachear en `Awake()` o `Start()` |
-| **No `Find()` / `FindObjectOfType()`** | Scan O(n) cada llamada | Usar `[SerializeField]` en Inspector |
+| **No `Find()` / `FindObjectOfType()`** | Scan O(n) cada llamada | Usar `[SerializeField]` en Inspector o `ServiceLocator.TryGet<T>()` para prefabs |
 | **No allocation en hot paths** | GC stutter en móvil | Reutilizar `List<>`, `HashSet<>`, `MaterialPropertyBlock`, `WaitForSeconds` |
 | **UI event-driven** | Polling gasta batería + CPU | Usar `event Action<T>` → suscribir en `OnEnable`, desuscribir en `OnDisable` |
 | **No concatenar `string` en `Update()`** | `StringBuilder` oculto alloc | Usar interpolated strings solo en `Debug.Log` (stripped en Release) |
@@ -660,23 +694,25 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 
 | Patrón | Uso | Ejemplo real |
 |--------|-----|-------------|
-| **C# Events (`event Action<T>`)** | Notificación cross-sistema, UI reactiva | `HarmonyService.OnHarmonyChanged` → `HarmonyHUD.SetHarmony` |
-| **Llamada directa** | Acoplamiento estrecho dentro de la misma capa | `ARBlockPlacer` → `GridManager.GetSnappedPosition()` |
+| **Service Locator** | Resolución de dependencias por interfaz sin singletons ni `Find*` | `ServiceLocator.Register<IGameAudioService>(this)` en `Awake`; `ServiceLocator.TryGet<IGameAudioService>(out _audioService)` en consumidor |
+| **EventBus (Pub/Sub tipado)** | Comunicación cross-sistema sin referencias directas | `EventBus.Publish(new BlockPlacedEvent(cell, id))` → cualquier suscriptor recibe el evento sin conocer al publisher |
+| **C# Events (`event Action<T>`)** | Notificación intra-capa, UI reactiva | `IHarmonyService.OnHarmonyChanged` → `HarmonyHUD.SetHarmony` |
+| **Llamada directa** | Acoplamiento estrecho dentro de la misma capa | `ARBlockPlacer` → `IGridManager.GetSnappedPosition()` |
 | **Inspector `[SerializeField]`** | Inyección de dependencias para MonoBehaviours de escena | Toda sección `#region Inspector` en scripts de escena |
 | **Command Pattern** | Undo/Redo | `IUndoableAction` → `PlaceBlockAction` / `DestroyBlockAction` |
 | **Facade Pattern** | Simplificar acceso a subsistema | `GridManager` envuelve `GridVisualizer` |
 | **ScriptableObject data** | Configuración compartida sin dependencia de escena | `BlockDatabase`, `HarmonyConfig`, `WorldModeSO` |
 | **Static context** | Dato cross-escena sin singletons | `WorldModeContext.Selected` |
 | **Internal static helper** | Lógica compartida entre Commands sin estado | `PlaceBlockAction.ArmForImmediate()` — deshabilita BlockSpawn, habilita Collider + BlockDestroy.SetReady(). Usado por `Redo` (place) y `Undo` (destroy). |
-| **Auto-locate en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn` auto-localiza `GameAudioService`, `HapticService` via `FindAnyObjectByType` |
+| **ServiceLocator.TryGet en Awake** | Servicios de escena desde prefabs instanciados dinámicamente | `BlockSpawn`, `BlockDestroy`, `SandGravity` resuelven interfaces (`IGameAudioService`, `IHapticService`, `IToolManager`, etc.) via `ServiceLocator.TryGet<T>()` en `Awake` |
 | **Prefab-owns-feedback** | Audio y VFX viven en el prefab, no en el caller | `BlockSpawn` reproduce place sounds/VFX; `BlockDestroy` reproduce break sounds/VFX. Callers no tocan audio ni VFX. |
 | **VoxelBlock como fuente de audio** | Prefab data-component leído por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles (sin `VoxelBlock`). |
 | **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick → BrushTool.ToggleBrush()` |
 | **OnClick con int param** | Selección indexada desde botones UI | `Btn_Bonsai.OnClick → TitleSceneManager.SelectMode(0)` |
-| **Scene transition** | Carga de escena con fade y dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")` (fade-to-black → async load → fade-in). `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions al transicionar desde la cámara frontal. `GameOptionsMenu.ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
-| **Singleton DontDestroyOnLoad** | Servicio cross-escena auto-creado | `SceneTransitionService`: se auto-crea en primer uso via `EnsureInstance()`, persiste entre escenas, Canvas overlay propio (sort order 999). |
+| **Scene transition** | Carga de escena con fade y dato estático pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `ServiceLocator.TryGet<ISceneTransitionService>().TransitionTo("Main_AR")` (fade-to-black → async load → fade-in). `WorldModeBootstrapper` lee el modo en `Awake()` y difiere la activación de AR managers a una corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` para evitar race conditions. `GameOptionsMenu.ExitGame()` transiciona a `Title_Screen` via ServiceLocator. |
+| **DontDestroyOnLoad con ServiceLocator** | Servicio cross-escena registrado en ServiceLocator | `SceneTransitionService`: se registra como `ISceneTransitionService` en `Awake`, persiste entre escenas via `DontDestroyOnLoad`, guard `ServiceLocator.IsRegistered<T>()` para evitar duplicados. Canvas overlay propio (sort order 999). |
 | **Pinch gesture detection** | Detección de gesto por distancia de landmarks | `HandTrackingService` mide distancia entre thumb tip (#4) e index tip (#8). Histéresis (enter 0.055, exit 0.08) + debounce (2 frames). `DwellSelector` escucha `OnPinchDetected` para selección instantánea de botón. |
-| **Sand gravity (poll continuo)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo en `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, luego `InvokeRepeating` cada 0.25s (patrón `PebbleSupport`). Si no hay soporte → cae animado (ease-in) hasta grid válido. Tras aterrizar reinicia el poll para reaccionar a bloques destruidos. Desactiva collider/`BlockDestroy` durante caída (mismo patrón que `BlockSpawn`). |
+| **Sand gravity (poll continuo)** | Gravedad selectiva por tipo de bloque | `SandGravity` (solo en `Voxel_Sand`): espera `BlockDestroy.IsReady` + 0.15s, luego `InvokeRepeating` cada 0.15s. Si no hay soporte → cae animado (ease-in) hasta grid válido. Tras aterrizar reinicia el poll para reaccionar a bloques destruidos. Desactiva collider/`BlockDestroy` durante caída (mismo patrón que `BlockSpawn`). |
 
 ---
 
@@ -693,7 +729,7 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 - Scripts AR en `Scripts/AR/`, no mezclados con Core o Interaction.
 - Cada `[SerializeField]` lleva `[Tooltip]`.
 - Cada grupo de `[SerializeField]` lleva `[Header]`.
-- Cada MonoBehaviour tiene `ValidateReferences()` llamado en `Start()`.
+- Cada MonoBehaviour tiene `ValidateReferences()` llamado en `Start()` — formato estandarizado (ver Sección 3).
 - Cachear yield objects de coroutines como campos.
 - Usar `#region` siguiendo el orden de la plantilla (Sección 3).
 - Usar `[DisallowMultipleComponent]` en cada MonoBehaviour.
@@ -709,6 +745,8 @@ Estas reglas son obligatorias para mantener 60fps estables en AR móvil:
 - Hardcodear magic numbers — usar `[SerializeField]` o `const`.
 - Duplicar referencias de escena en prefabs — usar `FindAnyObjectByType<T>()` en `Awake` o `[SerializeField]` para datos de prefab.
 - Dejar `Debug.Log` en release sin condicional (Unity los stripea automáticamente en builds no-Development, pero mantener limpio).
+- `OnValidate()` en MonoBehaviours — usar únicamente `ValidateReferences()` llamado desde `Start()`. Excepción: `ScriptableObject` puede usar `OnValidate()` para validar datos de asset (e.g. entradas duplicadas).
+- `Debug.LogError` dentro de `ValidateReferences()` — siempre usar `Debug.LogWarning` (ver convención en Sección 3).
 
 ### Mantenimiento de documentación
 

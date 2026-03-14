@@ -90,9 +90,9 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_directionalLight == null)
-                Debug.LogError("[LightingService] _directionalLight is not assigned!", this);
+                Debug.LogWarning("[LightingService] _directionalLight is not assigned.", this);
             if (_cameraSpotLight == null)
-                Debug.LogWarning("[LightingService] _cameraSpotLight is not assigned!", this);
+                Debug.LogWarning("[LightingService] _cameraSpotLight is not assigned.", this);
         }
 
         #endregion

@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
@@ -14,7 +15,7 @@ namespace _Project.Scripts.Core
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Grid Manager")]
-    public class GridManager : MonoBehaviour
+    public class GridManager : MonoBehaviour, IGridManager
     {
         #region Inspector -----------------------------------------
 
@@ -66,9 +67,19 @@ namespace _Project.Scripts.Core
 
         #region Unity Lifecycle -----------------------------------
 
+        private void Awake()
+        {
+            ServiceLocator.Register<IGridManager>(this);
+        }
+
         private void Start()
         {
             ValidateReferences();
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IGridManager>();
         }
 
         #endregion
@@ -78,9 +89,9 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_gridSize <= 0f)
-                Debug.LogError($"[GridManager] _gridSize must be > 0, but is {_gridSize}!", this);
+                Debug.LogWarning($"[GridManager] _gridSize must be > 0, but is {_gridSize}.", this);
             if (_gridVisualizer == null)
-                Debug.LogWarning("[GridManager] _gridVisualizer is not assigned!", this);
+                Debug.LogWarning("[GridManager] _gridVisualizer is not assigned.", this);
         }
 
         #endregion

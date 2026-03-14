@@ -1,39 +1,39 @@
 // ------------------------------------------------------------
 //  SceneTransitionService.cs  -  _Project.Scripts.Core
 //  Provides a smooth fade-to-black transition between scenes.
-//  Self-initialises on first use — no prefab or scene setup needed.
+//  Registers in ServiceLocator instead of using a static singleton.
 // ------------------------------------------------------------
 
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
     /// <summary>
-    /// Singleton service that fades the screen to black, loads the target scene
+    /// Service that fades the screen to black, loads the target scene
     /// asynchronously, then fades back in. Creates its own Canvas and Image
     /// programmatically so no prefab wiring is required.<br/>
-    /// Usage: <c>SceneTransitionService.TransitionTo("SceneName");</c>
+    /// Accessed via <c>ServiceLocator.Get&lt;ISceneTransitionService&gt;()</c>.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Scene Transition Service")]
-    public class SceneTransitionService : MonoBehaviour
+    public class SceneTransitionService : MonoBehaviour, ISceneTransitionService
     {
         #region Constants -----------------------------------------
 
         /// <summary>Duration of each fade (in + out) in seconds.</summary>
         private const float FADE_DURATION = 0.4f;
 
-        /// <summary>Canvas sort order — must be above everything else.</summary>
+        /// <summary>Canvas sort order -- must be above everything else.</summary>
         private const int CANVAS_SORT_ORDER = 999;
 
         #endregion
 
         #region State ---------------------------------------------
 
-        private static SceneTransitionService _instance;
         private CanvasGroup _overlayGroup;
         private bool _isTransitioning;
 
@@ -41,24 +41,36 @@ namespace _Project.Scripts.Core
 
         #region Public API ----------------------------------------
 
+        /// <summary>Returns true while a transition is in progress.</summary>
+        public bool IsTransitioning => _isTransitioning;
+
         /// <summary>
         /// Starts a fade-to-black transition to the given scene.
-        /// Safe to call from anywhere — creates the singleton on first use.
         /// Ignores duplicate calls while a transition is already in progress.
         /// </summary>
-        public static void TransitionTo(string sceneName)
+        public void TransitionTo(string sceneName)
         {
-            EnsureInstance();
-            if (_instance._isTransitioning) return;
+            if (_isTransitioning) return;
 
             Debug.Log($"[SceneTransitionService] Transition started -- target: {sceneName}.");
-            _instance.StartCoroutine(_instance.TransitionCoroutine(sceneName));
+            StartCoroutine(TransitionCoroutine(sceneName));
         }
 
         /// <summary>
-        /// Returns true while a transition is in progress.
+        /// Ensures an <see cref="ISceneTransitionService"/> is registered in the
+        /// <see cref="ServiceLocator"/>.  If none exists, creates a new GameObject
+        /// with this component (which self-registers in <c>Awake</c>).<br/>
+        /// Call this from any script that needs the service before attempting
+        /// <c>ServiceLocator.TryGet</c>.
         /// </summary>
-        public static bool IsTransitioning => _instance != null && _instance._isTransitioning;
+        public static void EnsureAvailable()
+        {
+            if (ServiceLocator.IsRegistered<ISceneTransitionService>()) return;
+
+            var go = new GameObject("[SceneTransitionService]");
+            go.AddComponent<SceneTransitionService>();
+            Debug.Log("[SceneTransitionService] Auto-created -- no instance found in scene.");
+        }
 
         #endregion
 
@@ -66,38 +78,26 @@ namespace _Project.Scripts.Core
 
         private void Awake()
         {
-            if (_instance != null && _instance != this)
+            if (ServiceLocator.IsRegistered<ISceneTransitionService>())
             {
                 Destroy(gameObject);
                 return;
             }
 
-            _instance = this;
+            ServiceLocator.Register<ISceneTransitionService>(this);
             DontDestroyOnLoad(gameObject);
             BuildOverlay();
         }
 
         private void OnDestroy()
         {
-            if (_instance == this)
-                _instance = null;
+            if (ServiceLocator.TryGet<ISceneTransitionService>(out var current) && current == (ISceneTransitionService)this)
+                ServiceLocator.Unregister<ISceneTransitionService>();
         }
 
         #endregion
 
         #region Internals -----------------------------------------
-
-        /// <summary>
-        /// Ensures the singleton exists. Creates a new GameObject with this
-        /// component if none is present in the scene.
-        /// </summary>
-        private static void EnsureInstance()
-        {
-            if (_instance != null) return;
-
-            var go = new GameObject("SceneTransitionService");
-            go.AddComponent<SceneTransitionService>();
-        }
 
         /// <summary>
         /// Builds a full-screen black overlay Canvas + Image + CanvasGroup
@@ -137,7 +137,7 @@ namespace _Project.Scripts.Core
         }
 
         /// <summary>
-        /// Coroutine: fade in overlay → load scene async → fade out overlay.
+        /// Coroutine: fade in overlay -> load scene async -> fade out overlay.
         /// </summary>
         private IEnumerator TransitionCoroutine(string sceneName)
         {

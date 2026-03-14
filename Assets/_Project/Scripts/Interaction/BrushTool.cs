@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  BrushTool.cs  -  _Project.Scripts.Interaction
-//  Continuous block-painting while the finger is held and dragged.
-//  Delegates to ARBlockPlacer / BlockDestroyer / PlowTool.
+//  Continuous block-painting while the finger is held.
 // ------------------------------------------------------------
 
 using System;
@@ -9,7 +8,7 @@ using UnityEngine;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.EventSystems;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
-using _Project.Scripts.UI;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Interaction
 {
@@ -32,15 +31,8 @@ namespace _Project.Scripts.Interaction
         [Tooltip("BlockDestroyer -- continuous mining is delegated here.")]
         [SerializeField] private BlockDestroyer _blockDestroyer;
 
-        [Tooltip("ToolManager -- listens for tool changes to track the last build tool.")]
-        [SerializeField] private ToolManager _toolManager;
-
         [Tooltip("PlowTool -- continuous pebble placement when Tool_Plow is active.")]
         [SerializeField] private PlowTool _plowTool;
-
-        [Header("Audio")]
-        [Tooltip("UI audio service -- plays toggle sound.")]
-        [SerializeField] private UIAudioService _uiAudio;
 
         [Header("Brush Settings")]
         [Tooltip("Minimum seconds between consecutive placements while dragging.")]
@@ -57,17 +49,47 @@ namespace _Project.Scripts.Interaction
 
         #region State ---------------------------------------------
 
+        private ToolType _lastBuildTool = ToolType.Build_Sand;
+        private bool     _hasBuildTool;
+        private float    _lastPlaceTime   = float.NegativeInfinity;
+        private float    _lastDestroyTime = float.NegativeInfinity;
+        private IToolManager    _toolManager;
+        private IUIAudioService _uiAudio;
+
+        #endregion
+
+        #region Public API ----------------------------------------
+
         /// <summary>True while brush mode is active.</summary>
         public bool IsBrushActive { get; private set; }
 
-        private ToolType _lastBuildTool = ToolType.Build_Sand;
-        private bool     _hasBuildTool;
-        private float    _lastPlaceTime   = -999f;
-        private float    _lastDestroyTime = -999f;
+        /// <summary>
+        /// Toggles brush mode ON / OFF.<br/>
+        /// <b>Wire directly to Btn_Brush.OnClick in the Inspector.</b>
+        /// </summary>
+        public void ToggleBrush()
+        {
+            bool canActivate = _hasBuildTool
+                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Plow)
+                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Destroy);
+
+            if (!IsBrushActive && !canActivate) return;
+
+            IsBrushActive = !IsBrushActive;
+            OnBrushToggled?.Invoke(IsBrushActive);
+            _uiAudio?.PlayToggle();
+            Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");
+        }
 
         #endregion
 
         #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+        }
 
         private void OnEnable()
         {
@@ -136,28 +158,6 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
-        #region Public API ----------------------------------------
-
-        /// <summary>
-        /// Toggles brush mode ON / OFF.<br/>
-        /// <b>Wire directly to Btn_Brush.OnClick in the Inspector.</b>
-        /// </summary>
-        public void ToggleBrush()
-        {
-            bool canActivate = _hasBuildTool
-                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Plow)
-                            || (_toolManager != null && _toolManager.CurrentTool == ToolType.Tool_Destroy);
-
-            if (!IsBrushActive && !canActivate) return;
-
-            IsBrushActive = !IsBrushActive;
-            OnBrushToggled?.Invoke(IsBrushActive);
-            _uiAudio?.PlayToggle();
-            Debug.Log($"[BrushTool] Brush {(IsBrushActive ? "ON" : "OFF")}.");
-        }
-
-        #endregion
-
         #region Internals -----------------------------------------
 
         /// <summary>
@@ -189,14 +189,18 @@ namespace _Project.Scripts.Interaction
                 _toolManager.SelectToolByIndex((int)_lastBuildTool);
         }
 
+        #endregion
+
+        #region Validation ----------------------------------------
+
         private void ValidateReferences()
         {
             if (_blockPlacer == null)
-                Debug.LogError("[BrushTool] _blockPlacer is not assigned!", this);
+                Debug.LogWarning("[BrushTool] _blockPlacer is not assigned.", this);
             if (_blockDestroyer == null)
-                Debug.LogError("[BrushTool] _blockDestroyer is not assigned!", this);
+                Debug.LogWarning("[BrushTool] _blockDestroyer is not assigned.", this);
             if (_toolManager == null)
-                Debug.LogError("[BrushTool] _toolManager is not assigned!", this);
+                Debug.LogWarning("[BrushTool] _toolManager is not assigned.", this);
         }
 
         #endregion

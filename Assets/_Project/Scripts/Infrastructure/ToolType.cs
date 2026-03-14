@@ -1,18 +1,16 @@
 // ------------------------------------------------------------
-//  ToolType.cs  -  _Project.Scripts.Interaction
+//  ToolType.cs  -  _Project.Scripts.Infrastructure
 //  Enumerates every tool / block slot in the player inventory.
 // ------------------------------------------------------------
 
-namespace _Project.Scripts.Interaction
+namespace _Project.Scripts.Infrastructure
 {
     /// <summary>
     /// All available tools in the player's inventory toolbar.<br/>
-    /// <c>Build_*</c> values (0-5) map 1:1 to <see cref="Voxel.BlockType"/>
+    /// <c>Build_*</c> values (0-5) map 1:1 to <see cref="BlockType"/>
     /// integer values, enabling direct cast conversion.<br/>
     /// <b>WARNING:</b> Do NOT change existing integer values -- they are
     /// baked into UI button <c>OnClick</c> events in the scene.
-    /// <c>Tool_Brush</c> is an exception: its button calls
-    /// <see cref="BrushTool.ToggleBrush"/> directly.
     /// </summary>
     public enum ToolType
     {

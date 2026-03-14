@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  PlowTool.cs  -  _Project.Scripts.Interaction
-//  Decoration tool -- tap to place procedural pebble details on
-//  any surface (AR plane or top face of existing blocks).
+//  Decoration tool for placing procedural pebble details.
 // ------------------------------------------------------------
 
 using System.Collections.Generic;
@@ -10,14 +9,14 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.EventSystems;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace _Project.Scripts.Interaction
 {
     /// <summary>
-    /// Plow (decoration) tool — tap any surface to scatter procedurally
+    /// Plow (decoration) tool ï¿½ tap any surface to scatter procedurally
     /// generated pebble details.  Active only when
     /// <see cref="ToolManager.CurrentTool"/> == <see cref="ToolType.Tool_Plow"/>.
     /// Placement feedback (audio + VFX) is handled by each pebble prefab's
@@ -27,21 +26,24 @@ namespace _Project.Scripts.Interaction
     [AddComponentMenu("ARmonia/Interaction/Plow Tool")]
     public class PlowTool : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Minimum sqrMagnitude for a tangent vector to be considered valid.</summary>
+        private const float TANGENT_SQR_THRESHOLD = 0.01f;
+
+        /// <summary>Full circle rotation in degrees for random pebble orientation.</summary>
+        private const float FULL_ROTATION_DEG = 360f;
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Dependencies")]
-        [Tooltip("ToolManager -- only active when Tool_Plow is selected.")]
-        [SerializeField] private ToolManager _toolManager;
-
         [Tooltip("AR Raycast Manager -- for placing on detected ground planes.")]
         [SerializeField] private ARRaycastManager _arRaycastManager;
 
         [Tooltip("WorldContainer -- all decorations are parented here.")]
         [SerializeField] private Transform _worldContainer;
-
-        [Header("Harmony")]
-        [Tooltip("HarmonyService -- notified on every pebble placed.")]
-        [SerializeField] private HarmonyService _harmonyService;
 
         [Header("Pebble Prefabs")]
         [Tooltip("Pool of pebble prefabs to pick from at random.")]
@@ -79,14 +81,35 @@ namespace _Project.Scripts.Interaction
         #region State ---------------------------------------------
 
         private Camera _mainCamera;
+        private IToolManager _toolManager;
         private readonly List<ARRaycastHit> _arHits = new List<ARRaycastHit>();
-        private float _lastBrushTime = -999f;
+        private float _lastBrushTime = float.NegativeInfinity;
+
+        #endregion
+
+        #region Public API ----------------------------------------
+
+        /// <summary>
+        /// Called by <see cref="BrushTool"/> on each throttled drag frame.
+        /// Returns <c>true</c> if a pebble was placed.
+        /// </summary>
+        public bool PlacePebbleAtScreen(Vector2 screenPos)
+        {
+            if (Time.time - _lastBrushTime < _brushCooldown) return false;
+            bool placed = TryPlacePebble(screenPos);
+            if (placed) _lastBrushTime = Time.time;
+            return placed;
+        }
 
         #endregion
 
         #region Unity Lifecycle -----------------------------------
 
-        private void Awake()  => _mainCamera = Camera.main;
+        private void Awake()
+        {
+            _mainCamera = Camera.main;
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
+        }
         private void OnEnable()  => EnhancedTouchSupport.Enable();
         private void OnDisable() => EnhancedTouchSupport.Disable();
         private void Start()     => ValidateReferences();
@@ -104,22 +127,6 @@ namespace _Project.Scripts.Interaction
                 return;
 
             TryPlacePebble(touch.screenPosition);
-        }
-
-        #endregion
-
-        #region Public API ----------------------------------------
-
-        /// <summary>
-        /// Called by <see cref="BrushTool"/> on each throttled drag frame.
-        /// Returns <c>true</c> if a pebble was placed.
-        /// </summary>
-        public bool PlacePebbleAtScreen(Vector2 screenPos)
-        {
-            if (Time.time - _lastBrushTime < _brushCooldown) return false;
-            bool placed = TryPlacePebble(screenPos);
-            if (placed) _lastBrushTime = Time.time;
-            return placed;
         }
 
         #endregion
@@ -163,7 +170,9 @@ namespace _Project.Scripts.Interaction
             }
 
             if (!didHit) return false;
-            if (Vector3.Distance(hitPoint, _mainCamera.transform.position) < _minPlaceDistance) return false;
+
+            float sqrDistToCamera = (hitPoint - _mainCamera.transform.position).sqrMagnitude;
+            if (sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return false;
 
             PlaceAt(hitPoint, hitNormal, onARPlane);
             return true;
@@ -183,7 +192,7 @@ namespace _Project.Scripts.Interaction
             // Scatter projected onto the surface plane
             Vector2 scatter2D = Random.insideUnitCircle * _scatterRadius;
             Vector3 tangent   = Vector3.Cross(surfaceNormal, Vector3.up);
-            if (tangent.sqrMagnitude < 0.01f)
+            if (tangent.sqrMagnitude < TANGENT_SQR_THRESHOLD)
                 tangent = Vector3.Cross(surfaceNormal, Vector3.right);
             tangent.Normalize();
             Vector3 bitangent = Vector3.Cross(surfaceNormal, tangent);
@@ -193,7 +202,7 @@ namespace _Project.Scripts.Interaction
             pebble.transform.position = spawnPos;
 
             Quaternion normalRot = Quaternion.FromToRotation(Vector3.up, surfaceNormal);
-            Quaternion yRot      = Quaternion.AngleAxis(Random.Range(0f, 360f), surfaceNormal);
+            Quaternion yRot      = Quaternion.AngleAxis(Random.Range(0f, FULL_ROTATION_DEG), surfaceNormal);
             pebble.transform.rotation = yRot * normalRot;
 
             float scale = Random.Range(_scaleMin, _scaleMax);
@@ -219,7 +228,8 @@ namespace _Project.Scripts.Interaction
                 support?.Arm();
             }
 
-            _harmonyService?.NotifyPebblePlaced();
+            EventBus.Publish(new PebblePlacedEvent());
+            Debug.Log($"[PlowTool] Placed pebble at {worldPoint}.");
         }
 
         #endregion
@@ -229,15 +239,15 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_toolManager == null)
-                Debug.LogError("[PlowTool] _toolManager is not assigned!", this);
+                Debug.LogWarning("[PlowTool] _toolManager is not assigned.", this);
             if (_arRaycastManager == null)
-                Debug.LogError("[PlowTool] _arRaycastManager is not assigned!", this);
+                Debug.LogWarning("[PlowTool] _arRaycastManager is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[PlowTool] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[PlowTool] _worldContainer is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[PlowTool] Camera.main not found!", this);
+                Debug.LogWarning("[PlowTool] _mainCamera is not assigned.", this);
             if (_pebblePrefabs == null || _pebblePrefabs.Length == 0)
-                Debug.LogWarning("[PlowTool] No pebble prefabs assigned!", this);
+                Debug.LogWarning("[PlowTool] _pebblePrefabs is not assigned.", this);
         }
 
         #endregion

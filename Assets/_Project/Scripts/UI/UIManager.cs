@@ -4,13 +4,13 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
-using _Project.Scripts.Interaction;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
     /// <summary>
     /// Controls the visual selector highlight and forwards slot
-    /// clicks to <see cref="ToolManager"/>.
+    /// clicks to <see cref="IToolManager"/>.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/UI/UI Manager")]
@@ -24,10 +24,6 @@ namespace _Project.Scripts.UI
 
         #region Inspector -----------------------------------------
 
-        [Header("Dependencies")]
-        [Tooltip("ToolManager that owns the current tool state.")]
-        [SerializeField] private ToolManager _toolManager;
-
         [Header("Selector Visuals")]
         [Tooltip("RectTransform of the highlight that moves between slots.")]
         [SerializeField] private RectTransform _selectorRect;
@@ -35,31 +31,12 @@ namespace _Project.Scripts.UI
         [Tooltip("Ordered slot RectTransforms (index = ToolType int value).")]
         [SerializeField] private RectTransform[] _slotRects;
 
-        [Header("Audio")]
-        [Tooltip("UI audio service -- plays sound on slot selection.")]
-        [SerializeField] private UIAudioService _uiAudio;
-
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
+        #region State ---------------------------------------------
 
-        private void OnEnable()
-        {
-            if (_toolManager != null)
-                _toolManager.OnToolChanged += HandleToolChanged;
-        }
-
-        private void OnDisable()
-        {
-            if (_toolManager != null)
-                _toolManager.OnToolChanged -= HandleToolChanged;
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-            Invoke(nameof(ForceInitialSelection), LAYOUT_SETTLE_DELAY);
-        }
+        private IToolManager    _toolManager;
+        private IUIAudioService _uiAudio;
 
         #endregion
 
@@ -68,6 +45,7 @@ namespace _Project.Scripts.UI
         /// <summary>Called by UI Button OnClick events.</summary>
         public void OnSlotClicked(int index)
         {
+            if (_toolManager == null) return;
             _toolManager.SelectToolByIndex(index);
             _uiAudio?.PlaySlotSelect();
         }
@@ -77,6 +55,28 @@ namespace _Project.Scripts.UI
         {
             if (_toolManager != null)
                 HandleToolChanged(_toolManager.CurrentTool);
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void OnDisable()
+        {
+            if (_toolManager != null)
+                _toolManager.OnToolChanged -= HandleToolChanged;
+        }
+
+        private void Start()
+        {
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+
+            if (_toolManager != null)
+                _toolManager.OnToolChanged += HandleToolChanged;
+
+            ValidateReferences();
+            Invoke(nameof(ForceInitialSelection), LAYOUT_SETTLE_DELAY);
         }
 
         #endregion
@@ -103,14 +103,18 @@ namespace _Project.Scripts.UI
                 HandleToolChanged(_toolManager.CurrentTool);
         }
 
+        #endregion
+
+        #region Validation ----------------------------------------
+
         private void ValidateReferences()
         {
             if (_toolManager == null)
-                Debug.LogError("[UIManager] _toolManager is not assigned!", this);
+                Debug.LogWarning("[UIManager] _toolManager is not assigned.", this);
             if (_selectorRect == null)
-                Debug.LogError("[UIManager] _selectorRect is not assigned!", this);
+                Debug.LogWarning("[UIManager] _selectorRect is not assigned.", this);
             if (_slotRects == null || _slotRects.Length == 0)
-                Debug.LogError("[UIManager] _slotRects array is empty!", this);
+                Debug.LogWarning("[UIManager] _slotRects is not assigned.", this);
         }
 
         #endregion

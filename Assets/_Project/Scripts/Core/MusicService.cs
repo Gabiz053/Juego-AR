@@ -51,6 +51,13 @@ namespace _Project.Scripts.Core
 
         #endregion
 
+        #region State ---------------------------------------------
+
+        private int[] _shuffledOrder;
+        private int   _currentTrackIndex;
+
+        #endregion
+
         #region Public API ----------------------------------------
 
         /// <summary>Current music volume (0-1).</summary>
@@ -70,13 +77,6 @@ namespace _Project.Scripts.Core
 
             OnVolumeChanged?.Invoke(Volume);
         }
-
-        #endregion
-
-        #region State ---------------------------------------------
-
-        private int[] _shuffledOrder;
-        private int   _currentTrackIndex;
 
         #endregion
 
@@ -191,9 +191,9 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_audioSource == null)
-                Debug.LogError("[MusicService] _audioSource is not assigned!", this);
+                Debug.LogWarning("[MusicService] _audioSource is not assigned.", this);
             if (_tracks == null || _tracks.Length == 0)
-                Debug.LogWarning("[MusicService] No tracks assigned.", this);
+                Debug.LogWarning("[MusicService] _tracks is not assigned.", this);
         }
 
         #endregion

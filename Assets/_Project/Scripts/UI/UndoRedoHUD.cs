@@ -5,7 +5,7 @@
 
 using UnityEngine;
 using UnityEngine.UI;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -19,12 +19,11 @@ namespace _Project.Scripts.UI
     {
         #region Inspector -----------------------------------------
 
-        [Header("Service")]
-        [Tooltip("UndoRedoService that this HUD reflects.")]
-        [SerializeField] private UndoRedoService _service;
-
         [Header("Buttons")]
+        [Tooltip("Undo button -- dimmed when stack is empty.")]
         [SerializeField] private Button _undoButton;
+
+        [Tooltip("Redo button -- dimmed when stack is empty.")]
         [SerializeField] private Button _redoButton;
 
         [Header("Icons")]
@@ -35,45 +34,20 @@ namespace _Project.Scripts.UI
         [SerializeField] private Image _redoIcon;
 
         [Header("Visual State")]
+        [Tooltip("Opacity when the button is enabled.")]
         [Range(0f, 1f)]
         [SerializeField] private float _alphaEnabled  = 1.0f;
 
+        [Tooltip("Opacity when the button is disabled.")]
         [Range(0f, 1f)]
         [SerializeField] private float _alphaDisabled = 0.35f;
 
-        [Header("Audio")]
-        [Tooltip("UI audio service (auto-located from MainCanvas if empty).")]
-        [SerializeField] private UIAudioService _uiAudio;
-
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
+        #region State ---------------------------------------------
 
-        private void OnEnable()
-        {
-            if (_service != null)
-                _service.OnStackChanged += RefreshState;
-        }
-
-        private void OnDisable()
-        {
-            if (_service != null)
-                _service.OnStackChanged -= RefreshState;
-        }
-
-        private void Start()
-        {
-            if (_uiAudio == null)
-            {
-                Canvas root = GetComponentInParent<Canvas>();
-                if (root != null)
-                    _uiAudio = root.GetComponentInChildren<UIAudioService>();
-            }
-
-            RefreshState(
-                _service != null && _service.CanUndo,
-                _service != null && _service.CanRedo);
-        }
+        private IUndoRedoService _service;
+        private IUIAudioService  _uiAudio;
 
         #endregion
 
@@ -91,6 +65,31 @@ namespace _Project.Scripts.UI
         {
             _uiAudio?.PlayClick();
             _service?.Redo();
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void OnDisable()
+        {
+            if (_service != null)
+                _service.OnStackChanged -= RefreshState;
+        }
+
+        private void Start()
+        {
+            ServiceLocator.TryGet<IUndoRedoService>(out _service);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+
+            if (_service != null)
+                _service.OnStackChanged += RefreshState;
+
+            RefreshState(
+                _service != null && _service.CanUndo,
+                _service != null && _service.CanRedo);
+
+            ValidateReferences();
         }
 
         #endregion
@@ -113,6 +112,20 @@ namespace _Project.Scripts.UI
                 c.a        = enabled ? _alphaEnabled : _alphaDisabled;
                 icon.color = c;
             }
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_service == null)
+                Debug.LogWarning("[UndoRedoHUD] _service is not assigned.", this);
+            if (_undoButton == null)
+                Debug.LogWarning("[UndoRedoHUD] _undoButton is not assigned.", this);
+            if (_redoButton == null)
+                Debug.LogWarning("[UndoRedoHUD] _redoButton is not assigned.", this);
         }
 
         #endregion

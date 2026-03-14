@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
@@ -13,21 +14,20 @@ namespace _Project.Scripts.Core
     /// Maintains an undo stack and a redo stack of <see cref="IUndoableAction"/>
     /// entries.  Other systems push actions via <see cref="Record"/> after
     /// executing them.  <see cref="UI.UndoRedoHUD"/> subscribes to
-    /// <see cref="OnStackChanged"/> to keep buttons in sync.
+    /// <see cref="OnStackChanged"/> to keep buttons in sync.<br/>
+    /// Publishes <see cref="UndoPerformedEvent"/> / <see cref="RedoPerformedEvent"/>
+    /// via <see cref="EventBus"/> so dependent systems (e.g. HarmonyService)
+    /// can react without a direct reference.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Undo Redo Service")]
-    public class UndoRedoService : MonoBehaviour
+    public class UndoRedoService : MonoBehaviour, IUndoRedoService
     {
         #region Inspector -----------------------------------------
 
         [Header("History")]
         [Tooltip("Maximum actions kept in the undo stack. Oldest entries are discarded.")]
         [SerializeField] private int _maxHistory = 20;
-
-        [Header("Harmony")]
-        [Tooltip("HarmonyService -- rescans garden after every undo / redo.")]
-        [SerializeField] private HarmonyService _harmonyService;
 
         #endregion
 
@@ -45,15 +45,6 @@ namespace _Project.Scripts.Core
 
         private readonly Stack<IUndoableAction> _undoStack = new Stack<IUndoableAction>();
         private readonly Stack<IUndoableAction> _redoStack = new Stack<IUndoableAction>();
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
 
         #endregion
 
@@ -91,7 +82,7 @@ namespace _Project.Scripts.Core
             _redoStack.Push(action);
 
             NotifyChanged();
-            _harmonyService?.NotifyUndoRedo();
+            EventBus.Publish(new UndoPerformedEvent());
             Debug.Log($"[UndoRedoService] Undo {action.GetType().Name} -- undo: {_undoStack.Count}, redo: {_redoStack.Count}.");
         }
 
@@ -105,7 +96,7 @@ namespace _Project.Scripts.Core
             _undoStack.Push(action);
 
             NotifyChanged();
-            _harmonyService?.NotifyUndoRedo();
+            EventBus.Publish(new RedoPerformedEvent());
             Debug.Log($"[UndoRedoService] Redo {action.GetType().Name} -- undo: {_undoStack.Count}, redo: {_redoStack.Count}.");
         }
 
@@ -116,6 +107,40 @@ namespace _Project.Scripts.Core
             _redoStack.Clear();
             NotifyChanged();
             Debug.Log("[UndoRedoService] Stacks cleared.");
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            ServiceLocator.Register<IUndoRedoService>(this);
+        }
+
+        private void OnEnable()
+        {
+            EventBus.Subscribe<WorldResetEvent>(HandleWorldReset);
+        }
+
+        private void OnDisable()
+        {
+            EventBus.Unsubscribe<WorldResetEvent>(HandleWorldReset);
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IUndoRedoService>();
+        }
+
+        #endregion
+
+        #region EventBus Handlers ---------------------------------
+
+        /// <summary>Auto-clears stacks when the world is reset.</summary>
+        private void HandleWorldReset(WorldResetEvent _)
+        {
+            Clear();
         }
 
         #endregion
@@ -136,16 +161,6 @@ namespace _Project.Scripts.Core
             stack.Clear();
             for (int i = tmp.Count - 2; i >= 0; i--)
                 stack.Push(tmp[i]);
-        }
-
-        #endregion
-
-        #region Validation ----------------------------------------
-
-        private void ValidateReferences()
-        {
-            if (_harmonyService == null)
-                Debug.LogWarning("[UndoRedoService] _harmonyService is not assigned -- undo/redo won't rescan harmony.", this);
         }
 
         #endregion

@@ -1,9 +1,9 @@
 // ------------------------------------------------------------
-//  BlockType.cs  -  _Project.Scripts.Voxel
+//  BlockType.cs  -  _Project.Scripts.Infrastructure
 //  Defines every placeable block kind in the game.
 // ------------------------------------------------------------
 
-namespace _Project.Scripts.Voxel
+namespace _Project.Scripts.Infrastructure
 {
     /// <summary>
     /// Enumerates all available voxel block types.<br/>

@@ -37,13 +37,6 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()    => EnsureInitialized();
-        private void OnEnable() => EnsureInitialized();
-
-        #endregion
-
         #region Public API ----------------------------------------
 
         /// <summary>ON = original colour, OFF = darkened.</summary>
@@ -55,6 +48,18 @@ namespace _Project.Scripts.UI
             _buttonBackground.color = isOn
                 ? _originalColor
                 : _originalColor * new Color(_dimFactor, _dimFactor, _dimFactor, 1f);
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()    => EnsureInitialized();
+        private void OnEnable() => EnsureInitialized();
+
+        private void Start()
+        {
+            ValidateReferences();
         }
 
         #endregion
@@ -71,6 +76,16 @@ namespace _Project.Scripts.UI
                 _originalColor = _buttonBackground.color;
 
             _initialized = true;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_buttonBackground == null)
+                Debug.LogWarning("[DropdownButtonState] _buttonBackground is not assigned.", this);
         }
 
         #endregion

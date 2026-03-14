@@ -1,10 +1,10 @@
 // ------------------------------------------------------------
-//  WorldModeContext.cs  -  _Project.Scripts.Core
+//  WorldModeContext.cs  -  _Project.Scripts.Infrastructure
 //  Static cross-scene channel that carries the player's mode
 //  choice from the title screen into the game scene.
 // ------------------------------------------------------------
 
-namespace _Project.Scripts.Core
+namespace _Project.Scripts.Infrastructure
 {
     /// <summary>
     /// Lightweight static context that stores the <see cref="WorldMode"/>
@@ -16,9 +16,6 @@ namespace _Project.Scripts.Core
     /// <br/>
     /// No MonoBehaviour, no DontDestroyOnLoad, no scene dependency --
     /// just a static field that survives domain reloads in play mode.
-    /// When the title screen is implemented it sets this before
-    /// <c>SceneManager.LoadScene</c>; until then the value is
-    /// overridden by the Inspector field in <see cref="AR.WorldModeBootstrapper"/>.
     /// </summary>
     public static class WorldModeContext
     {
@@ -26,9 +23,7 @@ namespace _Project.Scripts.Core
         /// The mode the player chose on the title screen.<br/>
         /// Defaults to <see cref="WorldMode.None"/> on cold start so
         /// <see cref="AR.WorldModeBootstrapper"/> can detect that no title
-        /// screen selection was made and apply its <c>_devOverrideMode</c>.<br/>
-        /// <see cref="Title.TitleSceneManager.SelectMode"/> sets this to a
-        /// real mode before loading <c>Main_AR</c>.
+        /// screen selection was made and apply its <c>_devOverrideMode</c>.
         /// </summary>
         public static WorldMode Selected { get; set; } = WorldMode.None;
     }

@@ -1,14 +1,11 @@
 // ------------------------------------------------------------
 //  SandGravity.cs  -  _Project.Scripts.Voxel
-//  Applies Minecraft-style gravity to sand blocks: continuously
-//  checks for support below and falls to the nearest valid
-//  position when unsupported.  Uses periodic polling (same
-//  pattern as PebbleSupport) to react to destroyed neighbours.
+//  Minecraft-style gravity for sand blocks.
 // ------------------------------------------------------------
 
 using System.Collections;
 using UnityEngine;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Voxel
 {
@@ -26,6 +23,16 @@ namespace _Project.Scripts.Voxel
     [AddComponentMenu("ARmonia/Voxel/Sand Gravity")]
     public class SandGravity : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Fraction of grid cell used as the support check distance.</summary>
+        private const float SUPPORT_CHECK_RATIO = 0.5f;
+
+        /// <summary>Fraction of grid cell added above hit point for landing offset.</summary>
+        private const float LANDING_OFFSET_RATIO = 0.5f;
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Timing")]
@@ -53,13 +60,14 @@ namespace _Project.Scripts.Voxel
 
         #region State ---------------------------------------------
 
-        private VoxelBlock       _voxelBlock;
-        private BlockDestroy     _blockDestroy;
-        private GridManager      _gridManager;
-        private GameAudioService _audioService;
-        private Collider         _collider;
+        private VoxelBlock        _voxelBlock;
+        private BlockDestroy      _blockDestroy;
+        private IGridManager      _gridManager;
+        private IGameAudioService _audioService;
+        private Collider          _collider;
         private Transform        _worldContainer;
         private bool             _isFalling;
+        private WaitForSeconds   _waitInitialDelay;
 
         #endregion
 
@@ -70,8 +78,11 @@ namespace _Project.Scripts.Voxel
             _voxelBlock   = GetComponent<VoxelBlock>();
             _blockDestroy = GetComponent<BlockDestroy>();
             _collider     = GetComponent<Collider>();
-            _gridManager  = FindAnyObjectByType<GridManager>();
-            _audioService = FindAnyObjectByType<GameAudioService>();
+
+            ServiceLocator.TryGet<IGridManager>(out _gridManager);
+            ServiceLocator.TryGet<IGameAudioService>(out _audioService);
+
+            _waitInitialDelay = new WaitForSeconds(_initialDelay);
         }
 
         private void Start()
@@ -112,7 +123,7 @@ namespace _Project.Scripts.Voxel
                     yield return null;
             }
 
-            yield return new WaitForSeconds(_initialDelay);
+            yield return _waitInitialDelay;
 
             // If the block was destroyed during the wait, abort.
             if (this == null || gameObject == null) yield break;
@@ -152,7 +163,7 @@ namespace _Project.Scripts.Voxel
         {
             float worldScale = _worldContainer != null ? _worldContainer.localScale.x : 1f;
             float gridWorld  = _gridManager.GridSize * worldScale;
-            float checkDist  = gridWorld * 0.5f + _supportMargin;
+            float checkDist  = gridWorld * SUPPORT_CHECK_RATIO + _supportMargin;
 
             return Physics.Raycast(
                 transform.position,
@@ -179,7 +190,7 @@ namespace _Project.Scripts.Voxel
             Vector3 hitLocal = _worldContainer.InverseTransformPoint(hit.point);
 
             // Place the block one half-grid above the hit surface so it sits on top.
-            hitLocal.y += _gridManager.GridSize * 0.5f;
+            hitLocal.y += _gridManager.GridSize * LANDING_OFFSET_RATIO;
 
             landingLocal = _gridManager.GetSnappedPosition(hitLocal);
             return true;
@@ -201,7 +212,8 @@ namespace _Project.Scripts.Voxel
             if (_blockDestroy != null) _blockDestroy.enabled = false;
 
             Vector3 startLocal = transform.localPosition;
-            float distance     = Vector3.Distance(startLocal, targetLocal);
+            float sqrDistance  = (targetLocal - startLocal).sqrMagnitude;
+            float distance     = Mathf.Sqrt(sqrDistance);
             float duration     = distance / _fallSpeed;
             float elapsed      = 0f;
 
@@ -258,13 +270,13 @@ namespace _Project.Scripts.Voxel
         private void ValidateReferences()
         {
             if (_gridManager == null)
-                Debug.LogError("[SandGravity] GridManager not found in scene!", this);
+                Debug.LogWarning("[SandGravity] _gridManager is not assigned.", this);
             if (_blockDestroy == null)
-                Debug.LogWarning("[SandGravity] BlockDestroy not found on this block.", this);
+                Debug.LogWarning("[SandGravity] _blockDestroy is not assigned.", this);
             if (_collider == null)
-                Debug.LogWarning("[SandGravity] No Collider found on this block.", this);
+                Debug.LogWarning("[SandGravity] _collider is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[SandGravity] No parent (WorldContainer) found!", this);
+                Debug.LogWarning("[SandGravity] _worldContainer is not assigned.", this);
         }
 
         #endregion

@@ -1,14 +1,13 @@
 // ------------------------------------------------------------
 //  HarmonyHUD.cs  -  _Project.Scripts.UI
 //  Pure UI controller for the Harmony meter widget.
-//  Drives visuals only -- no harmony scoring logic here.
 // ------------------------------------------------------------
 
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -20,6 +19,45 @@ namespace _Project.Scripts.UI
     [AddComponentMenu("ARmonia/UI/Harmony HUD")]
     public class HarmonyHUD : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        private const float POP_OVERSHOOT        = 0.05f;
+        private const float SPRING_DECAY_RATE    = 8f;
+        private const float SPRING_FREQUENCY     = 18f;
+        private const float SHAKE_PERLIN_SPEED   = 55f;
+        private const float ANTIC_POP_UP_DUR     = 0.10f;
+        private const float ANTIC_POP_EXTRA      = 0.10f;
+        private const int   ANTIC_PULSE_COUNT    = 7;
+        private const float ANTIC_PULSE_DURATION = 0.055f;
+        private const float ANTIC_AMP_MULTIPLIER = 2.6f;
+        private const float ANTIC_PULSE_SCALE    = 0.05f;
+        private const float ANTIC_BOUNCE_DUR     = 0.14f;
+        private const float ANTIC_BOUNCE_MULT    = 1.4f;
+        private const float SPRING_DUR_RATIO     = 0.7f;
+
+        /// <summary>Phase boundary: low harmony threshold (25%).</summary>
+        private const float PHASE_LOW     = 0.25f;
+
+        /// <summary>Phase boundary: mid harmony threshold (50%).</summary>
+        private const float PHASE_MID     = 0.50f;
+
+        /// <summary>Phase boundary: high harmony threshold (75%).</summary>
+        private const float PHASE_HIGH    = 0.75f;
+
+        /// <summary>Phase boundary: perfect harmony threshold (100%).</summary>
+        private const float PHASE_PERFECT = 1.00f;
+
+        /// <summary>Width of the procedural rounded-corner texture (px).</summary>
+        private const int ROUNDED_TEX_WIDTH  = 128;
+
+        /// <summary>Height of the procedural rounded-corner texture (px).</summary>
+        private const int ROUNDED_TEX_HEIGHT = 32;
+
+        /// <summary>Default pixels-per-unit for procedural sprites.</summary>
+        private const float DEFAULT_PIXELS_PER_UNIT = 100f;
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Bar Fill Image")]
@@ -30,29 +68,39 @@ namespace _Project.Scripts.UI
         [SerializeField] private float _animDuration = 0.6f;
 
         [Header("Label")]
+        [Tooltip("TMP label that shows the current harmony status phrase.")]
         [SerializeField] private TMP_Text _statusLabel;
 
         [Header("Colour Gradient")]
+        [Tooltip("Bar colour at low harmony (0-50%).")]
         [SerializeField] private Color _colourLow  = new Color(0.90f, 0.35f, 0.10f);
+        [Tooltip("Bar colour at mid harmony (50%).")]
         [SerializeField] private Color _colourMid  = new Color(0.95f, 0.80f, 0.10f);
+        [Tooltip("Bar colour at high harmony (50-100%).")]
         [SerializeField] private Color _colourHigh = new Color(0.20f, 0.78f, 0.35f);
 
         [Header("Status Phrases")]
+        [Tooltip("Phrase shown when harmony is 0%.")]
         [SerializeField] private string _phraseEmpty   = "Empieza tu jardin";
+        [Tooltip("Phrase shown when harmony is 25-49%.")]
         [SerializeField] private string _phraseLow     = "Anade mas variedad";
+        [Tooltip("Phrase shown when harmony is 50-74%.")]
         [SerializeField] private string _phraseMid     = "Jardin equilibrado";
+        [Tooltip("Phrase shown when harmony is 75-99%.")]
         [SerializeField] private string _phraseHigh    = "Gran armonia";
+        [Tooltip("Phrase shown when harmony reaches 100%.")]
         [SerializeField] private string _phrasePerfect = "Armonia perfecta!";
-
-        [Header("Service")]
-        [SerializeField] private HarmonyService _harmonyService;
 
         [Header("State Change Animation")]
         [Tooltip("RectTransform to pop/shake (defaults to this GO).")]
         [SerializeField] private RectTransform _hudRoot;
+        [Tooltip("Peak scale multiplier during the pop animation.")]
         [SerializeField] private float _popScale      = 1.20f;
+        [Tooltip("Seconds for the full pop + spring-back cycle.")]
         [SerializeField] private float _popDuration   = 0.45f;
+        [Tooltip("Pixel intensity of the Perlin shake offset.")]
         [SerializeField] private float _shakeStrength = 7f;
+        [Tooltip("Seconds the shake lasts before decaying to zero.")]
         [SerializeField] private float _shakeDuration = 0.28f;
 
         [Header("Rounded Bar")]
@@ -71,70 +119,10 @@ namespace _Project.Scripts.UI
         private Vector3        _hudOriginalScale;
         private Vector2        _hudOriginalAnchoredPos;
         private int            _lastPhaseIndex = -1;
-        private UIAudioService _uiAudio;
-        private HapticService  _hapticService;
+        private IHarmonyService _harmonyService;
+        private IUIAudioService _uiAudio;
+        private IHapticService  _hapticService;
         private bool           _frozen;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            if (_fillImage != null)
-                _fillRect = _fillImage.GetComponent<RectTransform>();
-
-            if (_hudRoot == null)
-                _hudRoot = GetComponent<RectTransform>();
-
-            if (_hudRoot != null)
-            {
-                _hudOriginalScale       = _hudRoot.localScale;
-                _hudOriginalAnchoredPos = _hudRoot.anchoredPosition;
-            }
-
-            Canvas root = GetComponentInParent<Canvas>();
-            if (root != null)
-                _uiAudio = root.GetComponentInChildren<UIAudioService>();
-
-            _hapticService = FindAnyObjectByType<HapticService>();
-
-            if (_cornerRadius > 0f)
-                ApplyRoundedCorners();
-        }
-
-        private void OnEnable()
-        {
-            if (_harmonyService != null)
-            {
-                _harmonyService.OnHarmonyChanged += SetHarmony;
-                _harmonyService.OnPerfectHarmony += OnPerfectReached;
-                _harmonyService.OnWorldReset     += OnWorldReset;
-            }
-        }
-
-        private void OnDisable()
-        {
-            if (_harmonyService != null)
-            {
-                _harmonyService.OnHarmonyChanged -= SetHarmony;
-                _harmonyService.OnPerfectHarmony -= OnPerfectReached;
-                _harmonyService.OnWorldReset     -= OnWorldReset;
-            }
-        }
-
-        private void Start()
-        {
-            StartCoroutine(InitAfterLayout());
-        }
-
-        private IEnumerator InitAfterLayout()
-        {
-            yield return null;
-            float initial   = _harmonyService != null ? _harmonyService.CurrentScore : 0f;
-            _lastPhaseIndex = GetPhaseIndex(initial);
-            ApplyImmediate(initial);
-        }
 
         #endregion
 
@@ -176,6 +164,66 @@ namespace _Project.Scripts.UI
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            if (_fillImage != null)
+                _fillRect = _fillImage.GetComponent<RectTransform>();
+
+            if (_hudRoot == null)
+                _hudRoot = GetComponent<RectTransform>();
+
+            if (_hudRoot != null)
+            {
+                _hudOriginalScale       = _hudRoot.localScale;
+                _hudOriginalAnchoredPos = _hudRoot.anchoredPosition;
+            }
+
+            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+
+            if (_cornerRadius > 0f)
+                ApplyRoundedCorners();
+        }
+
+        private void OnEnable()
+        {
+            if (_harmonyService != null)
+            {
+                _harmonyService.OnHarmonyChanged += SetHarmony;
+                _harmonyService.OnPerfectHarmony += OnPerfectReached;
+                _harmonyService.OnWorldReset     += OnWorldReset;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (_harmonyService != null)
+            {
+                _harmonyService.OnHarmonyChanged -= SetHarmony;
+                _harmonyService.OnPerfectHarmony -= OnPerfectReached;
+                _harmonyService.OnWorldReset     -= OnWorldReset;
+            }
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+            StartCoroutine(InitAfterLayout());
+        }
+
+        private IEnumerator InitAfterLayout()
+        {
+            yield return null;
+            float initial   = _harmonyService != null ? _harmonyService.CurrentScore : 0f;
+            _lastPhaseIndex = GetPhaseIndex(initial);
+            ApplyImmediate(initial);
+        }
+
+        #endregion
+
         #region Internals -----------------------------------------
 
         private void OnPerfectReached()
@@ -212,10 +260,6 @@ namespace _Project.Scripts.UI
             }
         }
 
-        #endregion
-
-        #region Animation -----------------------------------------
-
         private IEnumerator AnimateBar()
         {
             float start   = _displayedValue;
@@ -247,29 +291,29 @@ namespace _Project.Scripts.UI
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t  = Mathf.SmoothStep(0f, 1f, elapsed / half);
-                float scale = Mathf.LerpUnclamped(1f, _popScale + 0.05f, t);
+                float scale = Mathf.LerpUnclamped(1f, _popScale + POP_OVERSHOOT, t);
                 _hudRoot.localScale = _hudOriginalScale * scale;
                 yield return null;
             }
 
             // 2. Spring back + settle
             elapsed = 0f;
-            float springDur = _popDuration * 0.7f;
+            float springDur = _popDuration * SPRING_DUR_RATIO;
 
             while (elapsed < springDur)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t  = elapsed / springDur;
-                float spring = 1f + (_popScale + 0.05f - 1f)
-                               * Mathf.Exp(-t * 8f)
-                               * Mathf.Cos(t * 18f);
+                float spring = 1f + (_popScale + POP_OVERSHOOT - 1f)
+                               * Mathf.Exp(-t * SPRING_DECAY_RATE)
+                               * Mathf.Cos(t * SPRING_FREQUENCY);
                 _hudRoot.localScale = _hudOriginalScale * spring;
 
                 if (elapsed < _shakeDuration)
                 {
                     float decay = 1f - elapsed / _shakeDuration;
-                    float ox    = (Mathf.PerlinNoise(elapsed * 55f, 0f)   - 0.5f) * 2f * _shakeStrength * decay;
-                    float oy    = (Mathf.PerlinNoise(0f,   elapsed * 55f) - 0.5f) * 2f * _shakeStrength * decay;
+                    float ox    = (Mathf.PerlinNoise(elapsed * SHAKE_PERLIN_SPEED, 0f)   - 0.5f) * 2f * _shakeStrength * decay;
+                    float oy    = (Mathf.PerlinNoise(0f,   elapsed * SHAKE_PERLIN_SPEED) - 0.5f) * 2f * _shakeStrength * decay;
                     _hudRoot.anchoredPosition = _hudOriginalAnchoredPos + new Vector2(ox, oy);
                 }
                 else
@@ -290,33 +334,30 @@ namespace _Project.Scripts.UI
 
             // 1. Fast scale pop
             float elapsed = 0f;
-            float popUp   = 0.10f;
-            while (elapsed < popUp)
+            while (elapsed < ANTIC_POP_UP_DUR)
             {
                 elapsed += Time.unscaledDeltaTime;
-                float t  = Mathf.SmoothStep(0f, 1f, elapsed / popUp);
+                float t  = Mathf.SmoothStep(0f, 1f, elapsed / ANTIC_POP_UP_DUR);
                 _hudRoot.localScale = Vector3.LerpUnclamped(
-                    _hudOriginalScale, _hudOriginalScale * (_popScale + 0.10f), t);
+                    _hudOriginalScale, _hudOriginalScale * (_popScale + ANTIC_POP_EXTRA), t);
                 yield return null;
             }
 
             // 2. Rapid side-to-side pulses
-            int   pulses   = 7;
-            float pulseDur = 0.055f;
-            float amplitude = _shakeStrength * 2.6f;
+            float amplitude = _shakeStrength * ANTIC_AMP_MULTIPLIER;
 
-            for (int i = 0; i < pulses; i++)
+            for (int i = 0; i < ANTIC_PULSE_COUNT; i++)
             {
-                float decay = 1f - (float)i / pulses;
+                float decay = 1f - (float)i / ANTIC_PULSE_COUNT;
                 float dir   = (i % 2 == 0) ? 1f : -1f;
                 elapsed     = 0f;
 
-                while (elapsed < pulseDur)
+                while (elapsed < ANTIC_PULSE_DURATION)
                 {
                     elapsed += Time.unscaledDeltaTime;
-                    float t  = elapsed / pulseDur;
+                    float t  = elapsed / ANTIC_PULSE_DURATION;
                     float ox = Mathf.Sin(t * Mathf.PI) * amplitude * decay * dir;
-                    float sc = 1f + Mathf.Sin(t * Mathf.PI) * 0.05f * decay;
+                    float sc = 1f + Mathf.Sin(t * Mathf.PI) * ANTIC_PULSE_SCALE * decay;
                     _hudRoot.anchoredPosition = _hudOriginalAnchoredPos + new Vector2(ox, 0f);
                     _hudRoot.localScale       = _hudOriginalScale * sc;
                     yield return null;
@@ -325,12 +366,11 @@ namespace _Project.Scripts.UI
 
             // 3. Tiny upward bounce
             elapsed = 0f;
-            float bounceDur = 0.14f;
-            while (elapsed < bounceDur)
+            while (elapsed < ANTIC_BOUNCE_DUR)
             {
                 elapsed += Time.unscaledDeltaTime;
-                float t  = elapsed / bounceDur;
-                float oy = Mathf.Sin(t * Mathf.PI) * _shakeStrength * 1.4f;
+                float t  = elapsed / ANTIC_BOUNCE_DUR;
+                float oy = Mathf.Sin(t * Mathf.PI) * _shakeStrength * ANTIC_BOUNCE_MULT;
                 _hudRoot.anchoredPosition = _hudOriginalAnchoredPos + new Vector2(0f, oy);
                 yield return null;
             }
@@ -339,10 +379,6 @@ namespace _Project.Scripts.UI
             _hudRoot.anchoredPosition = _hudOriginalAnchoredPos;
             _popCoroutine = null;
         }
-
-        #endregion
-
-        #region Helpers -------------------------------------------
 
         /// <summary>Sets fill anchors, colour and phrase text without animation.</summary>
         private void ApplyImmediate(float v)
@@ -372,20 +408,20 @@ namespace _Project.Scripts.UI
         /// <summary>Returns the display phrase string for the given score bracket.</summary>
         private string GetPhrase(float t)
         {
-            if (t >= 1.00f) return _phrasePerfect;
-            if (t >= 0.75f) return _phraseHigh;
-            if (t >= 0.50f) return _phraseMid;
-            if (t >= 0.25f) return _phraseLow;
+            if (t >= PHASE_PERFECT) return _phrasePerfect;
+            if (t >= PHASE_HIGH)    return _phraseHigh;
+            if (t >= PHASE_MID)     return _phraseMid;
+            if (t >= PHASE_LOW)     return _phraseLow;
             return _phraseEmpty;
         }
 
         /// <summary>Maps score to a 0-4 phase index for audio triggers.</summary>
         private int GetPhaseIndex(float t)
         {
-            if (t >= 1.00f) return 4;
-            if (t >= 0.75f) return 3;
-            if (t >= 0.50f) return 2;
-            if (t >= 0.25f) return 1;
+            if (t >= PHASE_PERFECT) return 4;
+            if (t >= PHASE_HIGH)    return 3;
+            if (t >= PHASE_MID)     return 2;
+            if (t >= PHASE_LOW)     return 1;
             return 0;
         }
 
@@ -397,7 +433,7 @@ namespace _Project.Scripts.UI
         {
             if (_fillImage == null) return;
 
-            int w = 128, h = 32;
+            int w = ROUNDED_TEX_WIDTH, h = ROUNDED_TEX_HEIGHT;
             int r = Mathf.Clamp(Mathf.RoundToInt(_cornerRadius), 1, h / 2);
 
             Sprite rounded = CreateRoundedSprite(w, h, r);
@@ -435,7 +471,7 @@ namespace _Project.Scripts.UI
                 tex,
                 new Rect(0, 0, w, h),
                 new Vector2(0.5f, 0.5f),
-                pixelsPerUnit: 100f,
+                pixelsPerUnit: DEFAULT_PIXELS_PER_UNIT,
                 extrude: 0,
                 meshType: SpriteMeshType.FullRect,
                 border: new Vector4(r, r, r, r));
@@ -450,6 +486,18 @@ namespace _Project.Scripts.UI
             int cy = (y < r) ? r : h - r - 1;
             int dx = x - cx, dy = y - cy;
             return dx * dx + dy * dy <= r * r;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_harmonyService == null)
+                Debug.LogWarning("[HarmonyHUD] _harmonyService is not assigned.", this);
+            if (_fillImage == null)
+                Debug.LogWarning("[HarmonyHUD] _fillImage is not assigned.", this);
         }
 
         #endregion

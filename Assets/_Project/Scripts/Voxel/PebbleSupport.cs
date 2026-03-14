@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  PebbleSupport.cs  -  _Project.Scripts.Voxel
-//  Monitors whether a pebble still has a voxel block beneath it.
-//  If the supporting block is destroyed the pebble breaks itself.
+//  Monitors pebble support and auto-breaks when unsupported.
 // ------------------------------------------------------------
 
 using UnityEngine;
@@ -30,10 +29,11 @@ namespace _Project.Scripts.Voxel
 
         #region State ---------------------------------------------
 
-        private bool      _armed;
-        private bool      _onARPlane;
-        private LayerMask _voxelMask;
-        private Vector3   _supportDir = Vector3.down;
+        private bool         _armed;
+        private bool         _onARPlane;
+        private LayerMask    _voxelMask;
+        private Vector3      _supportDir = Vector3.down;
+        private BlockDestroy _blockDestroy;
 
         #endregion
 
@@ -70,6 +70,20 @@ namespace _Project.Scripts.Voxel
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _blockDestroy = GetComponent<BlockDestroy>();
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
         #region Internals -----------------------------------------
 
         /// <summary>
@@ -85,11 +99,20 @@ namespace _Project.Scripts.Voxel
             if (Physics.Raycast(origin, _supportDir, _checkDistance + ORIGIN_LIFT, _voxelMask))
                 return;
 
-            BlockDestroy bd = GetComponent<BlockDestroy>();
-            if (bd != null) bd.BreakFromTool(-_supportDir);
+            if (_blockDestroy != null) _blockDestroy.BreakFromTool(-_supportDir);
 
             CancelInvoke(nameof(Poll));
             enabled = false;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_blockDestroy == null)
+                Debug.LogWarning("[PebbleSupport] _blockDestroy is not assigned.", this);
         }
 
         #endregion

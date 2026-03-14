@@ -15,6 +15,13 @@ namespace _Project.Scripts.Voxel
     [AddComponentMenu("ARmonia/Voxel/VFX Block Destroy")]
     public class VFXBlockDestroy : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Built-in Unity cube mesh resource path used for debris particles.</summary>
+        private const string BUILTIN_CUBE_MESH = "Cube.fbx";
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Particles")]
@@ -29,10 +36,24 @@ namespace _Project.Scripts.Voxel
 
         #endregion
 
+        #region State ---------------------------------------------
+
+        private ParticleSystemRenderer _renderer;
+
+        #endregion
+
         #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            if (_particles != null)
+                _renderer = _particles.GetComponent<ParticleSystemRenderer>();
+        }
 
         private void Start()
         {
+            ValidateReferences();
+
             if (_particles != null)
                 _particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
@@ -111,22 +132,22 @@ namespace _Project.Scripts.Voxel
             col.color = new ParticleSystem.MinMaxGradient(grad);
 
             // Renderer
-            var rend        = _particles.GetComponent<ParticleSystemRenderer>();
-            rend.renderMode = ParticleSystemRenderMode.Mesh;
-            rend.mesh       = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+            if (_renderer != null)
+            {
+                _renderer.renderMode = ParticleSystemRenderMode.Mesh;
+                _renderer.mesh       = Resources.GetBuiltinResource<Mesh>(BUILTIN_CUBE_MESH);
+            }
         }
 
         #endregion
 
         #region Validation ----------------------------------------
 
-#if UNITY_EDITOR
-        private void OnValidate()
+        private void ValidateReferences()
         {
             if (_particles == null)
-                Debug.LogWarning("[VFXBlockDestroy] _particles not assigned.", this);
+                Debug.LogWarning("[VFXBlockDestroy] _particles is not assigned.", this);
         }
-#endif
 
         #endregion
     }

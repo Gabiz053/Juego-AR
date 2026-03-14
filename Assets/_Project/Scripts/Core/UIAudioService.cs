@@ -1,13 +1,12 @@
 // ------------------------------------------------------------
-// ------------------------------------------------------------
-//  UIAudioService.cs  -  _Project.Scripts.UI
+//  UIAudioService.cs  -  _Project.Scripts.Core
 //  Centralised audio service for all UI interaction sounds.
 // ------------------------------------------------------------
 
 using UnityEngine;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
-namespace _Project.Scripts.UI
+namespace _Project.Scripts.Core
 {
     /// <summary>
     /// Plays UI feedback sounds through a single shared
@@ -16,8 +15,8 @@ namespace _Project.Scripts.UI
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     [DisallowMultipleComponent]
-    [AddComponentMenu("ARmonia/UI/UI Audio Service")]
-    public class UIAudioService : MonoBehaviour
+    [AddComponentMenu("ARmonia/Core/UI Audio Service")]
+    public class UIAudioService : MonoBehaviour, IUIAudioService
     {
         #region Inspector -----------------------------------------
 
@@ -65,8 +64,8 @@ namespace _Project.Scripts.UI
 
         #region State ---------------------------------------------
 
-        private AudioSource   _audioSource;
-        private HapticService _hapticService;
+        private AudioSource    _audioSource;
+        private IHapticService _hapticService;
 
         private int _lastClickIndex      = -1;
         private int _lastToggleIndex     = -1;
@@ -75,24 +74,6 @@ namespace _Project.Scripts.UI
         private int _lastCancelIndex     = -1;
         private int _lastSlotSelectIndex = -1;
         private int _lastPhotoIndex      = -1;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _audioSource = GetComponent<AudioSource>();
-            _audioSource.playOnAwake  = false;
-            _audioSource.spatialBlend = 0f;
-
-            _hapticService = FindAnyObjectByType<HapticService>();
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
 
         #endregion
 
@@ -140,7 +121,7 @@ namespace _Project.Scripts.UI
             _hapticService?.VibrateLight();
         }
 
-        /// <summary>Plays a random screenshot sound (no haptic � handled by ScreenshotService).</summary>
+        /// <summary>Plays a random screenshot sound (no haptic -- handled by ScreenshotService).</summary>
         public void PlayPhoto()      => Play(_photoSounds,      ref _lastPhotoIndex);
 
         /// <summary>Plays the harmony phase clip (1-4 = 25/50/75/100%).</summary>
@@ -161,6 +142,30 @@ namespace _Project.Scripts.UI
             _audioSource.pitch = Random.Range(1f - _pitchVariation, 1f + _pitchVariation);
             _audioSource.PlayOneShot(clip);
             _audioSource.pitch = prevPitch;
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _audioSource = GetComponent<AudioSource>();
+            _audioSource.playOnAwake  = false;
+            _audioSource.spatialBlend = 0f;
+
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+            ServiceLocator.Register<IUIAudioService>(this);
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IUIAudioService>();
         }
 
         #endregion
@@ -202,7 +207,7 @@ namespace _Project.Scripts.UI
         private void ValidateReferences()
         {
             if (_audioSource == null)
-                Debug.LogError("[UIAudioService] AudioSource not found!", this);
+                Debug.LogWarning("[UIAudioService] _audioSource is not assigned.", this);
         }
 
         #endregion

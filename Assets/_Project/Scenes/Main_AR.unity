@@ -1654,7 +1654,7 @@ MonoBehaviour:
   m_HumanSegmentationDepthMode: 2
   m_EnvironmentDepthMode: 3
   m_EnvironmentDepthTemporalSmoothing: 1
-  m_OcclusionPreferenceMode: 1
+  m_OcclusionPreferenceMode: 0
 --- !u!114 &138378449
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1957,7 +1957,7 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
-        m_CallState: 0
+        m_CallState: 2
 --- !u!114 &146859085
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2444,7 +2444,6 @@ MonoBehaviour:
   _flashOverlayObject: {fileID: 1169519049}
   _flashDuration: 0.5
   _toastPanel: {fileID: 1293305650}
-  _uiAudio: {fileID: 2043065971}
   _filePrefix: ARmonia
 --- !u!224 &199626318
 RectTransform:
@@ -3772,7 +3771,7 @@ GameObject:
   - component: {fileID: 436980696}
   - component: {fileID: 436980699}
   m_Layer: 5
-  m_Name: Panel_OptionsDropdown
+  m_Name: Pnl_OptionsDropdown
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3958,7 +3957,7 @@ GameObject:
   - component: {fileID: 511426865}
   - component: {fileID: 511426866}
   m_Layer: 5
-  m_Name: Panel_MusicVolume
+  m_Name: Pnl_MusicVolume
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6082,7 +6081,7 @@ GameObject:
   - component: {fileID: 888130398}
   - component: {fileID: 888130397}
   m_Layer: 5
-  m_Name: Panel_ConfirmDialog
+  m_Name: Pnl_ConfirmDialog
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6493,7 +6492,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99dd4a7f67a5fa449857a61ea97153d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _harmonyService: {fileID: 1300950987}
   _continueButton: {fileID: 1232448250}
   _titleLabel: {fileID: 193007061}
   _fadeInDuration: 0.5
@@ -7495,7 +7493,7 @@ GameObject:
   - component: {fileID: 1226869559}
   - component: {fileID: 1226869558}
   m_Layer: 5
-  m_Name: Panel_ConfirmDialog
+  m_Name: Pnl_ConfirmDialog
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8048,7 +8046,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5b263681d42aa2b4fb18804554f3b11f, type: 2}
   - {fileID: 11400000, guid: 37e0f87b503955a46b59e1df46e80ce8, type: 2}
   - {fileID: 11400000, guid: dd9963d9face32340a5845d8fcd01403, type: 2}
-  _devOverrideMode: 0
+  _devOverrideMode: 1
   _worldContainer: {fileID: 1472623155}
   _arWorldManager: {fileID: 1238779080}
   _gridManager: {fileID: 1472623154}
@@ -8408,7 +8406,6 @@ MonoBehaviour:
   _fadeOutDuration: 0.2
   _previewImage: {fileID: 334203305}
   _acceptButton: {fileID: 146859084}
-  _uiAudio: {fileID: 2043065971}
 --- !u!225 &1293305651
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -8505,7 +8502,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _maxHistory: 25
-  _harmonyService: {fileID: 1300950987}
 --- !u!114 &1300950987
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9469,7 +9465,6 @@ MonoBehaviour:
   _phraseMid: Jardin equilibrado
   _phraseHigh: Gran armonia!
   _phrasePerfect: "\xA1Armonia perfecta!!!"
-  _harmonyService: {fileID: 1300950987}
   _hudRoot: {fileID: 1396040709}
   _popScale: 1.18
   _popDuration: 0.45
@@ -14884,8 +14879,6 @@ MonoBehaviour:
   _worldContainer: {fileID: 1472623155}
   _arWorldManager: {fileID: 1238779080}
   _gridManager: {fileID: 1472623154}
-  _undoRedoService: {fileID: 1300950986}
-  _harmonyService: {fileID: 1300950987}
 --- !u!224 &1568598956
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15175,7 +15168,7 @@ GameObject:
   - component: {fileID: 1644020341}
   - component: {fileID: 1644020340}
   m_Layer: 5
-  m_Name: Panel_ToastCard
+  m_Name: Pnl_ToastCard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16264,10 +16257,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5315301018f89454a8ad4fcfbb01e02b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _toolManager: {fileID: 1586780609}
   _arRaycastManager: {fileID: 1238779073}
   _worldContainer: {fileID: 1472623155}
-  _harmonyService: {fileID: 1300950987}
   _pebblePrefabs:
   - {fileID: 2346634912404660289, guid: ad8b8e820daa6af48a32bd394a01ef22, type: 3}
   - {fileID: 2346634912404660289, guid: aacdb3e7459c3c84d9cd1e7f2c756c2d, type: 3}
@@ -16298,9 +16289,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _blockPlacer: {fileID: 1772064488}
   _blockDestroyer: {fileID: 1772064487}
-  _toolManager: {fileID: 1586780609}
   _plowTool: {fileID: 1772064485}
-  _uiAudio: {fileID: 2043065971}
   _strokeCooldown: 0.01
 --- !u!114 &1772064487
 MonoBehaviour:
@@ -16314,7 +16303,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ead9da2ee144b1940b20eaac8c5886cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _toolManager: {fileID: 1586780609}
   _worldContainer: {fileID: 1472623155}
   _voxelLayerMask:
     serializedVersion: 2
@@ -16323,8 +16311,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   _maxDestroyDistance: 4
-  _undoRedoService: {fileID: 1300950986}
-  _harmonyService: {fileID: 1300950987}
 --- !u!114 &1772064488
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16337,8 +16323,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3fa96778db3e21049baa59d892ecb8d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _toolManager: {fileID: 1586780609}
-  _gridManager: {fileID: 1472623154}
   _arWorldManager: {fileID: 1238779080}
   _worldContainer: {fileID: 1472623155}
   _arRaycastManager: {fileID: 1238779073}
@@ -16348,8 +16332,6 @@ MonoBehaviour:
   _maxBuildDistance: 3
   _minPlaceDistance: 0.2
   _overlapTolerance: 0.1
-  _undoRedoService: {fileID: 1300950986}
-  _harmonyService: {fileID: 1300950987}
 --- !u!114 &1772064489
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16362,7 +16344,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a47acebecb9c31240915ac15eb3e6e5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _toolManager: {fileID: 1586780609}
   _blockPlacer: {fileID: 1772064488}
   _blockDestroyer: {fileID: 1772064487}
   _brushTool: {fileID: 1772064486}
@@ -16418,14 +16399,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: adeba9b7be0ee4b4a9644d729080be1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _service: {fileID: 1300950986}
   _undoButton: {fileID: 965490062}
   _redoButton: {fileID: 47864279}
   _undoIcon: {fileID: 1479626267}
   _redoIcon: {fileID: 1423435010}
   _alphaEnabled: 1
   _alphaDisabled: 0.35
-  _uiAudio: {fileID: 2043065971}
 --- !u!114 &1780003097
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16531,7 +16510,6 @@ MonoBehaviour:
   _hapticService: {fileID: 297069140}
   _planeGridAligner: {fileID: 1238779087}
   _musicService: {fileID: 297069139}
-  _uiAudio: {fileID: 2043065971}
   _musicSlider: {fileID: 759700870}
   _musicVolumeLabel: {fileID: 1881701813}
   _musicLabelBase: Musica
@@ -17952,7 +17930,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c92b8120da7a087428267817e8807867, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _toolManager: {fileID: 1586780609}
   _selectorRect: {fileID: 1897112456}
   _slotRects:
   - {fileID: 1278989879}
@@ -17965,7 +17942,6 @@ MonoBehaviour:
   - {fileID: 265297850}
   - {fileID: 363852200}
   - {fileID: 1347067318}
-  _uiAudio: {fileID: 2043065971}
 --- !u!114 &2043065970
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17981,7 +17957,6 @@ MonoBehaviour:
   _hotbarPanel: {fileID: 1944931610}
   _toolPanel: {fileID: 1139651218}
   _selectorHighlight: {fileID: 1897112455}
-  _toolManager: {fileID: 1586780609}
 --- !u!114 &2043065971
 MonoBehaviour:
   m_ObjectHideFlags: 0

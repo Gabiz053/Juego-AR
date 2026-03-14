@@ -6,6 +6,7 @@
 
 using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {

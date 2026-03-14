@@ -5,7 +5,7 @@
 
 using System.Collections;
 using UnityEngine;
-using _Project.Scripts.Interaction;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -30,15 +30,12 @@ namespace _Project.Scripts.UI
         [Tooltip("The yellow selector highlight (HUD_Selector).")]
         [SerializeField] private GameObject _selectorHighlight;
 
-        [Header("Dependencies")]
-        [Tooltip("ToolManager -- forces Tool_None in landscape.")]
-        [SerializeField] private ToolManager _toolManager;
-
         #endregion
 
         #region State ---------------------------------------------
 
-        private bool     _isLandscape;
+        private IToolManager _toolManager;
+        private bool         _isLandscape;
         private ToolType _previousTool = ToolType.Build_Sand;
 
         private readonly WaitForEndOfFrame _waitEndOfFrame = new WaitForEndOfFrame();
@@ -49,6 +46,7 @@ namespace _Project.Scripts.UI
 
         private void Start()
         {
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
             ValidateReferences();
             EvaluateOrientation();
         }
@@ -120,16 +118,20 @@ namespace _Project.Scripts.UI
             if (go != null) go.SetActive(active);
         }
 
+        #endregion
+
+        #region Validation ----------------------------------------
+
         private void ValidateReferences()
         {
             if (_hotbarPanel == null)
-                Debug.LogError("[OrientationManager] _hotbarPanel is not assigned!", this);
+                Debug.LogWarning("[OrientationManager] _hotbarPanel is not assigned.", this);
             if (_toolPanel == null)
-                Debug.LogError("[OrientationManager] _toolPanel is not assigned!", this);
+                Debug.LogWarning("[OrientationManager] _toolPanel is not assigned.", this);
             if (_selectorHighlight == null)
-                Debug.LogError("[OrientationManager] _selectorHighlight is not assigned!", this);
+                Debug.LogWarning("[OrientationManager] _selectorHighlight is not assigned.", this);
             if (_toolManager == null)
-                Debug.LogError("[OrientationManager] _toolManager is not assigned!", this);
+                Debug.LogWarning("[OrientationManager] _toolManager is not assigned.", this);
         }
 
         #endregion

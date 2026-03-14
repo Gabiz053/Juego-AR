@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Title
 {
@@ -34,6 +35,30 @@ namespace _Project.Scripts.Title
 
         #endregion
 
+        #region Public API ----------------------------------------
+
+        /// <summary>
+        /// Selects a <see cref="WorldMode"/> by its integer value and loads
+        /// the game scene.<br/>
+        /// Designed for <c>Button.OnClick</c> wiring in the Inspector:<br/>
+        /// -- Btn_Bonsai -> <c>SelectMode(0)</c><br/>
+        /// -- Btn_Normal -> <c>SelectMode(1)</c><br/>
+        /// -- Btn_Real   -> <c>SelectMode(2)</c>
+        /// </summary>
+        public void SelectMode(int modeIndex)
+        {
+            WorldMode mode = (WorldMode)modeIndex;
+            WorldModeContext.Selected = mode;
+            Debug.Log($"[TitleSceneManager] Mode selected: {mode} -- transitioning to {GAME_SCENE}.");
+
+            SceneTransitionService.EnsureAvailable();
+
+            if (ServiceLocator.TryGet<ISceneTransitionService>(out var transition))
+                transition.TransitionTo(GAME_SCENE);
+        }
+
+        #endregion
+
         #region Unity Lifecycle -----------------------------------
 
         private void Start()
@@ -41,26 +66,6 @@ namespace _Project.Scripts.Title
             Screen.orientation = ScreenOrientation.Portrait;
             Debug.Log("[TitleSceneManager] Title scene started.");
             ValidateReferences();
-        }
-
-        #endregion
-
-        #region Public API ----------------------------------------
-
-        /// <summary>
-        /// Selects a <see cref="WorldMode"/> by its integer value and loads
-        /// the game scene.<br/>
-        /// Designed for <c>Button.OnClick</c> wiring in the Inspector:<br/>
-        /// � Btn_Bonsai ? <c>SelectMode(0)</c><br/>
-        /// � Btn_Normal ? <c>SelectMode(1)</c><br/>
-        /// � Btn_Real   ? <c>SelectMode(2)</c>
-        /// </summary>
-        public void SelectMode(int modeIndex)
-        {
-            WorldMode mode = (WorldMode)modeIndex;
-            WorldModeContext.Selected = mode;
-            Debug.Log($"[TitleSceneManager] Mode selected: {mode} -- transitioning to {GAME_SCENE}.");
-            SceneTransitionService.TransitionTo(GAME_SCENE);
         }
 
         #endregion

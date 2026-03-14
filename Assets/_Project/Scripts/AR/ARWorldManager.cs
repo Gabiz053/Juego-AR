@@ -146,11 +146,11 @@ namespace _Project.Scripts.AR
         private void ValidateReferences()
         {
             if (_anchorManager == null)
-                Debug.LogError("[ARWorldManager] ARAnchorManager not found!", this);
+                Debug.LogWarning("[ARWorldManager] _anchorManager is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[ARWorldManager] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[ARWorldManager] _worldContainer is not assigned.", this);
             if (_gridManager == null)
-                Debug.LogWarning("[ARWorldManager] _gridManager is not assigned!", this);
+                Debug.LogWarning("[ARWorldManager] _gridManager is not assigned.", this);
         }
 
         #endregion

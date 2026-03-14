@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
@@ -16,7 +17,7 @@ namespace _Project.Scripts.Core
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Game Audio Service")]
-    public class GameAudioService : MonoBehaviour
+    public class GameAudioService : MonoBehaviour, IGameAudioService
     {
         #region Inspector -----------------------------------------
 
@@ -34,24 +35,6 @@ namespace _Project.Scripts.Core
         #region State ---------------------------------------------
 
         private int _lastArrayIndex = -1;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            if (_audioSource != null)
-            {
-                _audioSource.playOnAwake  = false;
-                _audioSource.spatialBlend = 0f;
-            }
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
 
         #endregion
 
@@ -81,6 +64,31 @@ namespace _Project.Scripts.Core
         {
             AudioClip clip = PickRandom(clips);
             if (clip != null) PlayInternal(clip, volumeScale);
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            ServiceLocator.Register<IGameAudioService>(this);
+
+            if (_audioSource != null)
+            {
+                _audioSource.playOnAwake  = false;
+                _audioSource.spatialBlend = 0f;
+            }
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IGameAudioService>();
         }
 
         #endregion
@@ -131,7 +139,7 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_audioSource == null)
-                Debug.LogError("[GameAudioService] _audioSource is not assigned!", this);
+                Debug.LogWarning("[GameAudioService] _audioSource is not assigned.", this);
         }
 
         #endregion

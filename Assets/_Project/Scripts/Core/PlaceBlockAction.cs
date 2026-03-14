@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Core
@@ -16,7 +17,7 @@ namespace _Project.Scripts.Core
     /// </summary>
     public sealed class PlaceBlockAction : IUndoableAction
     {
-        #region State -------------------------------------------------
+        #region State ---------------------------------------------
 
         private GameObject _instance;
 
@@ -27,7 +28,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Constructor -------------------------------------------
+        #region Constructor ---------------------------------------
 
         public PlaceBlockAction(
             GameObject instance,
@@ -45,7 +46,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region IUndoableAction ---------------------------------------
+        #region IUndoableAction -----------------------------------
 
         /// <summary>Destroy the placed block without physics tumble.</summary>
         public void Undo()
@@ -55,7 +56,7 @@ namespace _Project.Scripts.Core
             Object.Destroy(_instance);
             _instance = null;
 
-            Debug.Log($"[PlaceBlockAction] Undo — destroyed block at {_localPosition}.");
+            Debug.Log($"[PlaceBlockAction] Undo ï¿½ destroyed block at {_localPosition}.");
         }
 
         /// <summary>Re-instantiate the block at its snapped grid position.</summary>
@@ -68,12 +69,12 @@ namespace _Project.Scripts.Core
 
             ArmForImmediate(_instance);
 
-            Debug.Log($"[PlaceBlockAction] Redo — restored {_prefab.name} at {_localPosition}.");
+            Debug.Log($"[PlaceBlockAction] Redo ï¿½ restored {_prefab.name} at {_localPosition}.");
         }
 
         #endregion
 
-        #region Shared ------------------------------------------------
+        #region Shared --------------------------------------------
 
         /// <summary>
         /// Prepares a freshly-instantiated block for immediate use:

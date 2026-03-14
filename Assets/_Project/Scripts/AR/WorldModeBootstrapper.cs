@@ -1,5 +1,4 @@
 // ------------------------------------------------------------
-// ------------------------------------------------------------
 //  WorldModeBootstrapper.cs  -  _Project.Scripts.AR
 //  Reads WorldModeContext at startup and configures the voxel
 //  world (scale, grid, anchor strategy) accordingly.
@@ -11,6 +10,7 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.AR
 {
@@ -133,17 +133,19 @@ namespace _Project.Scripts.AR
             // Give the ARSession one frame to resume / start its subsystem.
             yield return null;
 
-            // Wait until the session is actually tracking (or at least initialising).
-            float timeout = 5f;
+            // Wait until the session is actually tracking.
+            float timeout = 6f;
             float elapsed = 0f;
-            while (ARSession.state < ARSessionState.SessionInitializing && elapsed < timeout)
+            while (ARSession.state < ARSessionState.SessionTracking && elapsed < timeout)
             {
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
-            if (ARSession.state < ARSessionState.SessionInitializing)
-                Debug.LogWarning("[WorldModeBootstrapper] ARSession did not reach SessionInitializing within timeout -- configuring managers anyway.");
+            if (ARSession.state < ARSessionState.SessionTracking)
+                Debug.LogWarning($"[WorldModeBootstrapper] ARSession did not reach SessionTracking within {timeout}s (state: {ARSession.state}) -- configuring managers anyway.");
+            else
+                Debug.Log($"[WorldModeBootstrapper] ARSession ready (state: {ARSession.state}, waited {elapsed:F2}s) -- configuring AR managers.");
 
             ConfigureARManagers();
         }
@@ -288,26 +290,16 @@ namespace _Project.Scripts.AR
         private void ValidateReferences()
         {
             if (_modeConfigs == null || _modeConfigs.Length == 0)
-                Debug.LogError("[WorldModeBootstrapper] _modeConfigs is empty!", this);
+                Debug.LogWarning("[WorldModeBootstrapper] _modeConfigs is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[WorldModeBootstrapper] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[WorldModeBootstrapper] _worldContainer is not assigned.", this);
             if (_arWorldManager == null)
-                Debug.LogError("[WorldModeBootstrapper] _arWorldManager is not assigned!", this);
+                Debug.LogWarning("[WorldModeBootstrapper] _arWorldManager is not assigned.", this);
             if (_gridManager == null)
-                Debug.LogWarning("[WorldModeBootstrapper] _gridManager is not assigned!", this);
+                Debug.LogWarning("[WorldModeBootstrapper] _gridManager is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[WorldModeBootstrapper] Camera.main not found!", this);
+                Debug.LogWarning("[WorldModeBootstrapper] _mainCamera is not assigned.", this);
         }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (_modeConfigs == null || _modeConfigs.Length == 0)
-                Debug.LogWarning("[WorldModeBootstrapper] _modeConfigs is empty!", this);
-            if (_devOverrideMode == WorldMode.None)
-                Debug.LogWarning("[WorldModeBootstrapper] _devOverrideMode is set to None -- this will cause an error if Main_AR is launched directly.", this);
-        }
-#endif
 
         #endregion
     }

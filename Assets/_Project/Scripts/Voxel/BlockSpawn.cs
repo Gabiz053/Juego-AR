@@ -1,21 +1,19 @@
 // ------------------------------------------------------------
 //  BlockSpawn.cs  -  _Project.Scripts.Voxel
 //  Fly-in animation + placement feedback (audio + VFX).
-//  Reads place sounds from VoxelBlock when present; falls back
-//  to its own _placeSounds field for pebbles.
 // ------------------------------------------------------------
 
 using System;
 using System.Collections;
 using UnityEngine;
-using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Voxel
 {
     /// <summary>
     /// One-shot spawn animation: fly from camera to grid position with
     /// an overshoot settle.  Also plays placement audio and VFX so all
-    /// feedback lives on the prefab — callers don't need to know about it.<br/>
+    /// feedback lives on the prefab ï¿½ callers don't need to know about it.<br/>
     /// Reads place sounds from <see cref="VoxelBlock.PlaceSounds"/> when
     /// present; falls back to <see cref="_placeSounds"/> for pebbles.
     /// </summary>
@@ -23,6 +21,16 @@ namespace _Project.Scripts.Voxel
     [AddComponentMenu("ARmonia/Voxel/Block Spawn")]
     public class BlockSpawn : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Fraction of total duration used for the fly-in phase.</summary>
+        private const float FLY_IN_PHASE_RATIO = 0.80f;
+
+        /// <summary>Fraction of total duration used for the settle phase.</summary>
+        private const float SETTLE_PHASE_RATIO = 0.20f;
+
+        #endregion
+
         #region Inspector -----------------------------------------
 
         [Header("Timing")]
@@ -42,32 +50,18 @@ namespace _Project.Scripts.Voxel
         [SerializeField] private GameObject _placeVfxPrefab;
 
         [Header("Audio Override")]
-        [Tooltip("Place sounds used when no VoxelBlock component is present (pebbles).\nLeave empty on voxel block prefabs — they read from VoxelBlock.PlaceSounds.")]
+        [Tooltip("Place sounds used when no VoxelBlock component is present (pebbles).\nLeave empty on voxel block prefabs ï¿½ they read from VoxelBlock.PlaceSounds.")]
         [SerializeField] private AudioClip[] _placeSounds;
 
         #endregion
 
         #region State ---------------------------------------------
 
-        private VoxelBlock       _voxelBlock;
-        private GameAudioService _audioService;
-        private HapticService    _hapticService;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _voxelBlock    = GetComponent<VoxelBlock>();
-            _audioService  = FindAnyObjectByType<GameAudioService>();
-            _hapticService = FindAnyObjectByType<HapticService>();
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
+        private VoxelBlock        _voxelBlock;
+        private BlockDestroy      _blockDestroy;
+        private Collider          _collider;
+        private IGameAudioService _audioService;
+        private IHapticService    _hapticService;
 
         #endregion
 
@@ -85,6 +79,24 @@ namespace _Project.Scripts.Voxel
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _voxelBlock   = GetComponent<VoxelBlock>();
+            _blockDestroy = GetComponent<BlockDestroy>();
+            _collider     = GetComponent<Collider>();
+            ServiceLocator.TryGet<IGameAudioService>(out _audioService);
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
         #region Internals -----------------------------------------
 
         /// <summary>
@@ -93,11 +105,8 @@ namespace _Project.Scripts.Voxel
         /// </summary>
         private IEnumerator SpawnCoroutine(Transform cameraTransform, Action onComplete)
         {
-            BlockDestroy blockDestroy = GetComponent<BlockDestroy>();
-            if (blockDestroy != null) blockDestroy.enabled = false;
-
-            Collider col = GetComponent<Collider>();
-            if (col != null) col.enabled = false;
+            if (_blockDestroy != null) _blockDestroy.enabled = false;
+            if (_collider != null) _collider.enabled = false;
 
             // Haptic fires immediately so the player feels the tap response
             // at the moment they touch, not after the fly-in completes.
@@ -113,7 +122,7 @@ namespace _Project.Scripts.Voxel
                 : startWorld;
 
             // Phase 1 (80%): fly in + scale 0 -> peakScale
-            float phase1  = _duration * 0.80f;
+            float phase1  = _duration * FLY_IN_PHASE_RATIO;
             float elapsed = 0f;
 
             while (elapsed < phase1)
@@ -131,7 +140,7 @@ namespace _Project.Scripts.Voxel
             transform.localScale    = Vector3.one * _peakScale;
 
             // Phase 2 (20%): settle peakScale -> 1
-            float phase2 = _duration * 0.20f;
+            float phase2 = _duration * SETTLE_PHASE_RATIO;
             elapsed = 0f;
 
             while (elapsed < phase2)
@@ -145,12 +154,12 @@ namespace _Project.Scripts.Voxel
             transform.localPosition = finalLocal;
             transform.localScale    = Vector3.one;
 
-            if (col != null) col.enabled = true;
+            if (_collider != null) _collider.enabled = true;
 
-            if (blockDestroy != null)
+            if (_blockDestroy != null)
             {
-                blockDestroy.enabled = true;
-                blockDestroy.SetReady();
+                _blockDestroy.enabled = true;
+                _blockDestroy.SetReady();
             }
 
             PlayPlaceFeedback();
@@ -190,9 +199,9 @@ namespace _Project.Scripts.Voxel
         private void ValidateReferences()
         {
             if (_audioService == null)
-                Debug.LogWarning("[BlockSpawn] GameAudioService not found in scene!", this);
-            if (GetComponent<Collider>() == null)
-                Debug.LogWarning("[BlockSpawn] No Collider found -- spawn animation will skip collider toggle.", this);
+                Debug.LogWarning("[BlockSpawn] _audioService is not assigned.", this);
+            if (_collider == null)
+                Debug.LogWarning("[BlockSpawn] _collider is not assigned.", this);
         }
 
         #endregion

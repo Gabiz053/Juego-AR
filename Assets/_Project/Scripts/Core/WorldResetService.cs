@@ -6,6 +6,7 @@
 using System;
 using UnityEngine;
 using _Project.Scripts.AR;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Core
@@ -30,13 +31,6 @@ namespace _Project.Scripts.Core
         [Tooltip("GridManager -- deactivates the grid after clearing.")]
         [SerializeField] private GridManager _gridManager;
 
-        [Tooltip("UndoRedoService -- stacks are cleared on reset.")]
-        [SerializeField] private UndoRedoService _undoRedoService;
-
-        [Header("Harmony")]
-        [Tooltip("HarmonyService -- reset to zero when cleared.")]
-        [SerializeField] private HarmonyService _harmonyService;
-
         #endregion
 
         #region Events --------------------------------------------
@@ -52,7 +46,9 @@ namespace _Project.Scripts.Core
         public int BlockCount => _worldContainer != null ? _worldContainer.childCount : 0;
 
         /// <summary>
-        /// Full reset: destroy blocks, reset anchor, hide grid, clear stacks.
+        /// Full reset: destroy blocks, reset anchor, hide grid.
+        /// Publishes <see cref="WorldResetEvent"/> so subscribers
+        /// (HarmonyService, UndoRedoService) handle themselves.
         /// </summary>
         public void ResetWorld()
         {
@@ -60,8 +56,7 @@ namespace _Project.Scripts.Core
             DestroyAllBlocks();
             ResetAnchor();
             DeactivateGrid();
-            _undoRedoService?.Clear();
-            _harmonyService?.NotifyWorldReset();
+            EventBus.Publish(new WorldResetEvent());
             OnWorldReset?.Invoke();
             Debug.Log($"[WorldResetService] World reset complete -- destroyed {count} objects.");
         }
@@ -82,7 +77,7 @@ namespace _Project.Scripts.Core
         /// <summary>
         /// Iterates WorldContainer children in reverse, destroying only
         /// GameObjects that carry <see cref="VoxelBlock"/> or
-        /// <see cref="ProceduralPebble"/> — leaving the grid visual intact.
+        /// <see cref="ProceduralPebble"/> ï¿½ leaving the grid visual intact.
         /// </summary>
         private void DestroyAllBlocks()
         {
@@ -121,15 +116,11 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_worldContainer == null)
-                Debug.LogError("[WorldResetService] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[WorldResetService] _worldContainer is not assigned.", this);
             if (_arWorldManager == null)
-                Debug.LogError("[WorldResetService] _arWorldManager is not assigned!", this);
+                Debug.LogWarning("[WorldResetService] _arWorldManager is not assigned.", this);
             if (_gridManager == null)
-                Debug.LogError("[WorldResetService] _gridManager is not assigned!", this);
-            if (_undoRedoService == null)
-                Debug.LogError("[WorldResetService] _undoRedoService is not assigned!", this);
-            if (_harmonyService == null)
-                Debug.LogError("[WorldResetService] _harmonyService is not assigned!", this);
+                Debug.LogWarning("[WorldResetService] _gridManager is not assigned.", this);
         }
 
         #endregion

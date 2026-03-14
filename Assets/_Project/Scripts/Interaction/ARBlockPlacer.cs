@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  ARBlockPlacer.cs  -  _Project.Scripts.Interaction
-//  Handles voxel block placement via AR plane raycasts and
-//  physics raycasts (stacking on existing blocks).
+//  Voxel block placement via AR plane and physics raycasts.
 // ------------------------------------------------------------
 
 using System.Collections.Generic;
@@ -10,6 +9,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Interaction
@@ -18,7 +18,7 @@ namespace _Project.Scripts.Interaction
     /// Places voxel blocks on AR surfaces and on top of existing blocks.
     /// Uses AR plane raycasts (ground) and physics raycasts (stacking).
     /// Placement feedback (audio + VFX) is handled by each prefab's
-    /// <see cref="BlockSpawn"/> component — this script only handles
+    /// <see cref="BlockSpawn"/> component ï¿½ this script only handles
     /// positioning, validation and game-logic notifications.
     /// </summary>
     [DisallowMultipleComponent]
@@ -28,12 +28,6 @@ namespace _Project.Scripts.Interaction
         #region Inspector -----------------------------------------
 
         [Header("Dependencies")]
-        [Tooltip("ToolManager -- provides the current tool and block prefab.")]
-        [SerializeField] private ToolManager _toolManager;
-
-        [Tooltip("GridManager -- provides grid snapping and grid size.")]
-        [SerializeField] private GridManager _gridManager;
-
         [Tooltip("ARWorldManager -- manages the AR world anchor.")]
         [SerializeField] private ARWorldManager _arWorldManager;
 
@@ -56,35 +50,16 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Shrinkage applied to overlap check to avoid false positives at edges.")]
         [SerializeField] private float _overlapTolerance = 0.05f;
 
-        [Header("Undo / Redo")]
-        [Tooltip("UndoRedoService -- records every placement.")]
-        [SerializeField] private UndoRedoService _undoRedoService;
-
-        [Header("Harmony")]
-        [Tooltip("HarmonyService -- notified on every block placed.")]
-        [SerializeField] private HarmonyService _harmonyService;
-
         #endregion
 
         #region State ---------------------------------------------
 
         private Camera _mainCamera;
+        private IToolManager     _toolManager;
+        private IGridManager     _gridManager;
+        private IUndoRedoService _undoRedoService;
         private readonly List<ARRaycastHit> _arHits      = new List<ARRaycastHit>();
         private readonly HashSet<Vector3>   _pendingCells = new HashSet<Vector3>();
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _mainCamera = Camera.main;
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
 
         #endregion
 
@@ -136,18 +111,40 @@ namespace _Project.Scripts.Interaction
             }
         }
 
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _mainCamera = Camera.main;
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
+            ServiceLocator.TryGet<IGridManager>(out _gridManager);
+            ServiceLocator.TryGet<IUndoRedoService>(out _undoRedoService);
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
+        #region Internals -----------------------------------------
+
         /// <summary>
         /// Snaps position, validates, instantiates the block and starts
         /// its spawn animation.  Audio and VFX are handled by the prefab's
         /// <see cref="BlockSpawn"/> component.
         /// </summary>
-        public void ProcessAndPlace(Vector3 rawLocalPosition)
+        private void ProcessAndPlace(Vector3 rawLocalPosition)
         {
             Vector3 snappedLocal = _gridManager.GetSnappedPosition(rawLocalPosition);
             Vector3 worldPos     = _worldContainer.TransformPoint(snappedLocal);
             float   worldScale   = _worldContainer.localScale.x;
 
-            if (Vector3.Distance(worldPos, _mainCamera.transform.position) < _minPlaceDistance) return;
+            float sqrDistToCamera = (worldPos - _mainCamera.transform.position).sqrMagnitude;
+            if (sqrDistToCamera < _minPlaceDistance * _minPlaceDistance) return;
             if (IsCameraInsideVoxel(worldPos, worldScale)) return;
             if (!IsSpaceEmpty(worldPos, worldScale) || _pendingCells.Contains(snappedLocal)) return;
 
@@ -178,14 +175,11 @@ namespace _Project.Scripts.Interaction
 
             VoxelBlock blockData = newBlock.GetComponent<VoxelBlock>();
             if (blockData != null)
-                _harmonyService?.NotifyBlockPlaced(blockData.Type);
+                EventBus.Publish(new BlockPlacedEvent(
+                    Vector3Int.RoundToInt(snappedLocal), blockData.Type));
 
             Debug.Log($"[ARBlockPlacer] Placed {prefab.name} at local {snappedLocal}.");
         }
-
-        #endregion
-
-        #region Internals -----------------------------------------
 
         /// <summary>
         /// Returns <c>true</c> when the camera position falls inside
@@ -216,17 +210,17 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_toolManager == null)
-                Debug.LogError("[ARBlockPlacer] _toolManager is not assigned!", this);
+                Debug.LogWarning("[ARBlockPlacer] _toolManager is not assigned.", this);
             if (_gridManager == null)
-                Debug.LogError("[ARBlockPlacer] _gridManager is not assigned!", this);
+                Debug.LogWarning("[ARBlockPlacer] _gridManager is not assigned.", this);
             if (_arWorldManager == null)
-                Debug.LogError("[ARBlockPlacer] _arWorldManager is not assigned!", this);
+                Debug.LogWarning("[ARBlockPlacer] _arWorldManager is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[ARBlockPlacer] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[ARBlockPlacer] _worldContainer is not assigned.", this);
             if (_arRaycastManager == null)
-                Debug.LogError("[ARBlockPlacer] _arRaycastManager is not assigned!", this);
+                Debug.LogWarning("[ARBlockPlacer] _arRaycastManager is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[ARBlockPlacer] Camera.main not found!", this);
+                Debug.LogWarning("[ARBlockPlacer] _mainCamera is not assigned.", this);
         }
 
         #endregion

@@ -88,6 +88,11 @@ namespace _Project.Scripts.Core
 
         #region Unity Lifecycle -----------------------------------
 
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
         private void Update()
         {
             if (!_isActive || _playerCamera == null || _gridManager == null) return;
@@ -211,6 +216,16 @@ namespace _Project.Scripts.Core
             Color faded = _gridColor;
             faded.a     = _gridColor.a * alphaFactor;
             return faded;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_lineMaterial == null)
+                Debug.LogWarning("[GridVisualizer] _lineMaterial is not assigned.", this);
         }
 
         #endregion

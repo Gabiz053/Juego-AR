@@ -59,6 +59,7 @@ namespace _Project.Scripts.UI
         private void Start()
         {
             RefreshVisual(_brushTool != null && _brushTool.IsBrushActive);
+            ValidateReferences();
         }
 
         #endregion
@@ -85,6 +86,18 @@ namespace _Project.Scripts.UI
                 _originalColor = _buttonImage.color;
 
             _initialized = true;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_brushTool == null)
+                Debug.LogWarning("[BrushHUD] _brushTool is not assigned.", this);
+            if (_buttonImage == null)
+                Debug.LogWarning("[BrushHUD] _buttonImage is not assigned.", this);
         }
 
         #endregion

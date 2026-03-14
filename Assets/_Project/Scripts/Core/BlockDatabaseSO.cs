@@ -1,13 +1,14 @@
 // ------------------------------------------------------------
-//  BlockDatabase.cs  -  _Project.Scripts.Voxel
+//  BlockDatabaseSO.cs  -  _Project.Scripts.Core
 //  Central registry that maps every BlockType to its prefab.
 // ------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
-namespace _Project.Scripts.Voxel
+namespace _Project.Scripts.Core
 {
     /// <summary>
     /// ScriptableObject asset that holds the complete catalogue of block
@@ -19,7 +20,7 @@ namespace _Project.Scripts.Voxel
         fileName = "BlockDatabase",
         menuName = "ARmonia/Voxel/Block Database",
         order    = 0)]
-    public class BlockDatabase : ScriptableObject
+    public class BlockDatabaseSO : ScriptableObject
     {
         #region Nested Types --------------------------------------
 
@@ -86,7 +87,7 @@ namespace _Project.Scripts.Voxel
             {
                 if (entry.prefab == null)
                 {
-                    Debug.LogWarning($"[BlockDatabase] Entry for {entry.type} has no prefab.", this);
+                    Debug.LogWarning($"[BlockDatabaseSO] Entry for {entry.type} has no prefab.", this);
                     continue;
                 }
                 _lookup[entry.type] = entry.prefab;
@@ -106,7 +107,7 @@ namespace _Project.Scripts.Voxel
             foreach (BlockEntry entry in _entries)
             {
                 if (!seen.Add(entry.type))
-                    Debug.LogWarning($"[BlockDatabase] Duplicate entry for {entry.type}.", this);
+                    Debug.LogWarning($"[BlockDatabaseSO] Duplicate entry for {entry.type}.", this);
             }
         }
 #endif

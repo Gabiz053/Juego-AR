@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.Voxel;
 
 namespace _Project.Scripts.Interaction
@@ -23,9 +24,6 @@ namespace _Project.Scripts.Interaction
         #region Inspector -----------------------------------------
 
         [Header("Dependencies")]
-        [Tooltip("ToolManager -- looks up prefab for undo recording.")]
-        [SerializeField] private ToolManager _toolManager;
-
         [Tooltip("WorldContainer transform that parents all placed blocks.")]
         [SerializeField] private Transform _worldContainer;
 
@@ -39,33 +37,13 @@ namespace _Project.Scripts.Interaction
         [Tooltip("Maximum destroy raycast distance (metres).")]
         [SerializeField] private float _maxDestroyDistance = 7f;
 
-        [Header("Undo / Redo")]
-        [Tooltip("UndoRedoService -- records every destroy action.")]
-        [SerializeField] private UndoRedoService _undoRedoService;
-
-        [Header("Harmony")]
-        [Tooltip("HarmonyService -- notified on every block destroy.")]
-        [SerializeField] private HarmonyService _harmonyService;
-
         #endregion
 
         #region State ---------------------------------------------
 
-        private Camera _mainCamera;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _mainCamera = Camera.main;
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
+        private Camera           _mainCamera;
+        private IToolManager     _toolManager;
+        private IUndoRedoService _undoRedoService;
 
         #endregion
 
@@ -96,6 +74,22 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _mainCamera = Camera.main;
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
+            ServiceLocator.TryGet<IUndoRedoService>(out _undoRedoService);
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
         #region Internals -----------------------------------------
 
         /// <summary>
@@ -105,7 +99,7 @@ namespace _Project.Scripts.Interaction
         /// </summary>
         private void DestroyHit(RaycastHit hit)
         {
-            // Resolve root block — child colliders point to the parent VoxelBlock.
+            // Resolve root block -- child colliders point to the parent VoxelBlock.
             VoxelBlock blockData = hit.transform.GetComponentInParent<VoxelBlock>();
             GameObject target    = blockData != null
                 ? blockData.gameObject
@@ -117,14 +111,15 @@ namespace _Project.Scripts.Interaction
             if (blockDestroy != null && blockDestroy.IsKnocked)
                 return;
 
-            // Record undo BEFORE triggering KnockRoutine (which unparents).
+            // Compute local position BEFORE triggering KnockRoutine (which unparents).
+            Vector3 localPos = _worldContainer.InverseTransformPoint(target.transform.position);
+
+            // Record undo BEFORE triggering KnockRoutine.
             if (blockData != null && _undoRedoService != null)
             {
                 GameObject prefab = _toolManager.GetBlockPrefab(blockData.Type);
                 if (prefab != null)
                 {
-                    Vector3 localPos = _worldContainer.InverseTransformPoint(target.transform.position);
-
                     _undoRedoService.Record(new DestroyBlockAction(
                         prefab, _worldContainer, localPos, Quaternion.identity));
 
@@ -143,7 +138,10 @@ namespace _Project.Scripts.Interaction
             }
 
             if (blockData != null)
-                _harmonyService?.NotifyBlockDestroyed(blockData.Type);
+            {
+                EventBus.Publish(new BlockDestroyedEvent(
+                    Vector3Int.RoundToInt(localPos), blockData.Type));
+            }
         }
 
         #endregion
@@ -153,11 +151,11 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_toolManager == null)
-                Debug.LogError("[BlockDestroyer] _toolManager is not assigned!", this);
+                Debug.LogWarning("[BlockDestroyer] _toolManager is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogError("[BlockDestroyer] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[BlockDestroyer] _worldContainer is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[BlockDestroyer] Camera.main not found!", this);
+                Debug.LogWarning("[BlockDestroyer] _mainCamera is not assigned.", this);
         }
 
         #endregion

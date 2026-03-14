@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  HarmonyParticles.cs  -  _Project.Scripts.UI
-//  3D world-space particle celebration effect for perfect harmony.
-//  No sprites required -- generates everything procedurally.
+//  3D world-space particle celebration for perfect harmony.
 // ------------------------------------------------------------
 
 using System.Collections;
@@ -19,6 +18,15 @@ namespace _Project.Scripts.UI
     [AddComponentMenu("ARmonia/UI/Harmony Particles")]
     public class HarmonyParticles : MonoBehaviour
     {
+        #region Constants -----------------------------------------
+
+        /// <summary>Minimum ambient particle size (metres).</summary>
+        private const float AMBIENT_SIZE_MIN = 0.004f;
+
+        /// <summary>Maximum ambient particle size (metres).</summary>
+        private const float AMBIENT_SIZE_MAX = 0.010f;
+
+        #endregion
         #region Inspector -----------------------------------------
 
         [Header("Burst -- Celebration")]
@@ -45,26 +53,13 @@ namespace _Project.Scripts.UI
 
         #region State ---------------------------------------------
 
-        private ParticleSystem _ps;
-        private Camera         _mainCamera;
-        private bool           _ambientRunning;
-        private Coroutine      _ambientCoroutine;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _ps         = GetComponent<ParticleSystem>();
-            _mainCamera = Camera.main;
-            ConfigureParticleSystem();
-        }
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
+        private ParticleSystem         _ps;
+        private ParticleSystemRenderer _psRenderer;
+        private Camera                 _mainCamera;
+        private bool                   _ambientRunning;
+        private Coroutine              _ambientCoroutine;
+        private WaitForSeconds         _waitRepeatInterval;
+        private WaitForSeconds         _waitAmbientInterval;
 
         #endregion
 
@@ -98,6 +93,28 @@ namespace _Project.Scripts.UI
 
         #endregion
 
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _ps                 = GetComponent<ParticleSystem>();
+            _psRenderer         = _ps != null ? _ps.GetComponent<ParticleSystemRenderer>() : null;
+            _mainCamera         = Camera.main;
+            _waitRepeatInterval  = new WaitForSeconds(_repeatInterval);
+
+            float ambientInterval = _ambientEmitPerSecond > 0 ? 1f / _ambientEmitPerSecond : 0.5f;
+            _waitAmbientInterval = new WaitForSeconds(ambientInterval);
+
+            ConfigureParticleSystem();
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
         #region Internals -----------------------------------------
 
         private IEnumerator BurstSequence()
@@ -108,14 +125,12 @@ namespace _Project.Scripts.UI
                 _ps.Emit(_burstCount);
 
                 if (i < _repeatCount - 1)
-                    yield return new WaitForSeconds(_repeatInterval);
+                    yield return _waitRepeatInterval;
             }
         }
 
         private IEnumerator AmbientLoop()
         {
-            float interval = _ambientEmitPerSecond > 0 ? 1f / _ambientEmitPerSecond : 0.5f;
-
             while (_ambientRunning)
             {
                 if (_mainCamera != null)
@@ -128,11 +143,11 @@ namespace _Project.Scripts.UI
                                         + _mainCamera.transform.forward * _distanceFromCamera
                                         + offset;
                     emitParams.applyShapeToPosition = false;
-                    emitParams.startSize = Random.Range(0.004f, 0.010f);
+                    emitParams.startSize = Random.Range(AMBIENT_SIZE_MIN, AMBIENT_SIZE_MAX);
                     _ps.Emit(emitParams, 1);
                 }
 
-                yield return new WaitForSeconds(interval);
+                yield return _waitAmbientInterval;
             }
         }
 
@@ -222,9 +237,11 @@ namespace _Project.Scripts.UI
             col.color = new ParticleSystem.MinMaxGradient(fadeOut);
 
             // Renderer
-            var renderer          = _ps.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode   = ParticleSystemRenderMode.Billboard;
-            renderer.sortingOrder = 10;
+            if (_psRenderer != null)
+            {
+                _psRenderer.renderMode   = ParticleSystemRenderMode.Billboard;
+                _psRenderer.sortingOrder = 10;
+            }
 
             Material mat = Resources.Load<Material>("Particles/Default");
             if (mat == null)
@@ -235,8 +252,8 @@ namespace _Project.Scripts.UI
                 if (shader != null)
                     mat = new Material(shader);
             }
-            if (mat != null)
-                renderer.material = mat;
+            if (mat != null && _psRenderer != null)
+                _psRenderer.material = mat;
         }
 
         #endregion
@@ -246,9 +263,9 @@ namespace _Project.Scripts.UI
         private void ValidateReferences()
         {
             if (_ps == null)
-                Debug.LogError("[HarmonyParticles] ParticleSystem not found!", this);
+                Debug.LogWarning("[HarmonyParticles] _ps is not assigned.", this);
             if (_mainCamera == null)
-                Debug.LogError("[HarmonyParticles] Camera.main not found!", this);
+                Debug.LogWarning("[HarmonyParticles] _mainCamera is not assigned.", this);
         }
 
         #endregion

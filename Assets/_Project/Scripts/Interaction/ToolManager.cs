@@ -5,17 +5,18 @@
 
 using System;
 using UnityEngine;
-using _Project.Scripts.Voxel;
+using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Interaction
 {
     /// <summary>
     /// Tracks which tool the player has selected and provides the
-    /// corresponding block prefab via <see cref="BlockDatabase"/>.
+    /// corresponding block prefab via <see cref="BlockDatabaseSO"/>.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Interaction/Tool Manager")]
-    public class ToolManager : MonoBehaviour
+    public class ToolManager : MonoBehaviour, IToolManager
     {
         #region Constants -----------------------------------------
 
@@ -29,7 +30,7 @@ namespace _Project.Scripts.Interaction
 
         [Header("Block Data")]
         [Tooltip("ScriptableObject mapping each BlockType to its prefab.")]
-        [SerializeField] private BlockDatabase _blockDatabase;
+        [SerializeField] private BlockDatabaseSO _blockDatabase;
 
         #endregion
 
@@ -96,9 +97,20 @@ namespace _Project.Scripts.Interaction
 
         #region Unity Lifecycle -----------------------------------
 
+        private void Awake()
+        {
+            ServiceLocator.Register<IToolManager>(this);
+            Debug.Log($"[ToolManager] Initialized -- default tool: {CurrentTool}.");
+        }
+
         private void Start()
         {
             ValidateReferences();
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IToolManager>();
         }
 
         #endregion
@@ -108,7 +120,7 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_blockDatabase == null)
-                Debug.LogError("[ToolManager] _blockDatabase is not assigned!", this);
+                Debug.LogWarning("[ToolManager] _blockDatabase is not assigned.", this);
         }
 
         #endregion

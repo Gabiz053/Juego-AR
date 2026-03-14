@@ -1,4 +1,3 @@
-// ----
 // ------------------------------------------------------------
 //  ScreenshotService.cs  -  _Project.Scripts.Core
 //  Captures a screenshot, saves it to the device gallery via
@@ -9,6 +8,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 using _Project.Scripts.UI;
 
 namespace _Project.Scripts.Core
@@ -49,10 +49,6 @@ namespace _Project.Scripts.Core
         [Tooltip("ScreenshotToastPanel shown after the capture to confirm the save.")]
         [SerializeField] private ScreenshotToastPanel _toastPanel;
 
-        [Header("Audio")]
-        [Tooltip("UIAudioService used to play the shutter sound.")]
-        [SerializeField] private UIAudioService _uiAudio;
-
         [Header("File")]
         [Tooltip("Prefix added to every screenshot filename.")]
         [SerializeField] private string _filePrefix = "ARmonia";
@@ -66,27 +62,16 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Cached Components / State -------------------------
+        #region State ---------------------------------------------
 
         private bool          _isCapturing;
         private int           _captureCount;
         private Coroutine     _activeFlash;
         private CanvasGroup   _flashCanvasGroup;
-        private HapticService _hapticService;
+        private IHapticService   _hapticService;
+        private IUIAudioService  _uiAudio;
 
         private readonly WaitForEndOfFrame _waitEndOfFrame = new WaitForEndOfFrame();
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Start()
-        {
-            _hapticService = FindAnyObjectByType<HapticService>();
-            InitFlashOverlay();
-            RequestGalleryPermission();
-            ValidateReferences();
-        }
 
         #endregion
 
@@ -99,6 +84,19 @@ namespace _Project.Scripts.Core
         {
             if (_isCapturing) return;
             StartCoroutine(CaptureRoutine());
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Start()
+        {
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            InitFlashOverlay();
+            RequestGalleryPermission();
+            ValidateReferences();
         }
 
         #endregion
@@ -142,7 +140,7 @@ namespace _Project.Scripts.Core
             Debug.Log($"[ScreenshotService] Screenshot saved -- {savedPath}.");
 
             // Hand the texture to the toast (it will Destroy it on dismiss).
-            // Do NOT Destroy here — the toast needs it for the preview image.
+            // Do NOT Destroy here ï¿½ the toast needs it for the preview image.
             if (_toastPanel != null)
                 _toastPanel.Show(screenshot);
             else
@@ -262,13 +260,13 @@ namespace _Project.Scripts.Core
         private void ValidateReferences()
         {
             if (_canvasToHide == null)
-                Debug.LogError("[ScreenshotService] _canvasToHide is not assigned!", this);
+                Debug.LogWarning("[ScreenshotService] _canvasToHide is not assigned.", this);
             if (_flashOverlayObject == null)
-                Debug.LogWarning("[ScreenshotService] _flashOverlayObject is not assigned -- no flash feedback.", this);
+                Debug.LogWarning("[ScreenshotService] _flashOverlayObject is not assigned.", this);
             if (_toastPanel == null)
-                Debug.LogWarning("[ScreenshotService] _toastPanel is not assigned -- no confirmation toast.", this);
+                Debug.LogWarning("[ScreenshotService] _toastPanel is not assigned.", this);
             if (_uiAudio == null)
-                Debug.LogWarning("[ScreenshotService] _uiAudio is not assigned -- no shutter sound.", this);
+                Debug.LogWarning("[ScreenshotService] _uiAudio is not assigned.", this);
         }
 
         #endregion

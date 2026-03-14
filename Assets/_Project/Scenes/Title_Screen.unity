@@ -252,7 +252,7 @@ GameObject:
   - component: {fileID: 93190400}
   - component: {fileID: 93190399}
   m_Layer: 0
-  m_Name: Hand_Cursor
+  m_Name: HandCursor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -739,7 +739,7 @@ GameObject:
   - component: {fileID: 688940482}
   - component: {fileID: 688940481}
   m_Layer: 0
-  m_Name: Img_Cursor_Dot
+  m_Name: Img_CursorDot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -818,7 +818,7 @@ GameObject:
   - component: {fileID: 879348583}
   - component: {fileID: 879348584}
   m_Layer: 0
-  m_Name: MainCanvas
+  m_Name: TitleCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2213,7 +2213,7 @@ GameObject:
   - component: {fileID: 1999885062}
   - component: {fileID: 1999885061}
   m_Layer: 0
-  m_Name: Txt_Gamemode
+  m_Name: Txt_GameMode
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

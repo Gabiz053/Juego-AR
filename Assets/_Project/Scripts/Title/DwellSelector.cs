@@ -1,10 +1,6 @@
 // ------------------------------------------------------------
 //  DwellSelector.cs  -  _Project.Scripts.Title
-//  Implements dwell-time selection: when the hand cursor stays
-//  over a button for a configurable duration, it triggers the
-//  corresponding TitleSceneManager.SelectMode() call.
-//  Highlights hovered buttons with a scale-up effect.
-//  Plays hover and click sound effects via its own AudioSource.
+//  Dwell-time and pinch selection for title screen buttons.
 // ------------------------------------------------------------
 
 using System;
@@ -47,6 +43,9 @@ namespace _Project.Scripts.Title
         /// <summary>Maximum random pitch offset applied to hover/click SFX.</summary>
         private const float PITCH_VARIATION = 0.05f;
 
+        /// <summary>Number of mode-selection buttons on the title screen.</summary>
+        private const int MODE_BUTTON_COUNT = 3;
+
         #endregion
 
         #region Inspector -----------------------------------------
@@ -63,7 +62,7 @@ namespace _Project.Scripts.Title
 
         [Header("Button Targets")]
         [Tooltip("RectTransforms of the mode buttons in order: [0]=Bonsai, [1]=Normal, [2]=Real.")]
-        [SerializeField] private RectTransform[] _buttonRects = new RectTransform[3];
+        [SerializeField] private RectTransform[] _buttonRects = new RectTransform[MODE_BUTTON_COUNT];
 
         [Header("Dwell Settings")]
         [Tooltip("Seconds the cursor must remain over a button to trigger selection.")]
@@ -88,7 +87,7 @@ namespace _Project.Scripts.Title
 
         #endregion
 
-        #region State -----------------------------------------
+        #region State ---------------------------------------------
 
         private float _dwellTimer;
         private int _hoveredIndex = -1;
@@ -117,6 +116,16 @@ namespace _Project.Scripts.Title
 
         #region Unity Lifecycle -----------------------------------
 
+        private void Awake()
+        {
+            _audioSource = GetComponent<AudioSource>();
+            if (_audioSource != null)
+            {
+                _audioSource.playOnAwake  = false;
+                _audioSource.spatialBlend = 0f;
+            }
+        }
+
         private void OnEnable()
         {
             if (_handTracking != null)
@@ -140,7 +149,6 @@ namespace _Project.Scripts.Title
         private void Start()
         {
             ValidateReferences();
-            InitializeAudioSource();
             CacheButtonReferences();
             ResetDwell();
         }
@@ -153,16 +161,6 @@ namespace _Project.Scripts.Title
         #endregion
 
         #region Internals -----------------------------------------
-
-        /// <summary>
-        /// Configures the required <see cref="AudioSource"/> for 2D one-shot playback.
-        /// </summary>
-        private void InitializeAudioSource()
-        {
-            _audioSource = GetComponent<AudioSource>();
-            _audioSource.playOnAwake  = false;
-            _audioSource.spatialBlend = 0f;
-        }
 
         /// <summary>
         /// Caches Image components and original colours from button RectTransforms
@@ -364,15 +362,15 @@ namespace _Project.Scripts.Title
         private void ValidateReferences()
         {
             if (_handTracking == null)
-                Debug.LogError("[DwellSelector] _handTracking is not assigned!", this);
+                Debug.LogWarning("[DwellSelector] _handTracking is not assigned.", this);
             if (_cursorUI == null)
-                Debug.LogError("[DwellSelector] _cursorUI is not assigned!", this);
+                Debug.LogWarning("[DwellSelector] _cursorUI is not assigned.", this);
             if (_titleSceneManager == null)
-                Debug.LogError("[DwellSelector] _titleSceneManager is not assigned!", this);
+                Debug.LogWarning("[DwellSelector] _titleSceneManager is not assigned.", this);
 
             if (_buttonRects == null || _buttonRects.Length == 0)
             {
-                Debug.LogError("[DwellSelector] _buttonRects array is empty!", this);
+                Debug.LogWarning("[DwellSelector] _buttonRects is not assigned.", this);
                 return;
             }
 

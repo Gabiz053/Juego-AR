@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  HandTrackingService.cs  -  _Project.Scripts.Title
-//  Captures front-camera frames, runs MediaPipe hand landmark
-//  detection, and broadcasts the index-fingertip screen position.
+//  MediaPipe hand landmark detection with pinch gesture.
 // ------------------------------------------------------------
 
 using System;
@@ -50,11 +49,29 @@ namespace _Project.Scripts.Title
         /// <summary>Number of consecutive empty results before OnHandLost fires.</summary>
         private const int MAX_CONSECUTIVE_MISSES = 5;
 
+        /// <summary>Rotation degrees for landscape sensor → portrait screen.</summary>
+        private const int ROTATION_PORTRAIT = 270;
+
+        /// <summary>Rotation degrees for portrait sensor → landscape screen.</summary>
+        private const int ROTATION_LANDSCAPE = 90;
+
+        /// <summary>Rotation degrees for inverted orientation.</summary>
+        private const int ROTATION_INVERTED = 180;
+
+        /// <summary>Capacity of the texture frame pool used for MediaPipe input.</summary>
+        private const int TEXTURE_POOL_CAPACITY = 2;
+
         /// <summary>Normalised distance below which thumb-index is considered a pinch.</summary>
-        private const float PINCH_ENTER_THRESHOLD = 0.055f;
+        private const float PINCH_ENTER_DISTANCE = 0.055f;
 
         /// <summary>Normalised distance above which a pinch is considered released (hysteresis).</summary>
-        private const float PINCH_EXIT_THRESHOLD = 0.08f;
+        private const float PINCH_EXIT_DISTANCE = 0.08f;
+
+        /// <summary>Squared enter threshold -- avoids sqrt per frame.</summary>
+        private const float PINCH_ENTER_SQR_THRESHOLD = PINCH_ENTER_DISTANCE * PINCH_ENTER_DISTANCE;
+
+        /// <summary>Squared exit threshold -- avoids sqrt per frame.</summary>
+        private const float PINCH_EXIT_SQR_THRESHOLD = PINCH_EXIT_DISTANCE * PINCH_EXIT_DISTANCE;
 
         /// <summary>Consecutive pinch frames required before firing the event (debounce).</summary>
         private const int PINCH_DEBOUNCE_FRAMES = 2;
@@ -352,10 +369,10 @@ namespace _Project.Scripts.Title
                                  || UnityEngine.Screen.orientation == ScreenOrientation.PortraitUpsideDown;
 
             if (imageIsLandscape && screenIsPortrait)
-                return 270;
+                return ROTATION_PORTRAIT;
 
             if (!imageIsLandscape && !screenIsPortrait)
-                return 90;
+                return ROTATION_LANDSCAPE;
 
             return 0;
         }
@@ -375,7 +392,7 @@ namespace _Project.Scripts.Title
             _cameraTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
 
             _textureFramePool?.Dispose();
-            _textureFramePool = new TextureFramePool(width, height, TextureFormat.RGBA32, 2);
+            _textureFramePool = new TextureFramePool(width, height, TextureFormat.RGBA32, TEXTURE_POOL_CAPACITY);
 
             Debug.Log($"[HandTrackingService] Camera texture created -- {width}x{height}.");
         }
@@ -421,9 +438,9 @@ namespace _Project.Scripts.Title
             Mediapipe.Tasks.Components.Containers.NormalizedLandmark thumb = hand.landmarks[LANDMARK_THUMB_TIP];
             float dx = thumb.x - tip.x;
             float dy = thumb.y - tip.y;
-            float distance = Mathf.Sqrt(dx * dx + dy * dy);
+            float sqrDistance = dx * dx + dy * dy;
 
-            EvaluatePinch(distance);
+            EvaluatePinch(sqrDistance);
         }
 
         /// <summary>
@@ -446,16 +463,16 @@ namespace _Project.Scripts.Title
 
         /// <summary>
         /// Evaluates a pinch gesture using hysteresis: enters pinch state when
-        /// distance drops below <see cref="PINCH_ENTER_THRESHOLD"/> for
+        /// squared distance drops below <see cref="PINCH_ENTER_SQR_THRESHOLD"/> for
         /// <see cref="PINCH_DEBOUNCE_FRAMES"/> consecutive frames, exits when
-        /// distance rises above <see cref="PINCH_EXIT_THRESHOLD"/>.
+        /// squared distance rises above <see cref="PINCH_EXIT_SQR_THRESHOLD"/>.
         /// Fires <see cref="OnPinchDetected"/> once per pinch.
         /// </summary>
-        private void EvaluatePinch(float distance)
+        private void EvaluatePinch(float sqrDistance)
         {
             if (_isPinching)
             {
-                if (distance > PINCH_EXIT_THRESHOLD)
+                if (sqrDistance > PINCH_EXIT_SQR_THRESHOLD)
                 {
                     _isPinching = false;
                     _pinchFrameCount = 0;
@@ -463,13 +480,13 @@ namespace _Project.Scripts.Title
             }
             else
             {
-                if (distance < PINCH_ENTER_THRESHOLD)
+                if (sqrDistance < PINCH_ENTER_SQR_THRESHOLD)
                 {
                     _pinchFrameCount++;
                     if (_pinchFrameCount >= PINCH_DEBOUNCE_FRAMES)
                     {
                         _isPinching = true;
-                        Debug.Log($"[HandTrackingService] Pinch detected -- distance: {distance:F3}.");
+                        Debug.Log($"[HandTrackingService] Pinch detected -- sqrDistance: {sqrDistance:F5}.");
                         OnPinchDetected?.Invoke();
                     }
                 }
@@ -493,13 +510,13 @@ namespace _Project.Scripts.Title
 
             switch (_imageRotationDegrees)
             {
-                case 90:
-                case 270:
+                case ROTATION_LANDSCAPE:
+                case ROTATION_PORTRAIT:
                     // Landscape sensor → portrait screen (front camera with flipHorizontally)
                     screenX = (1f - normY) * UnityEngine.Screen.width;
                     screenY = (1f - normX) * UnityEngine.Screen.height;
                     break;
-                case 180:
+                case ROTATION_INVERTED:
                     screenX = (1f - normX) * UnityEngine.Screen.width;
                     screenY = normY * UnityEngine.Screen.height;
                     break;
@@ -519,7 +536,7 @@ namespace _Project.Scripts.Title
         private void ValidateReferences()
         {
             if (_cameraManager == null)
-                Debug.LogError("[HandTrackingService] _cameraManager is not assigned!", this);
+                Debug.LogWarning("[HandTrackingService] _cameraManager is not assigned.", this);
         }
 
         #endregion

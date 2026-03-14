@@ -41,15 +41,15 @@ namespace _Project.Scripts.AR
 
         private MaterialPropertyBlock _mpb;
 
+        #endregion
+
+        #region Public API ----------------------------------------
+
         /// <summary>Whether the plane mesh renderers are currently visible.</summary>
         public bool IsVisualEnabled { get; private set; } = true;
 
         /// <summary>Whether the grid lines are drawn on top of the sand.</summary>
         public bool IsGridEnabled { get; private set; } = true;
-
-        #endregion
-
-        #region Public API ----------------------------------------
 
         /// <summary>Shows or hides the plane mesh visuals.</summary>
         public void SetVisual(bool visible)
@@ -120,9 +120,9 @@ namespace _Project.Scripts.AR
         private void ValidateReferences()
         {
             if (_planeManager == null)
-                Debug.LogError("[ARPlaneGridAligner] _planeManager is not assigned!", this);
+                Debug.LogWarning("[ARPlaneGridAligner] _planeManager is not assigned.", this);
             if (_worldContainer == null)
-                Debug.LogWarning("[ARPlaneGridAligner] _worldContainer is not assigned!", this);
+                Debug.LogWarning("[ARPlaneGridAligner] _worldContainer is not assigned.", this);
         }
 
         #endregion

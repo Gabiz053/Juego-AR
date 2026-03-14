@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  ButtonPressAnimation.cs  -  _Project.Scripts.UI
 //  Adds a squeeze animation to any Button.
-//  Add this component once per button -- no OnClick wiring needed.
 // ------------------------------------------------------------
 
 using System.Collections;
@@ -42,21 +41,7 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
-
-        private void Awake()
-        {
-            _button        = GetComponent<Button>();
-            _originalScale = transform.localScale;
-            _rect          = GetComponent<RectTransform>();
-
-            if (_rect != null)
-                _rect.pivot = new Vector2(0.5f, 0.5f);
-        }
-
-        #endregion
-
-        #region Pointer Handlers ----------------------------------
+        #region Public API ----------------------------------------
 
         public void OnPointerDown(PointerEventData _)
         {
@@ -70,6 +55,25 @@ namespace _Project.Scripts.UI
         {
             if (_anim == null)
                 transform.localScale = _originalScale;
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            _button        = GetComponent<Button>();
+            _originalScale = transform.localScale;
+            _rect          = GetComponent<RectTransform>();
+
+            if (_rect != null)
+                _rect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        private void Start()
+        {
+            ValidateReferences();
         }
 
         #endregion
@@ -104,6 +108,16 @@ namespace _Project.Scripts.UI
 
             transform.localScale = _originalScale;
             _anim = null;
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_button == null)
+                Debug.LogWarning("[ButtonPressAnimation] _button is not assigned.", this);
         }
 
         #endregion

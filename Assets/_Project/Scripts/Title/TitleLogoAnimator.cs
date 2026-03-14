@@ -74,7 +74,7 @@ namespace _Project.Scripts.Title
         private void ValidateReferences()
         {
             if (_rectTransform == null)
-                Debug.LogError("[TitleLogoAnimator] RectTransform not found!", this);
+                Debug.LogWarning("[TitleLogoAnimator] _rectTransform is not assigned.", this);
         }
 
         #endregion

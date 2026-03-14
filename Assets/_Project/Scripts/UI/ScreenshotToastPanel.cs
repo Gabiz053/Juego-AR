@@ -1,5 +1,4 @@
 // ------------------------------------------------------------
-// ------------------------------------------------------------
 //  ScreenshotToastPanel.cs  -  _Project.Scripts.UI
 //  Confirmation toast shown after a screenshot is saved.
 // ------------------------------------------------------------
@@ -7,6 +6,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -38,35 +38,15 @@ namespace _Project.Scripts.UI
         [Tooltip("Dismiss button inside the toast card.")]
         [SerializeField] private Button _acceptButton;
 
-        [Header("Audio")]
-        [Tooltip("UIAudioService used for the dismiss sound.")]
-        [SerializeField] private UIAudioService _uiAudio;
-
         #endregion
 
-        #region Cached Components / State -------------------------
+        #region State ---------------------------------------------
 
-        private CanvasGroup _canvasGroup;
-        private Coroutine   _activeRoutine;
-        private Texture2D   _currentTexture;
-        private bool        _initialized;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Start()
-        {
-            ValidateReferences();
-        }
-
-        private void OnDestroy()
-        {
-            if (_acceptButton != null)
-                _acceptButton.onClick.RemoveListener(OnAcceptPressed);
-
-            ReleaseTexture();
-        }
+        private CanvasGroup     _canvasGroup;
+        private Coroutine       _activeRoutine;
+        private Texture2D       _currentTexture;
+        private bool            _initialized;
+        private IUIAudioService _uiAudio;
 
         #endregion
 
@@ -108,6 +88,24 @@ namespace _Project.Scripts.UI
         public void Dismiss()
         {
             OnAcceptPressed();
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Start()
+        {
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            ValidateReferences();
+        }
+
+        private void OnDestroy()
+        {
+            if (_acceptButton != null)
+                _acceptButton.onClick.RemoveListener(OnAcceptPressed);
+
+            ReleaseTexture();
         }
 
         #endregion
@@ -215,11 +213,11 @@ namespace _Project.Scripts.UI
         private void ValidateReferences()
         {
             if (_previewImage == null)
-                Debug.LogWarning("[ScreenshotToastPanel] _previewImage is not assigned -- no thumbnail.", this);
+                Debug.LogWarning("[ScreenshotToastPanel] _previewImage is not assigned.", this);
             if (_acceptButton == null)
-                Debug.LogError("[ScreenshotToastPanel] _acceptButton is not assigned!", this);
+                Debug.LogWarning("[ScreenshotToastPanel] _acceptButton is not assigned.", this);
             if (_uiAudio == null)
-                Debug.LogWarning("[ScreenshotToastPanel] _uiAudio is not assigned -- no dismiss sound.", this);
+                Debug.LogWarning("[ScreenshotToastPanel] _uiAudio is not assigned.", this);
         }
 
         #endregion

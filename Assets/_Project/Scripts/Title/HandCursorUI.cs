@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  HandCursorUI.cs  -  _Project.Scripts.Title
-//  Positions a UI cursor on the canvas following the fingertip
-//  and provides visual dwell-time feedback with a radial ring.
+//  Positions a UI cursor following the fingertip position.
 // ------------------------------------------------------------
 
 using UnityEngine;
@@ -62,7 +61,7 @@ namespace _Project.Scripts.Title
 
         #endregion
 
-        #region State -----------------------------------------
+        #region State ---------------------------------------------
 
         private float _targetAlpha;
         private RectTransform _cursorDotRect;
@@ -202,13 +201,13 @@ namespace _Project.Scripts.Title
         private void ValidateReferences()
         {
             if (_handTracking == null)
-                Debug.LogError("[HandCursorUI] _handTracking is not assigned!", this);
+                Debug.LogWarning("[HandCursorUI] _handTracking is not assigned.", this);
             if (_canvasRect == null)
-                Debug.LogError("[HandCursorUI] _canvasRect is not assigned!", this);
+                Debug.LogWarning("[HandCursorUI] _canvasRect is not assigned.", this);
             if (_cursorRoot == null)
-                Debug.LogError("[HandCursorUI] _cursorRoot is not assigned!", this);
+                Debug.LogWarning("[HandCursorUI] _cursorRoot is not assigned.", this);
             if (_cursorCanvasGroup == null)
-                Debug.LogError("[HandCursorUI] _cursorCanvasGroup is not assigned!", this);
+                Debug.LogWarning("[HandCursorUI] _cursorCanvasGroup is not assigned.", this);
             if (_cursorDotImage == null)
                 Debug.LogWarning("[HandCursorUI] _cursorDotImage is not assigned.", this);
             if (_dwellProgressImage == null)

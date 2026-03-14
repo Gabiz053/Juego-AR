@@ -1,19 +1,23 @@
 // ------------------------------------------------------------
 //  ARDepthService.cs  -  _Project.Scripts.AR
-//  Runtime toggle for ARCore Depth API occlusion via
-//  AROcclusionManager.  Uses Best quality for maximum fidelity.
+//  Toggles depth-based occlusion via AROcclusionManager and
+//  works around ARCore subsystem state after scene transitions.
 // ------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR.ARCore;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
 namespace _Project.Scripts.AR
 {
     /// <summary>
-    /// Wraps <see cref="AROcclusionManager"/> to enable or disable
-    /// environment-depth occlusion at runtime.
+    /// Manages depth-based occlusion via <see cref="AROcclusionManager"/>.
+    /// Works around an ARCore subsystem quirk after scene transitions
+    /// where the depth mode remains disabled unless explicitly re-requested
+    /// on the subsystem and the ARCore session is marked dirty.
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/AR/AR Depth Service")]
@@ -55,19 +59,35 @@ namespace _Project.Scripts.AR
 
             if (enable)
             {
-                _occlusionManager.requestedEnvironmentDepthMode = EnvironmentDepthMode.Best;
-                _occlusionManager.requestedHumanDepthMode       = HumanSegmentationDepthMode.Best;
+                // Bypass the AROcclusionManager guard and set depth on the
+                // subsystem directly, then tell ARCore to reread its features.
+                // Needed after a scene transition (Title_Screen → Main_AR) where
+                // the XROcclusionSubsystem singleton retains Disabled.
+                if (_occlusionManager.subsystem != null)
+                {
+                    _occlusionManager.subsystem.requestedEnvironmentDepthMode = EnvironmentDepthMode.Best;
+
+                    var sessionList = new List<XRSessionSubsystem>();
+                    SubsystemManager.GetSubsystems(sessionList);
+                    foreach (var s in sessionList)
+                    {
+                        if (s is ARCoreSessionSubsystem arCore)
+                        {
+                            arCore.SetConfigurationDirty();
+                            break;
+                        }
+                    }
+                }
+
                 _occlusionManager.enabled = true;
             }
             else
             {
-                _occlusionManager.requestedEnvironmentDepthMode = EnvironmentDepthMode.Disabled;
-                _occlusionManager.requestedHumanDepthMode       = HumanSegmentationDepthMode.Disabled;
                 _occlusionManager.enabled = false;
             }
 
+            Debug.Log($"[ARDepthService] Depth occlusion {(enable ? "ON" : "OFF")}.");
             OnDepthToggled?.Invoke(IsDepthEnabled);
-            Debug.Log($"[ARDepthService] Depth occlusion {(enable ? "ON (Best)" : "OFF")}.");
         }
 
         #endregion
@@ -77,7 +97,6 @@ namespace _Project.Scripts.AR
         private void Start()
         {
             ValidateReferences();
-
             if (_occlusionManager != null)
                 SetDepth(_enabledOnStart);
         }
@@ -89,7 +108,7 @@ namespace _Project.Scripts.AR
         private void ValidateReferences()
         {
             if (_occlusionManager == null)
-                Debug.LogWarning("[ARDepthService] _occlusionManager is not assigned!", this);
+                Debug.LogWarning("[ARDepthService] _occlusionManager is not assigned.", this);
         }
 
         #endregion

@@ -1,9 +1,9 @@
 // ------------------------------------------------------------
-//  WorldMode.cs  -  _Project.Scripts.Core
+//  WorldMode.cs  -  _Project.Scripts.Infrastructure
 //  Enumerates the three garden scale modes.
 // ------------------------------------------------------------
 
-namespace _Project.Scripts.Core
+namespace _Project.Scripts.Infrastructure
 {
     /// <summary>
     /// The three available garden scale modes, plus a sentinel for

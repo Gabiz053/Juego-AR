@@ -1,11 +1,11 @@
 // ------------------------------------------------------------
-// ------------------------------------------------------------
 //  HapticService.cs  -  _Project.Scripts.Core
 //  Thin wrapper around the Vibration plugin for haptic feedback.
 // ------------------------------------------------------------
 
 using System;
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
@@ -24,7 +24,7 @@ namespace _Project.Scripts.Core
     /// </summary>
     [DisallowMultipleComponent]
     [AddComponentMenu("ARmonia/Core/Haptic Service")]
-    public class HapticService : MonoBehaviour
+    public class HapticService : MonoBehaviour, IHapticService
     {
         #region Events --------------------------------------------
 
@@ -36,19 +36,9 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Cached Components / State -------------------------
+        #region State ---------------------------------------------
 
         private bool _initialized;
-
-        #endregion
-
-        #region Unity Lifecycle -----------------------------------
-
-        private void Start()
-        {
-            EnsureInitialized();
-            Debug.Log("[HapticService] Ready (default OFF).");
-        }
 
         #endregion
 
@@ -108,6 +98,26 @@ namespace _Project.Scripts.Core
 #if UNITY_ANDROID || UNITY_IOS
             _ = Vibration.VibrateNope();
 #endif
+        }
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Awake()
+        {
+            ServiceLocator.Register<IHapticService>(this);
+        }
+
+        private void Start()
+        {
+            EnsureInitialized();
+            Debug.Log("[HapticService] Ready (default OFF).");
+        }
+
+        private void OnDestroy()
+        {
+            ServiceLocator.Unregister<IHapticService>();
         }
 
         #endregion

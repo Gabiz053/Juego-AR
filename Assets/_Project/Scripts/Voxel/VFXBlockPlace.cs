@@ -43,6 +43,8 @@ namespace _Project.Scripts.Voxel
 
         private void Start()
         {
+            ValidateReferences();
+
             if (_particles != null)
                 _particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
@@ -136,13 +138,11 @@ namespace _Project.Scripts.Voxel
 
         #region Validation ----------------------------------------
 
-#if UNITY_EDITOR
-        private void OnValidate()
+        private void ValidateReferences()
         {
             if (_particles == null)
-                Debug.LogWarning("[VFXBlockPlace] _particles not assigned.", this);
+                Debug.LogWarning("[VFXBlockPlace] _particles is not assigned.", this);
         }
-#endif
 
         #endregion
     }

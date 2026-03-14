@@ -136,9 +136,9 @@ namespace _Project.Scripts.Title
         private void ValidateReferences()
         {
             if (_faceManager == null)
-                Debug.LogError("[CreeperFaceFilter] ARFaceManager not found!", this);
+                Debug.LogWarning("[CreeperFaceFilter] _faceManager is not assigned.", this);
             if (_creeperHeadPrefab == null)
-                Debug.LogError("[CreeperFaceFilter] _creeperHeadPrefab is not assigned!", this);
+                Debug.LogWarning("[CreeperFaceFilter] _creeperHeadPrefab is not assigned.", this);
         }
 
         #endregion

@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Voxel
 {
@@ -41,6 +42,27 @@ namespace _Project.Scripts.Voxel
 
         /// <summary>Pool of clips to pick from on destruction.</summary>
         public AudioClip[] BreakSounds => _breakSounds;
+
+        #endregion
+
+        #region Unity Lifecycle -----------------------------------
+
+        private void Start()
+        {
+            ValidateReferences();
+        }
+
+        #endregion
+
+        #region Validation ----------------------------------------
+
+        private void ValidateReferences()
+        {
+            if (_placeSounds == null || _placeSounds.Length == 0)
+                Debug.LogWarning("[VoxelBlock] _placeSounds is empty.", this);
+            if (_breakSounds == null || _breakSounds.Length == 0)
+                Debug.LogWarning("[VoxelBlock] _breakSounds is empty.", this);
+        }
 
         #endregion
     }

@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 using UnityEngine;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Core
 {
@@ -16,7 +17,7 @@ namespace _Project.Scripts.Core
     /// </summary>
     public sealed class DestroyBlockAction : IUndoableAction
     {
-        #region State -------------------------------------------------
+        #region State ---------------------------------------------
 
         private GameObject _restoredInstance;
 
@@ -27,7 +28,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region Constructor -------------------------------------------
+        #region Constructor ---------------------------------------
 
         public DestroyBlockAction(
             GameObject prefab,
@@ -43,7 +44,7 @@ namespace _Project.Scripts.Core
 
         #endregion
 
-        #region IUndoableAction ---------------------------------------
+        #region IUndoableAction -----------------------------------
 
         /// <summary>Restore the block at its original snapped grid position.</summary>
         public void Undo()
@@ -55,7 +56,7 @@ namespace _Project.Scripts.Core
 
             PlaceBlockAction.ArmForImmediate(_restoredInstance);
 
-            Debug.Log($"[DestroyBlockAction] Undo — restored {_prefab.name} at {_localPosition}.");
+            Debug.Log($"[DestroyBlockAction] Undo ï¿½ restored {_prefab.name} at {_localPosition}.");
         }
 
         /// <summary>Destroy the restored block immediately without physics tumble.</summary>
@@ -66,7 +67,7 @@ namespace _Project.Scripts.Core
             Object.Destroy(_restoredInstance);
             _restoredInstance = null;
 
-            Debug.Log($"[DestroyBlockAction] Redo — destroyed block at {_localPosition}.");
+            Debug.Log($"[DestroyBlockAction] Redo ï¿½ destroyed block at {_localPosition}.");
         }
 
         #endregion

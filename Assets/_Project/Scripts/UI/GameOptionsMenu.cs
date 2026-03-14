@@ -1,7 +1,6 @@
 // ------------------------------------------------------------
 //  GameOptionsMenu.cs  -  _Project.Scripts.UI
-//  Pure UI controller for the settings dropdown -- delegates
-//  heavy operations to dedicated services.
+//  UI controller for the in-game settings dropdown.
 // ------------------------------------------------------------
 
 using System;
@@ -11,6 +10,7 @@ using UnityEngine.UI;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.UI
 {
@@ -27,35 +27,55 @@ namespace _Project.Scripts.UI
         /// <summary>Scene name loaded when returning to the title screen.</summary>
         private const string TITLE_SCENE = "Title_Screen";
 
+        /// <summary>Maximum value of the music volume slider (maps to 0-1).</summary>
+        private const float MUSIC_SLIDER_MAX = 100f;
+
         #endregion
 
         #region Inspector -----------------------------------------
 
         [Header("UI Panels")]
+        [Tooltip("The main options dropdown panel.")]
         [SerializeField] private GameObject _optionsPanel;
+        [Tooltip("Full-screen invisible blocker behind the dropdown.")]
         [SerializeField] private GameObject _blockerPanel;
+        [Tooltip("Confirmation popup for clear-all action.")]
         [SerializeField] private GameObject _confirmPopup;
 
         [Header("Button States (toggles)")]
+        [Tooltip("Visual state controller for the lighting toggle.")]
         [SerializeField] private DropdownButtonState _lightingButtonState;
+        [Tooltip("Visual state controller for the depth toggle.")]
         [SerializeField] private DropdownButtonState _depthButtonState;
+        [Tooltip("Visual state controller for the grid toggle.")]
         [SerializeField] private DropdownButtonState _gridButtonState;
+        [Tooltip("Visual state controller for the plane visual toggle.")]
         [SerializeField] private DropdownButtonState _planeVisualButtonState;
+        [Tooltip("Visual state controller for the vibration toggle.")]
         [SerializeField] private DropdownButtonState _vibrationButtonState;
 
         [Header("Services")]
+        [Tooltip("Service that handles world clear-all and reset.")]
         [SerializeField] private WorldResetService  _worldResetService;
+        [Tooltip("Service that captures and saves screenshots.")]
         [SerializeField] private ScreenshotService  _screenshotService;
+        [Tooltip("Service that toggles AR depth occlusion.")]
         [SerializeField] private ARDepthService     _depthService;
+        [Tooltip("Service that toggles focus/global lighting.")]
         [SerializeField] private LightingService    _lightingService;
+        [Tooltip("Service that manages haptic vibration.")]
         [SerializeField] private HapticService      _hapticService;
+        [Tooltip("Aligner that manages AR plane grid and visual.")]
         [SerializeField] private ARPlaneGridAligner _planeGridAligner;
+        [Tooltip("Service that controls background music playback.")]
         [SerializeField] private MusicService       _musicService;
-        [SerializeField] private UIAudioService     _uiAudio;
 
         [Header("Music Volume")]
+        [Tooltip("Slider that controls music volume (0-100).")]
         [SerializeField] private Slider   _musicSlider;
+        [Tooltip("Label showing current music volume percentage.")]
         [SerializeField] private TMP_Text _musicVolumeLabel;
+        [Tooltip("Base text prepended to the volume number.")]
         [SerializeField] private string   _musicLabelBase = "Music";
 
         #endregion
@@ -67,66 +87,9 @@ namespace _Project.Scripts.UI
 
         #endregion
 
-        #region Unity Lifecycle -----------------------------------
+        #region State ---------------------------------------------
 
-        private void OnEnable()
-        {
-            if (_worldResetService != null)
-                _worldResetService.OnWorldReset += HandleWorldReset;
-            if (_screenshotService != null)
-                _screenshotService.OnScreenshotCaptured += HandleScreenshotCaptured;
-            if (_depthService != null)
-                _depthService.OnDepthToggled += HandleDepthToggled;
-            if (_lightingService != null)
-                _lightingService.OnLightingToggled += HandleLightingToggled;
-            if (_hapticService != null)
-                _hapticService.OnHapticsToggled += HandleHapticsToggled;
-        }
-
-        private void OnDisable()
-        {
-            if (_worldResetService != null)
-                _worldResetService.OnWorldReset -= HandleWorldReset;
-            if (_screenshotService != null)
-                _screenshotService.OnScreenshotCaptured -= HandleScreenshotCaptured;
-            if (_depthService != null)
-                _depthService.OnDepthToggled -= HandleDepthToggled;
-            if (_lightingService != null)
-                _lightingService.OnLightingToggled -= HandleLightingToggled;
-            if (_hapticService != null)
-                _hapticService.OnHapticsToggled -= HandleHapticsToggled;
-        }
-
-        private void Start()
-        {
-            SetPanelActive(_optionsPanel, false);
-            SetPanelActive(_confirmPopup, false);
-            SetPanelActive(_blockerPanel, false);
-
-            if (_depthService != null)
-                _depthButtonState?.SetState(_depthService.IsDepthEnabled);
-            if (_lightingService != null)
-                _lightingButtonState?.SetState(_lightingService.IsFocusMode);
-
-            if (_planeGridAligner != null)
-            {
-                _planeGridAligner.SetGrid(false);
-                _gridButtonState?.SetState(false);
-                _planeVisualButtonState?.SetState(_planeGridAligner.IsVisualEnabled);
-            }
-
-            // Vibration starts OFF � button dimmed.
-            if (_hapticService != null)
-                _vibrationButtonState?.SetState(_hapticService.IsEnabled);
-
-            if (_musicService != null && _musicSlider != null)
-            {
-                _musicSlider.value = _musicService.Volume * 100f;
-                RefreshMusicLabel(_musicSlider.value);
-            }
-
-            ValidateReferences();
-        }
+        private IUIAudioService _uiAudio;
 
         #endregion
 
@@ -192,11 +155,9 @@ namespace _Project.Scripts.UI
         public void OnMusicVolumeChanged(float sliderValue)
         {
             if (_musicService == null) return;
-            _musicService.SetVolume(sliderValue / 100f);
+            _musicService.SetVolume(sliderValue / MUSIC_SLIDER_MAX);
             RefreshMusicLabel(sliderValue);
         }
-
-        // -- Clear-All Flow --------------------------------------
 
         /// <summary>Shows the confirmation popup and closes the options panel.</summary>
         public void RequestClearAll()
@@ -224,8 +185,6 @@ namespace _Project.Scripts.UI
             _uiAudio?.PlayCancel();
         }
 
-        // -- Utilities -------------------------------------------
-
         /// <summary>Triggers a screenshot capture.</summary>
         public void TakePhoto()
         {
@@ -238,12 +197,80 @@ namespace _Project.Scripts.UI
         {
             _uiAudio?.PlayClick();
             Debug.Log($"[GameOptionsMenu] Returning to title screen -- transitioning to {TITLE_SCENE}.");
-            SceneTransitionService.TransitionTo(TITLE_SCENE);
+
+            SceneTransitionService.EnsureAvailable();
+
+            if (ServiceLocator.TryGet<ISceneTransitionService>(out var transition))
+                transition.TransitionTo(TITLE_SCENE);
         }
 
         #endregion
 
-        #region Event Handlers ------------------------------------
+        #region Unity Lifecycle -----------------------------------
+
+        private void OnEnable()
+        {
+            if (_worldResetService != null)
+                _worldResetService.OnWorldReset += HandleWorldReset;
+            if (_screenshotService != null)
+                _screenshotService.OnScreenshotCaptured += HandleScreenshotCaptured;
+            if (_depthService != null)
+                _depthService.OnDepthToggled += HandleDepthToggled;
+            if (_lightingService != null)
+                _lightingService.OnLightingToggled += HandleLightingToggled;
+            if (_hapticService != null)
+                _hapticService.OnHapticsToggled += HandleHapticsToggled;
+        }
+
+        private void OnDisable()
+        {
+            if (_worldResetService != null)
+                _worldResetService.OnWorldReset -= HandleWorldReset;
+            if (_screenshotService != null)
+                _screenshotService.OnScreenshotCaptured -= HandleScreenshotCaptured;
+            if (_depthService != null)
+                _depthService.OnDepthToggled -= HandleDepthToggled;
+            if (_lightingService != null)
+                _lightingService.OnLightingToggled -= HandleLightingToggled;
+            if (_hapticService != null)
+                _hapticService.OnHapticsToggled -= HandleHapticsToggled;
+        }
+
+        private void Start()
+        {
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+
+            SetPanelActive(_optionsPanel, false);
+            SetPanelActive(_confirmPopup, false);
+            SetPanelActive(_blockerPanel, false);
+
+            if (_depthService != null)
+                _depthButtonState?.SetState(_depthService.IsDepthEnabled);
+            if (_lightingService != null)
+                _lightingButtonState?.SetState(_lightingService.IsFocusMode);
+
+            if (_planeGridAligner != null)
+            {
+                _planeGridAligner.SetGrid(false);
+                _gridButtonState?.SetState(false);
+                _planeVisualButtonState?.SetState(_planeGridAligner.IsVisualEnabled);
+            }
+
+            if (_hapticService != null)
+                _vibrationButtonState?.SetState(_hapticService.IsEnabled);
+
+            if (_musicService != null && _musicSlider != null)
+            {
+                _musicSlider.value = _musicService.Volume * MUSIC_SLIDER_MAX;
+                RefreshMusicLabel(_musicSlider.value);
+            }
+
+            ValidateReferences();
+        }
+
+        #endregion
+
+        #region Internals -----------------------------------------
 
         /// <summary>Relays <see cref="WorldResetService.OnWorldReset"/> to local subscribers.</summary>
         private void HandleWorldReset()         => OnWorldReset?.Invoke();
@@ -263,10 +290,6 @@ namespace _Project.Scripts.UI
 
         /// <summary>Syncs the vibration button dim state with the service.</summary>
         private void HandleHapticsToggled(bool on) => _vibrationButtonState?.SetState(on);
-
-        #endregion
-
-        #region Internals -----------------------------------------
 
         /// <summary>
         /// Waits one frame so button animations settle, then closes the
@@ -291,14 +314,18 @@ namespace _Project.Scripts.UI
                 _musicVolumeLabel.text = $"{_musicLabelBase}  {Mathf.RoundToInt(sliderValue)}";
         }
 
+        #endregion
+
+        #region Validation ----------------------------------------
+
         private void ValidateReferences()
         {
             if (_optionsPanel == null)
-                Debug.LogError("[GameOptionsMenu] _optionsPanel is not assigned!", this);
+                Debug.LogWarning("[GameOptionsMenu] _optionsPanel is not assigned.", this);
             if (_worldResetService == null)
-                Debug.LogError("[GameOptionsMenu] _worldResetService is not assigned!", this);
+                Debug.LogWarning("[GameOptionsMenu] _worldResetService is not assigned.", this);
             if (_screenshotService == null)
-                Debug.LogError("[GameOptionsMenu] _screenshotService is not assigned!", this);
+                Debug.LogWarning("[GameOptionsMenu] _screenshotService is not assigned.", this);
         }
 
         #endregion

@@ -1,13 +1,13 @@
 // ------------------------------------------------------------
 //  TouchInputRouter.cs  -  _Project.Scripts.Interaction
-//  Captures touch input, filters UI taps, and dispatches to the
-//  appropriate handler (ARBlockPlacer, BlockDestroyer, BrushTool).
+//  Captures touch input and dispatches to the active tool.
 // ------------------------------------------------------------
 
 using UnityEngine;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.EventSystems;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
+using _Project.Scripts.Infrastructure;
 
 namespace _Project.Scripts.Interaction
 {
@@ -24,9 +24,6 @@ namespace _Project.Scripts.Interaction
         #region Inspector -----------------------------------------
 
         [Header("Dependencies")]
-        [Tooltip("ToolManager -- provides the currently selected tool.")]
-        [SerializeField] private ToolManager _toolManager;
-
         [Tooltip("ARBlockPlacer -- receives placement requests.")]
         [SerializeField] private ARBlockPlacer _blockPlacer;
 
@@ -43,6 +40,12 @@ namespace _Project.Scripts.Interaction
 
         #endregion
 
+        #region State ---------------------------------------------
+
+        private IToolManager _toolManager;
+
+        #endregion
+
         #region Unity Lifecycle -----------------------------------
 
         private void OnEnable()  => EnhancedTouchSupport.Enable();
@@ -50,7 +53,9 @@ namespace _Project.Scripts.Interaction
 
         private void Start()
         {
+            ServiceLocator.TryGet<IToolManager>(out _toolManager);
             ValidateReferences();
+            Debug.Log("[TouchInputRouter] Initialized.");
         }
 
         private void Update()
@@ -101,11 +106,11 @@ namespace _Project.Scripts.Interaction
         private void ValidateReferences()
         {
             if (_toolManager == null)
-                Debug.LogError("[TouchInputRouter] _toolManager is not assigned!", this);
+                Debug.LogWarning("[TouchInputRouter] _toolManager is not assigned.", this);
             if (_blockPlacer == null)
-                Debug.LogError("[TouchInputRouter] _blockPlacer is not assigned!", this);
+                Debug.LogWarning("[TouchInputRouter] _blockPlacer is not assigned.", this);
             if (_blockDestroyer == null)
-                Debug.LogError("[TouchInputRouter] _blockDestroyer is not assigned!", this);
+                Debug.LogWarning("[TouchInputRouter] _blockDestroyer is not assigned.", this);
         }
 
         #endregion
