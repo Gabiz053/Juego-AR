@@ -172,7 +172,7 @@ Prefijo obligatorio: **`M_`**
 | `HarmonyConfig.asset` | `HarmonyConfig` | Pesos, umbrales, gate minimos |
 | `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | Scale 0.02, TrackedImage, ImageLibrary -> `ReferenceImageLibrary.asset` |
 | `WorldModeConfig_Normal.asset` | `WorldModeSO` | Scale 0.10, ARPlane |
-| `WorldModeConfig_Real.asset` | `WorldModeSO` | Scale 1.00, ARPlane |
+| `WorldModeConfig_Real.asset` | `WorldModeSO` | Scale 0.50, ARPlane |
 | `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | 2 imagenes: `one` (0.13x0.13m), `qr_prueba` (0.10x0.10m), SpecifySize ON |
 
 ### 1.9 Escenas
@@ -465,7 +465,7 @@ UI System                                  [Empty -- agrupa objetos UI]
 | Script | GameObject host | RequireComponent |
 |--------|-----------------|------------------|
 | `ARWorldManager` | XR Origin (Mobile AR) | `ARAnchorManager` |
-| `ARDepthService` | XR Origin (Mobile AR) | -- |
+| `ARDepthService` | XR Origin (Mobile AR) | -- (auto-busca AROcclusionManager) |
 | `ARPlaneGridAligner` | XR Origin (Mobile AR) | -- |
 | `WorldModeBootstrapper` | XR Origin (Mobile AR) | -- |
 | `GameAudioService` | Svc_Audio | -- |
@@ -595,7 +595,7 @@ Tabla con ejemplo real de cada patron arquitectonico del proyecto:
 | **VoxelBlock como fuente de audio** | Prefab data-component leido por sibling components | `BlockSpawn` lee `VoxelBlock.PlaceSounds`; `BlockDestroy` lee `VoxelBlock.BreakSounds`. Fallback a campos propios para pebbles. |
 | **OnClick directo** | Botones de modo toggle que no son herramientas | `Btn_Brush.OnClick -> BrushTool.ToggleBrush()` |
 | **OnClick con int param** | Seleccion indexada desde botones UI | `Btn_Bonsai.OnClick -> TitleSceneManager.SelectMode(0)` |
-| **Scene transition** | Carga de escena con fade y dato estatico pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")`. `WorldModeBootstrapper` lee en `Awake()` y difiere activacion de AR managers a corrutina que espera `ARSession.state >= SessionInitializing`. |
+| **Scene transition** | Carga de escena con fade y dato estatico pre-escrito | `TitleSceneManager` escribe `WorldModeContext.Selected`, luego `SceneTransitionService.TransitionTo("Main_AR")`. `WorldModeBootstrapper` lee en `Awake()` y difiere activacion de AR managers a corrutina que espera `ARSession.state >= SessionInitializing`. Retorno: `GameOptionsMenu.ExitGame()` lanza coroutine `ExitWithARCleanup()` que deshabilita managers AR, espera 1 frame, deinicializa el XR loader (`DeinitializeLoader`) para destruir la sesion nativa de ARCore y eliminar config stale de image tracking, re-inicializa un loader limpio (`InitializeLoaderSync`), y transiciona. |
 | **DontDestroyOnLoad + ServiceLocator** | Servicio cross-escena | `SceneTransitionService`: se registra como `ISceneTransitionService` en `Awake`, persiste via `DontDestroyOnLoad`, guard `IsRegistered<T>()` para evitar duplicados. Canvas overlay propio (sort order 999). |
 | **Pinch gesture detection** | Deteccion de gesto por distancia de landmarks | `HandTrackingService` mide distancia thumb tip (#4) <-> index tip (#8). Histeresis (enter 0.055, exit 0.08) + debounce (2 frames). |
 | **JSON persistence** | Guardado/carga de estado del mundo a disco | `SaveLoadService` serializa `GardenSaveData` via `JsonUtility` a `persistentDataPath/Gardens/`. `ISaveLoadService` registrada en ServiceLocator. |

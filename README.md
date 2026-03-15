@@ -165,7 +165,7 @@ Al cargar la escena, `WorldModeBootstrapper` lee `WorldModeContext.Selected` (es
 
 La activacion de AR managers se difiere a una corrutina en `Start()` que espera a que `ARSession.state >= SessionInitializing` (timeout 5s). Esto evita una race condition al transicionar desde `Title_Screen` (camara frontal) donde ARCore aplicaria la configuracion nativa antes de que la image library estuviera lista.
 
-**Retorno:** `Btn_Exit` en el menu de opciones llama a `GameOptionsMenu.ExitGame()` que usa `SceneTransitionService.TransitionTo("Title_Screen")` con fade-to-black.
+**Retorno:** `Btn_Exit` en el menu de opciones llama a `GameOptionsMenu.ExitGame()` que lanza la coroutine `ExitWithARCleanup()`: deshabilita `ARTrackedImageManager` y `ARPlaneManager`, espera 1 frame, luego deinicializa completamente el XR loader (`XRManagerSettings.DeinitializeLoader()`) para destruir la sesion nativa de ARCore y eliminar configuracion stale de image tracking, re-inicializa un loader limpio (`InitializeLoaderSync()`), y finalmente transiciona a `Title_Screen` via `SceneTransitionService` con fade-to-black.
 
 ### 3.3 Flujo entre escenas
 
@@ -180,7 +180,12 @@ Title_Screen                               Main_AR
 +-----------------------+ <------------ |   configura managers     |
                           GameOptions   +------------------------+
                           Menu.ExitGame()
-                           (fade-black)
+                           coroutine:
+                           disable AR managers
+                           + 1 frame wait
+                           + DeinitializeLoader
+                           + InitializeLoaderSync
+                           + fade-black
 ```
 
 `WorldModeContext` es un `static class` que transporta la seleccion de modo entre escenas sin `DontDestroyOnLoad`. Title screen escribe, bootstrapper lee. `SceneTransitionService` es un singleton con `DontDestroyOnLoad` que crea su propio Canvas overlay (sort order 999) con fade-to-black. Usa `Time.unscaledDeltaTime` y bloquea raycasts durante la transicion.
@@ -206,7 +211,7 @@ Todo el mundo de bloques cuelga de un unico `Transform` llamado **WorldContainer
 
 **Por que esta estructura:**
 
-- **Escala unica:** cambiando `WorldContainer.localScale` con un solo float (`WorldModeSO.WorldContainerScale`) pasas de Bonsai (0.02 = 2cm/bloque) a Normal (0.10) a Real (1.0 = 1m/bloque) sin tocar nada mas.
+- **Escala unica:** cambiando `WorldContainer.localScale` con un solo float (`WorldModeSO.WorldContainerScale`) pasas de Bonsai (0.02 = 2cm/bloque) a Normal (0.10) a Real (0.50 = 50cm/bloque) sin tocar nada mas.
 - **Estabilidad AR:** al parentar WorldContainer a un `ARAnchor`, ARCore compensa el drift de tracking automaticamente.
 - **Snap correcto:** `GridManager.GetSnappedPosition()` trabaja en espacio local del contenedor (`Floor + half-cell offset`), asi el snap funciona igual en cualquier escala.
 - **Reset limpio:** `WorldResetService` itera los hijos de WorldContainer en reversa, destruyendo solo los que tienen `VoxelBlock` o `ProceduralPebble` sin tocar el grid visual.
@@ -219,7 +224,7 @@ Configurados por `WorldModeSO` (ScriptableObject, uno por modo) y aplicados por 
 |------|--------|---------------|-------|-----------|-----|
 | **Bonsai** | 0.02 | 2 cm | `ARTrackedImageManager` (imagen impresa 20cm) | Configurable | Jardin miniatura sobre carta/poster |
 | **Normal** | 0.10 | 10 cm | `ARPlaneManager` (suelo detectado) | 0 (ilimitado) | Escala mesa/suelo -- modo por defecto |
-| **Real** | 1.00 | 1 m | `ARPlaneManager` (suelo detectado) | 0 (ilimitado) | Escala Minecraft real |
+| **Real** | 0.50 | 50 cm | `ARPlaneManager` (suelo detectado) | 0 (ilimitado) | Escala media-grande |
 
 Para Bonsai se necesita una `XRReferenceImageLibrary` configurada en el `WorldModeSO`. El bootstrapper activa `ARPlaneManager` o `ARTrackedImageManager` segun el modo, desactivando el otro. El modo Bonsai incluye logs detallados de image library assignment y eventos ADDED/UPDATED/REMOVED con nombre, tracking state y posicion.
 
@@ -393,12 +398,13 @@ BlockDestroy.Update()    <- Solo si _ready == true (post-spawn)
   |
   +-- _toolManager.CurrentTool != Tool_Destroy? -> return (sin efecto)
   |
-  +-- sqrDistance(camera, block) <= _knockRadius^2 (0.18m)?
+  +-- sqrDistance(camera, block) <= radius^2 (0.18m, Bonsai ~0.054m)?
        +-- StartCoroutine(KnockRoutine())  <- Mismo flujo que BreakFromTool
           pero direccion = away from camera + Vector3.up * 0.6
 
 La proximidad knock SOLO se activa cuando el jugador tiene
 la herramienta de pico (Tool_Destroy) seleccionada.
+En modo Bonsai el radio se reduce a x0.3 para exigir mayor cercania.
 ```
 
 ### 6.4 Decorador de piedritas (PlowTool)
@@ -546,7 +552,7 @@ Botones dentro del dropdown:
   |           +-- event OnLightingToggled -> DropdownButtonState actualiza color
   +-- Btn_Depth -> ToggleDepth()
   |     +-- ARDepthService.ToggleDepth()
-  |           +-- AROcclusionManager.enabled = true/false
+  |           +-- AROcclusionManager.enabled = true/false (auto-find si no asignado)
   |           +-- event OnDepthToggled -> DropdownButtonState actualiza color
   +-- Btn_Grid -> ToggleGrid()
   |     +-- ARPlaneGridAligner.SetGrid(bool) -> MaterialPropertyBlock _GridEnabled
@@ -562,7 +568,12 @@ Botones dentro del dropdown:
   |     +-- ScreenshotService.Capture() (ver flujo 6.10)
   +-- Btn_ClearAll -> RequestClearAll() (ver flujo 6.7)
   +-- Btn_Exit -> ExitGame()
-        +-- SceneTransitionService.TransitionTo("Title_Screen")
+        +-- StartCoroutine(ExitWithARCleanup())
+              +-- Disable ARTrackedImageManager, ARPlaneManager
+              +-- yield 1 frame (feature removal)
+              +-- XRManagerSettings.DeinitializeLoader() (destroy native session)
+              +-- XRManagerSettings.InitializeLoaderSync() (fresh loader)
+              +-- SceneTransitionService.TransitionTo("Title_Screen")
 ```
 
 ### 6.9 Orientacion
@@ -664,7 +675,7 @@ Shader HLSL para URP que ilumina los bloques voxel con estetica Minecraft.
 | `HarmonyConfig.asset` | `HarmonyConfig` | `Assets/` | Pesos de los 3 pilares (variedad 0.45, decoracion 0.35, cantidad 0.20), umbrales y gate de minimos. |
 | `WorldModeConfig_Bonsai.asset` | `WorldModeSO` | `Assets/` | Escala 0.02, ancla por tracked image, `ImagePhysicalWidth` 0.20m. |
 | `WorldModeConfig_Normal.asset` | `WorldModeSO` | `Assets/` | Escala 0.10, ancla por AR plane. Modo por defecto. |
-| `WorldModeConfig_Real.asset` | `WorldModeSO` | `Assets/` | Escala 1.00, ancla por AR plane. Escala Minecraft real. |
+| `WorldModeConfig_Real.asset` | `WorldModeSO` | `Assets/` | Escala 0.50, ancla por AR plane. |
 | `ReferenceImageLibrary.asset` | `XRReferenceImageLibrary` | `Assets/` | 2 imagenes: `one` (0.13x0.13m), `qr_prueba` (0.10x0.10m). SpecifySize ON. Usada por modo Bonsai. |
 
 ### 8.2 Prefabs (21 archivos)
@@ -781,11 +792,11 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 
 | Script | Responsabilidad |
 |--------|-----------------|
-| `ARDepthService` | Toggle runtime de `AROcclusionManager` (enabled/disabled). Checkbox `_depthOnStart` controla estado inicial (default ON). Evento `OnDepthToggled`. |
+| `ARDepthService` | Toggle runtime de `AROcclusionManager` (enabled/disabled). Auto-busca el manager con `FindAnyObjectByType` si no esta asignado en Inspector. Checkbox `_depthOnStart` controla estado inicial (default ON). Evento `OnDepthToggled`. |
 | `ARPlaneGridAligner` | Inyecta `WorldContainer.worldToLocalMatrix` en cada plano AR como `_GridMatrix` via `MaterialPropertyBlock`. Controla `_GridEnabled` y `MeshRenderer.enabled` de los planos. |
 | `ARWorldManager` | Crea `ARAnchor` en el primer hit, orienta WorldContainer.forward hacia el jugador (solo XZ, con fallback si forward ~ up), parenta WorldContainer, activa `GridManager.ActivateGrid()`. `ResetAnchor()` destruye el anchor y libera WorldContainer. |
 | `BonsaiSessionController` | Controlador de flujo para modo Bonsai. Escucha `WorldModeBootstrapper.OnBonsaiImageDetected` y abre `BonsaiSelectorPopup`. Se auto-desactiva si `WorldModeContext.Selected != Bonsai`. |
-| `WorldModeBootstrapper` | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activacion de AR managers se difiere a corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (timeout 5s). En modo Bonsai: seguimiento continuo de `ARTrackedImage` sin `ARAnchor`, dispara `OnBonsaiImageDetected` en primera deteccion. |
+| `WorldModeBootstrapper` | Lee `WorldModeContext.Selected`; si es `None` (cold start / Editor) usa `_devOverrideMode`. Busca `WorldModeSO` en `_modeConfigs[]`, aplica `WorldContainer.localScale` en `Awake()`. La activacion de AR managers se difiere a corrutina en `Start()` que espera `ARSession.state >= SessionInitializing` (timeout 5s). En modo Bonsai: seguimiento continuo de `ARTrackedImage` sin `ARAnchor`, dispara `OnBonsaiImageDetected` en primera deteccion. `OnDisable()` detiene coroutines, desuscribe listeners AR, deshabilita `ARTrackedImageManager` y `ARPlaneManager`, y limpia estado (`_trackedImage = null`, `_anchored = false`) como red de seguridad al salir de escena. |
 
 ### Core (19 scripts) -- `_Project.Scripts.Core`
 
@@ -839,10 +850,10 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 |--------|-----------------|
 | `ToolManager` | `CurrentTool` (default `Build_Sand`), `IsBuildTool` (rango 0-5), `SelectToolByIndex(int)`, `GetCurrentBlockPrefab()`, `GetBlockPrefab(BlockType)`. Evento `OnToolChanged`. |
 | `TouchInputRouter` | Punto de entrada de input tactil. Captura `Touch.Began`, filtra toques sobre UI, cede al `BrushTool` si activo, despacha a `ARBlockPlacer` o `BlockDestroyer` segun herramienta. |
-| `ARBlockPlacer` | Solo colocacion de bloques. `TryPlaceBlock()` resuelve root block via `GetComponentInParent<VoxelBlock>` para stacking correcto. `ProcessAndPlace()`: snap, validacion, `Instantiate`. `_pendingCells` HashSet contra double-tap. Sin audio ni VFX (el prefab los gestiona via `BlockSpawn`). Registra `PlaceBlockAction`. |
-| `BlockDestroyer` | Solo destruccion de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). Registra `DestroyBlockAction`. Sin audio ni VFX (el prefab los gestiona via `BlockDestroy`). Publica `BlockDestroyedEvent` via `EventBus`. |
+| `ARBlockPlacer` | Solo colocacion de bloques. `TryPlaceBlock()` resuelve root block via `GetComponentInParent<VoxelBlock>` para stacking correcto. `ProcessAndPlace()`: snap, validacion, `Instantiate`. Distancia minima desactivada en modo Bonsai. `_pendingCells` HashSet contra double-tap. Sin audio ni VFX (el prefab los gestiona via `BlockSpawn`). Registra `PlaceBlockAction`. |
+| `BlockDestroyer` | Solo destruccion de bloques y piedritas. `TryDestroyBlock()` con physics raycast (voxel + pebble layers). En modo Bonsai la distancia maxima se reduce a 0.15m para obligar proximidad. Registra `DestroyBlockAction`. Sin audio ni VFX (el prefab los gestiona via `BlockDestroy`). Publica `BlockDestroyedEvent` via `EventBus`. |
 | `BrushTool` | Toggle `IsBrushActive`. `Btn_Brush.OnClick` llama directamente a `ToggleBrush()` (mode overlay, no pasa por ToolManager). En Update si activo: consume `Touch.activeTouches`, llama `ARBlockPlacer`/`BlockDestroyer`/`PlowTool` cada `_strokeCooldown` (0.08s). Evento `OnBrushToggled(bool)`. |
-| `PlowTool` | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Publica `PebblePlacedEvent` via `EventBus`. No registra undo. |
+| `PlowTool` | Decorador de piedritas. Raycast propio (voxel + AR). `PlaceAt()`: scatter, normal alignment, random scale/rotation, `PebbleSupport.Configure()`, `BlockSpawn.Play()`. Distancia minima desactivada en modo Bonsai. Publica `PebblePlacedEvent` via `EventBus`. No registra undo. |
 | `DebugRayVisualizer` | Dibuja rayo de 0.1s desde camara en cada tap. Toggle `_enabled`. `LineRenderer` asignado via Inspector. Development-only. |
 
 ### Title (6 scripts) -- `_Project.Scripts.Title`
@@ -867,9 +878,9 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `ScreenshotToastPanel` | `[RequireComponent(CanvasGroup)]`. Toast de confirmacion post-captura. `Show(Texture2D)` -> fade in -> `Btn_Continue` -> fade out. |
 | `UndoRedoHUD` | Botones `_undoButton`/`_redoButton`. Alpha enabled/disabled (1.0/0.35). |
 | `BrushHUD` | Suscrito a `BrushTool.OnBrushToggled`. Dim/restore de `Image.color`. |
-| `GameOptionsMenu` | Controlador UI del dropdown de opciones. 5 toggles (iluminacion, profundidad, grid, plano, vibracion), slider de musica, foto, guardar jardin, reset con dialogo de confirmacion, salir. `SaveGarden()` abre `SaveGardenPopup`. `ExitGame()` transiciona a `Title_Screen` via `SceneTransitionService`. |
+| `GameOptionsMenu` | Controlador UI del dropdown de opciones. 5 toggles (iluminacion, profundidad, grid, plano, vibracion), slider de musica, foto, guardar jardin, reset con dialogo de confirmacion, salir. `SaveGarden()` abre `SaveGardenPopup`. `ExitGame()` lanza coroutine `ExitWithARCleanup()`: deshabilita `ARTrackedImageManager` y `ARPlaneManager`, espera 1 frame, deinicializa el XR loader (`DeinitializeLoader`) para destruir la sesion nativa de ARCore, re-inicializa un loader limpio (`InitializeLoaderSync`), y transiciona a `Title_Screen` via `SceneTransitionService`. |
 | `SaveGardenPopup` | `[RequireComponent(CanvasGroup)]`. Modal con `TMP_InputField` para nombre de jardin. `Show()` -> fade in. `OnSave()` valida nombre no vacio, delega a `ISaveLoadService.SaveCurrentGarden()`. |
-| `BonsaiSelectorPopup` | `[RequireComponent(CanvasGroup)]`. Modal para seleccion de jardin en modo Bonsai. Lista dinamica de botones o estado vacio con "Volver al Menu". Instancia `UI_GardenListItem` por cada jardin guardado. |
+| `BonsaiSelectorPopup` | `[RequireComponent(CanvasGroup)]`. Modal para seleccion de jardin en modo Bonsai. Lista dinamica 100% programatica (fila con boton de carga + boton rojo "X" de borrar, via anchors sin HorizontalLayoutGroup). Configura `VerticalLayoutGroup` + `ContentSizeFitter` en `_listContent` desde codigo. Estado vacio con "Volver al Menu". `DeleteGarden()` borra y refresca la lista en situ. |
 | `OrientationManager` | Detecta portrait/landscape. Oculta hotbar/toolpanel en landscape. Fuerza `Tool_None`. Restaura tool en portrait. |
 | `ButtonPressAnimation` | `[RequireComponent(Button)]`. `IPointerDownHandler` + `IPointerUpHandler`. Squeeze scale-down/up automatico. |
 | `DropdownButtonState` | Dim/restore de `Image.color` para toggles ON/OFF. `SetState(bool)`. |
@@ -880,7 +891,7 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 |--------|-----------------|
 | `VoxelBlock` | Ficha de identidad del bloque: `_blockType`, `_placeSounds[]`, `_breakSounds[]`. |
 | `BlockSpawn` | Animacion fly-in + feedback de colocacion. Deshabilita `Collider` y `BlockDestroy` durante vuelo. Auto-localiza `GameAudioService`, `HapticService` via ServiceLocator. |
-| `BlockDestroy` | Proximidad knock + `BreakFromTool`. `KnockRoutine`: impulso/torque + shrink + `Destroy`. Auto-localiza servicios via ServiceLocator. |
+| `BlockDestroy` | Proximidad knock + `BreakFromTool`. `KnockRoutine`: impulso/torque + shrink + `Destroy`. En modo Bonsai el radio de proximidad se reduce (x0.3) para exigir cercanía. Auto-localiza servicios via ServiceLocator. |
 | `SandGravity` | Gravedad para arena: suscripcion a `BlockDestroyedEvent` (trigger primario) + safety poll cada 1s. Reserva de celda destino via `HashSet` estatico para stacking correcto. Caida animada (ease-in, velocidad configurable). `Physics.SyncTransforms()` tras aterrizar. Solo en `Voxel_Sand`. |
 | `ProceduralPebble` | `[RequireComponent(MeshFilter, MeshRenderer, MeshCollider)]`. Genera mesh icosaedro jittered con semilla aleatoria. |
 | `PebbleSupport` | Poll periodico. Raycast hacia `-_supportDir`. Si no hay apoyo -> `BlockDestroy.BreakFromTool()`. |
@@ -914,10 +925,7 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 - **Hand Tracking:** Cursor de indice via MediaPipe (GPU delegate). Seleccion por **pinch click** o **dwell time** (3s). Highlight de botones al hover.
 - **Transiciones de escena:** `SceneTransitionService` singleton. Fade-to-black 0.4s -> async load -> fade-in 0.4s.
 - **Seleccion de modo:** `TitleSceneManager.SelectMode(int)` -> `WorldModeContext` -> `SceneTransitionService` -> `WorldModeBootstrapper` con activacion diferida.
-
-### Parcial
-
-- **Modo Bonsai:** `XRReferenceImageLibrary` configurada con imagenes `one` (0.13m) y `qr_prueba` (0.10m). Activacion diferida de `ARTrackedImageManager`. Seguimiento continuo de imagen (WorldContainer sigue la carta). `BonsaiSessionController` abre `BonsaiSelectorPopup` al detectar imagen. Selector muestra jardines guardados o estado vacio con boton de vuelta al menu. Funcional en dispositivo, pendiente de testeo exhaustivo.
+- **Modo Bonsai:** `XRReferenceImageLibrary` configurada con imagenes `one` (0.13m) y `qr_prueba` (0.10m). Activacion diferida de `ARTrackedImageManager`. Seguimiento continuo de imagen (WorldContainer sigue la carta). `BonsaiSessionController` abre `BonsaiSelectorPopup` al detectar imagen. Selector muestra jardines guardados (con boton de borrar por entrada) o estado vacio con boton de vuelta al menu. Distancias de minado reducidas en Bonsai (raycast 0.15m, proximidad x0.3). Distancia minima de colocacion desactivada en Bonsai (`ARBlockPlacer`, `PlowTool`). `ExitWithARCleanup` deshabilita managers AR, deinicializa el XR loader (`DeinitializeLoader`) y re-inicializa uno limpio (`InitializeLoaderSync`) para destruir la sesion nativa de ARCore y prevenir SIGSEGV en `ArSession_resume`. `OnDisable` en `WorldModeBootstrapper` desactiva managers como red de seguridad.
 
 ### Trabajo a futuro
 

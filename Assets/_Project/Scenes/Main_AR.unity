@@ -9818,7 +9818,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _occlusionManager: {fileID: 138378448}
-  _depthOnStart: 1
+  _depthOnStart: 0
 --- !u!114 &1238779087
 MonoBehaviour:
   m_ObjectHideFlags: 0

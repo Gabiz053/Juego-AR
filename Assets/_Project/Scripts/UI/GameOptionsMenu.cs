@@ -7,6 +7,8 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.Management;
 using TMPro;
 using _Project.Scripts.AR;
 using _Project.Scripts.Core;
@@ -218,11 +220,7 @@ namespace _Project.Scripts.UI
         {
             _uiAudio?.PlayClick();
             Debug.Log($"[GameOptionsMenu] Returning to title screen -- transitioning to {TITLE_SCENE}.");
-
-            SceneTransitionService.EnsureAvailable();
-
-            if (ServiceLocator.TryGet<ISceneTransitionService>(out var transition))
-                transition.TransitionTo(TITLE_SCENE);
+            StartCoroutine(ExitWithARCleanup());
         }
 
         #endregion
@@ -292,6 +290,65 @@ namespace _Project.Scripts.UI
         #endregion
 
         #region Internals -----------------------------------------
+
+        /// <summary>
+        /// Fully deinitializes the XR loader to destroy the native ARCore
+        /// session, then re-initializes a clean loader before transitioning
+        /// to the title screen.  Previous approaches (disabling AR managers,
+        /// disabling <see cref="ARSession"/>, waiting frames) all failed
+        /// because ARCore's native session is a process-level singleton that
+        /// retains its <c>PlanarTargetTrackingManager</c> image-tracking
+        /// configuration across pause/resume cycles.  Only
+        /// <see cref="XRManagerSettings.DeinitializeLoader"/> destroys the
+        /// native session and clears that stale config, preventing the
+        /// SIGSEGV in <c>ArSession_resume</c>.
+        /// </summary>
+        private IEnumerator ExitWithARCleanup()
+        {
+            // 1. Disable AR feature managers so they cleanly remove their
+            //    features from the native session configuration.
+            ARTrackedImageManager imageManager = FindAnyObjectByType<ARTrackedImageManager>();
+            if (imageManager != null)
+            {
+                imageManager.enabled = false;
+                Debug.Log("[GameOptionsMenu] ARTrackedImageManager disabled.");
+            }
+
+            ARPlaneManager planeManager = FindAnyObjectByType<ARPlaneManager>();
+            if (planeManager != null)
+            {
+                planeManager.enabled = false;
+                Debug.Log("[GameOptionsMenu] ARPlaneManager disabled.");
+            }
+
+            // 2. Wait one frame so ARCore processes the feature removal.
+            yield return null;
+
+            // 3. Fully deinitialize the XR loader -- this destroys the
+            //    native ARCore session and all its retained configuration.
+            XRGeneralSettings xrSettings = XRGeneralSettings.Instance;
+            XRManagerSettings xrManager  = xrSettings != null ? xrSettings.Manager : null;
+
+            if (xrManager != null && xrManager.isInitializationComplete)
+            {
+                xrManager.DeinitializeLoader();
+                Debug.Log("[GameOptionsMenu] XR loader deinitialized -- native ARCore session destroyed.");
+            }
+
+            // 4. Re-initialize a fresh loader so the next scene's ARSession
+            //    finds a working XR environment (with no stale features).
+            if (xrManager != null)
+            {
+                xrManager.InitializeLoaderSync();
+                Debug.Log("[GameOptionsMenu] XR loader re-initialized (clean session).");
+            }
+
+            // 5. Proceed with the fade-to-black + scene load.
+            SceneTransitionService.EnsureAvailable();
+
+            if (ServiceLocator.TryGet<ISceneTransitionService>(out var transition))
+                transition.TransitionTo(TITLE_SCENE);
+        }
 
         /// <summary>Relays <see cref="WorldResetService.OnWorldReset"/> to local subscribers.</summary>
         private void HandleWorldReset()         => OnWorldReset?.Invoke();

@@ -117,6 +117,23 @@ namespace _Project.Scripts.AR
                 StartCoroutine(ConfigureARManagersDeferred());
         }
 
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            UnsubscribeFromManagers();
+
+            // Explicitly disable AR managers so ARCore's native layer can
+            // clean up its session state before the scene unloads.
+            // Without this, ArSession_resume crashes (SIGSEGV) when the
+            // next scene reconfigures the camera (e.g. front-camera face
+            // tracking after back-camera image tracking).
+            if (_arTrackedImageManager != null) _arTrackedImageManager.enabled = false;
+            if (_arPlaneManager != null)        _arPlaneManager.enabled = false;
+
+            _trackedImage = null;
+            _anchored     = false;
+        }
+
         private void OnDestroy()
         {
             UnsubscribeFromManagers();

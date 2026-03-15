@@ -57,16 +57,22 @@ namespace _Project.Scripts.Interaction
         {
             if (_mainCamera == null) return;
 
+            // In Bonsai mode the world is tiny (scale 0.02); limit the ray
+            // so the player must hold the phone right against the block.
+            float distance = WorldModeContext.Selected == WorldMode.Bonsai
+                ? 0.15f
+                : _maxDestroyDistance;
+
             Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
 
-            if (Physics.Raycast(ray, out RaycastHit hit, _maxDestroyDistance, _voxelLayerMask))
+            if (Physics.Raycast(ray, out RaycastHit hit, distance, _voxelLayerMask))
             {
                 DestroyHit(hit);
                 return;
             }
 
             if (_pebbleLayerMask != 0 &&
-                Physics.Raycast(ray, out RaycastHit pebbleHit, _maxDestroyDistance, _pebbleLayerMask))
+                Physics.Raycast(ray, out RaycastHit pebbleHit, distance, _pebbleLayerMask))
             {
                 DestroyHit(pebbleHit);
             }

@@ -74,6 +74,10 @@ namespace _Project.Scripts.AR
 
         private void Start()
         {
+            // Auto-find if not assigned in Inspector.
+            if (_occlusionManager == null)
+                _occlusionManager = FindAnyObjectByType<AROcclusionManager>();
+
             ValidateReferences();
 
             if (_occlusionManager != null)

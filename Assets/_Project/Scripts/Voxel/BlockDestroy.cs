@@ -137,14 +137,20 @@ namespace _Project.Scripts.Voxel
         /// <summary>
         /// Proximity detection: if camera enters knock radius while
         /// the pickaxe is active, records undo and self-destructs.
+        /// In Bonsai mode the radius is scaled down so the phone must
+        /// be right against the block.
         /// </summary>
         private void Update()
         {
             if (!_ready || _knocked || _camera == null) return;
             if (_toolManager == null || _toolManager.CurrentTool != ToolType.Tool_Destroy) return;
 
+            float radius = WorldModeContext.Selected == WorldMode.Bonsai
+                ? _knockRadius * 0.3f
+                : _knockRadius;
+
             float sqrDist = (transform.position - _camera.position).sqrMagnitude;
-            if (sqrDist > _knockRadius * _knockRadius) return;
+            if (sqrDist > radius * radius) return;
 
             // Mark knocked immediately — prevents double-trigger from
             // BreakFromTool or a second Update call in the same frame.
