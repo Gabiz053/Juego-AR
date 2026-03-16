@@ -201,7 +201,8 @@ namespace _Project.Scripts.Core
             float gate  = ScoreMinimumGate();
             float score = Mathf.Clamp01(raw > 0.999f && gate >= 1f ? 1f : raw * gate);
 
-            if (Mathf.Abs(score - _lastScore) < 0.005f) return;
+            bool isPerfectPending = score >= 1f && !_perfectFired;
+            if (Mathf.Abs(score - _lastScore) < 0.005f && !isPerfectPending) return;
 
             _lastScore = score;
             OnHarmonyChanged?.Invoke(score);

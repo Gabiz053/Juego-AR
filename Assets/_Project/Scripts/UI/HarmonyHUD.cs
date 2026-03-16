@@ -180,9 +180,9 @@ namespace _Project.Scripts.UI
                 _hudOriginalAnchoredPos = _hudRoot.anchoredPosition;
             }
 
-            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
-            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
-            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+            // Service resolution is deferred to Start() so that
+            // HarmonyService.Awake() has already registered itself
+            // in ServiceLocator regardless of script execution order.
 
             if (_cornerRadius > 0f)
                 ApplyRoundedCorners();
@@ -190,6 +190,9 @@ namespace _Project.Scripts.UI
 
         private void OnEnable()
         {
+            // On re-enable (after Start has already resolved services),
+            // re-subscribe.  First OnEnable is a no-op because services
+            // are resolved in Start().
             if (_harmonyService != null)
             {
                 _harmonyService.OnHarmonyChanged += SetHarmony;
@@ -210,6 +213,21 @@ namespace _Project.Scripts.UI
 
         private void Start()
         {
+            // Resolve services here (after ALL Awake calls), guaranteeing
+            // HarmonyService has registered in ServiceLocator.
+            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+
+            // Subscribe now -- the initial OnEnable() ran before services
+            // were available, so this is the first real subscription.
+            if (_harmonyService != null)
+            {
+                _harmonyService.OnHarmonyChanged += SetHarmony;
+                _harmonyService.OnPerfectHarmony += OnPerfectReached;
+                _harmonyService.OnWorldReset     += OnWorldReset;
+            }
+
             ValidateReferences();
             StartCoroutine(InitAfterLayout());
         }

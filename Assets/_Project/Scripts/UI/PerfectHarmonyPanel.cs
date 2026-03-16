@@ -74,9 +74,9 @@ namespace _Project.Scripts.UI
 
             _particles = GetComponentInChildren<HarmonyParticles>(includeInactive: true);
 
-            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
-            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
-            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+            // Service resolution is deferred to Start() so that
+            // HarmonyService.Awake() has already registered itself
+            // in ServiceLocator regardless of script execution order.
 
             if (_continueButton != null)
             {
@@ -85,7 +85,7 @@ namespace _Project.Scripts.UI
                     _buttonCanvasGroup = _continueButton.gameObject.AddComponent<CanvasGroup>();
             }
 
-            // Start invisible � DO NOT use SetActive(false) or events
+            // Start invisible -- DO NOT use SetActive(false) or events
             // from HarmonyService will never reach this panel.
             _canvasGroup.alpha          = 0f;
             _canvasGroup.interactable   = false;
@@ -99,6 +99,9 @@ namespace _Project.Scripts.UI
 
         private void OnEnable()
         {
+            // On re-enable (after Start has already resolved services),
+            // re-subscribe.  First OnEnable is a no-op because services
+            // are resolved in Start().
             if (_harmonyService != null)
             {
                 _harmonyService.OnPerfectHarmony += HandlePerfectHarmony;
@@ -117,6 +120,20 @@ namespace _Project.Scripts.UI
 
         private void Start()
         {
+            // Resolve services here (after ALL Awake calls), guaranteeing
+            // HarmonyService has registered in ServiceLocator.
+            ServiceLocator.TryGet<IHarmonyService>(out _harmonyService);
+            ServiceLocator.TryGet<IUIAudioService>(out _uiAudio);
+            ServiceLocator.TryGet<IHapticService>(out _hapticService);
+
+            // Subscribe now -- the initial OnEnable() ran before services
+            // were available, so this is the first real subscription.
+            if (_harmonyService != null)
+            {
+                _harmonyService.OnPerfectHarmony += HandlePerfectHarmony;
+                _harmonyService.OnWorldReset     += HandleWorldReset;
+            }
+
             // Safety: if the GameObject was disabled in the editor by mistake,
             // warn the developer loudly so it's obvious why the panel fails.
             if (!gameObject.activeInHierarchy)
