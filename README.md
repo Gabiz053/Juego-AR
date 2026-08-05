@@ -957,3 +957,15 @@ Unity importa estos `.glb` como meshes con texturas embebidas.
 | `com.yasirkula.nativegallery` | (git) | NativeGallery: guarda screenshots en la galeria del dispositivo. |
 | `com.benoitfreslon.vibration` | (git) | Vibration: respuestas hapticas nativas. |
 | `com.github.homuler.mediapipe` | 0.16.3 (embedded) | MediaPipe Unity Plugin. Hand Landmark Detection (GPU delegate) + Face Tracking para Title_Screen. Modelo: `hand_landmarker.bytes` en StreamingAssets. |
+
+## Contexto
+
+Proyecto individual de la asignatura Sistemas Inmersivos del Doble Máster en Ingeniería Informática e Inteligencia Artificial Aplicada de la UC3M, desarrollado entre febrero y marzo de 2026.
+
+## Licencia y assets
+
+El código de este repositorio es de autoría propia y se puede reutilizar citando la fuente.
+
+El proyecto incluye material que no lo es: paquetes de terceros (MediaPipe Unity Plugin, NativeGallery, el plugin de vibración), y assets gráficos y sonoros de estilo Minecraft. Por eso el repositorio no lleva un archivo de licencia global: publicarlo bajo MIT equivaldría a afirmar que todo lo que hay dentro se puede redistribuir libremente, y no es el caso. Cada componente de terceros se rige por la licencia de su titular.
+
+Se publica como pieza de portafolio, para que se pueda leer el código y la arquitectura.
