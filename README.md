@@ -24,6 +24,12 @@ La pantalla de inicio usa la **camara frontal**: Face Tracking para poner una ca
 
 ---
 
+## Demostracion
+
+<img src="armonia-demo.gif" alt="Colocando bloques voxel sobre el suelo real y el jardin terminado con la armonia perfecta" width="280">
+
+Dieciocho segundos de juego real sobre un Samsung Galaxy S24 Ultra: colocacion de bloques sobre superficies detectadas por la camara y el jardin terminado con el medidor de armonia al maximo.
+
 ## Tabla de contenidos
 
 1. [Como abrir el proyecto](#1-como-abrir-el-proyecto)
