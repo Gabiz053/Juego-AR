@@ -2,11 +2,6 @@
 
 # ARmonia -- Jardin Zen AR estilo Minecraft Earth
 
-![Unity](https://img.shields.io/badge/Unity-6-black?style=flat-square&logo=unity)
-![ARCore](https://img.shields.io/badge/ARCore-XR-blue?style=flat-square)
-![Android](https://img.shields.io/badge/Android-Target_S24_Ultra-green?style=flat-square&logo=android)
-![URP](https://img.shields.io/badge/Render-URP-red?style=flat-square)
-
 Sandbox creativo de Realidad Aumentada para un jugador. Construyes un jardin zen colocando bloques voxel 1x1x1 sobre superficies reales detectadas por la camara trasera. Hay seis tipos de bloque (arena, piedra, madera, cristal, hierba y antorchas) mas piedritas decorativas procedurales. La barra de **Armonia** evalua tu jardin en tiempo real segun variedad, cantidad y decoracion.
 
 La pantalla de inicio usa la **camara frontal**: Face Tracking para poner una cara de Creeper al jugador, y Hand Tracking (MediaPipe) para seleccionar el modo de juego con gestos.
