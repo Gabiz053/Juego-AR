@@ -5,6 +5,7 @@
 Sandbox de realidad aumentada para Android. Construyes un jardín zen colocando bloques voxel sobre las superficies reales que detecta la cámara del móvil.
 
 <img src="armonia-demo.gif" alt="Colocando bloques voxel sobre el suelo real y el jardín terminado con la armonía perfecta" width="280">
+<img src="capturas/armonia-02.jpg" alt="Jardín terminado con el panel de armonía perfecta en pantalla" width="280">
 
 Hay seis tipos de bloque —arena, piedra, madera, cristal, hierba y antorchas— más piedritas decorativas generadas por procedimiento. La arena cae si se queda sin apoyo debajo. Una barra puntúa el jardín en tiempo real según variedad, cantidad y decoración, y avisa cuando llega al máximo.
 
